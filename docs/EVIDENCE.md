@@ -221,3 +221,74 @@ EDT tie-breaking. Parallel vs serial output agrees to 3.8e-06 (relative
 7. **Efficiency is not uniform.** Below ~262 k splats a stochastic estimator is
    competitive or better. The advantage only appears once the budget reaches the
    ~1 M splat range where fringes exist at all.
+
+--------------------------------------------------------------------------------
+## 8. Chromatic dispersion: how wide the band may be
+--------------------------------------------------------------------------------
+
+`tools/dispersion_scale.py`, 1024^2 grid, per-channel deviation from the field
+mean (field mean is 1.0, so 0.05 = 5% colour):
+
+| airy_scale | band width | mean spread | max spread | pixels with R-B > 5% | resolved fringes |
+|------------|------------|-------------|------------|----------------------|------------------|
+| 0.020      |   3.4 px   | 0.1008      | 2.9710     | 75.34%               | 38 |
+| 0.040      |   6.8 px   | 0.0234      | 1.3467     | 43.10%               | 18 |
+| 0.080      |  13.7 px   | 0.0060      | 0.1678     |  6.60%               | 15 |
+| 0.160      |  27.3 px   | 0.0048      | 0.1208     |  4.16%               | 12 |
+| 0.320      |  54.6 px   | 0.0031      | 0.0824     |  0.97%               |  9 |
+
+Two rules that fall straight out of this, and they pull in opposite directions:
+* the band must span **at least ~3 px** or the fringe structure cannot be
+  resolved (at 1024^2 over a 6 m patch that is airy_scale >= 0.0176);
+* colour **falls** as the band widens - ~10% mean spread at 0.02 down to 0.3% at
+  0.32 - because at large w the Airy profile is nearly flat across the band, so
+  the ~12% width difference between R and B stops changing any value much.
+  Widening the band to make the *fringes* easier to see makes the *colour*
+  disappear. 0.02 currently sits at the good end of both constraints.
+* The library default was 1.0 (50 px wide on that grid): unresolvable band AND
+  effectively monochrome. Corrected to 0.02.
+
+--------------------------------------------------------------------------------
+## 9. Showcase render (glass of water on a wood table)
+--------------------------------------------------------------------------------
+
+`showcase.exe` — an offline still on the geometry of the reference photograph:
+a 35 mm-radius tumbler, water index by Cauchy (n = 1.3314 / 1.3345 / 1.3407 at
+650 / 550 / 450 nm), low late-afternoon sun, 1600x1000, 3x SSAA, 2.5 s runtime.
+It applies the same three method pieces (ray-map quadrature, analytic fold
+locus, band-local Airy) to a different ray map, which is the generality claim.
+
+Measured on the output:
+
+| quantity                        | value |
+|---------------------------------|-------|
+| caustic field peak (all channels)| 8.100 (= cap 6 x 1.35, ceiling holds) |
+| field mean |R-B|                | 0.0130 = 6.65% of field mean |
+| fan centroid / extent           | 0.078 m down-table / 0.183 m |
+| glass pixels in frame           | 11.19% |
+| shadow pixels                   | 14.00% |
+| caustic pixels (>1.5x)          |  1.21% |
+| image, pixels with visible colour (max-min > 25) | 0.49% |
+| blown highlights (>= 254)       |  1.31% |
+
+Three measured corrections that had to be made to the model, all real:
+1. **Sun elevation is constrained.** At 59 deg elevation the ray drops further
+   than the 90 mm glass is tall before it can leave the far wall, so it crosses
+   the table *inside* the glass and the caustic field comes out empty. The
+   reference photo's light is late-afternoon (~25 deg) for the same reason.
+2. **The fan was 30x overexposed, and that destroyed its colour.** Added
+   linearly and then Reinhard-tonemapped, every channel of the fan clipped to
+   white: 6.65% colour in the field became 0.02% colour in the image. Compositing
+   the caustic as an additive light with a soft per-channel knee
+   (1 - exp(-k*I)) recovers it to 0.49%, a 25x improvement, without touching the
+   physics. Reported because it is the difference between a claim that is true
+   in the field and a claim a reviewer can see.
+3. The chromatic separation is carried by the **per-channel ray map** (n varies
+   with lambda, so the fold positions shift), not by the Airy width: the field's
+   |R-B| is bit-identical (0.0130) at airy_scale 0.0012, 0.0025 and 0.006. Worth
+   knowing before attributing the colour to the fringe model.
+
+Honest limits of this image: it is not a path trace - no interreflection, no
+glass-shell refraction (one uniform water cylinder), procedural wood, and the
+glass surface is stylised, not physically shaded. It demonstrates the caustic
+model, not a full renderer.

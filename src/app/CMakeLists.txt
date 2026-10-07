@@ -4,6 +4,9 @@ add_executable(dump dump_main.cpp)
 add_executable(edt edt.cpp)  # standalone CDT-vs-scipy test (tools/edt_debug.py)
 add_executable(bench bench_main.cpp)  # baker timing: geometric vs wave split
 target_link_libraries(bench PRIVATE caustic)
+# offline still renderer (pure CPU stdlib, no Filament/MuJoCo)
+add_executable(showcase showcase_main.cpp)
+target_compile_options(showcase PRIVATE /std:c++20 /EHsc /O2)
 target_link_libraries(parity PRIVATE caustic)
 target_link_libraries(dump PRIVATE caustic)
 
