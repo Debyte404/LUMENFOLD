@@ -1,0 +1,18 @@
+material {
+    name : gridLines,
+    shadingModel : unlit,
+    blending : transparent,
+    depthWrite : true,
+    doubleSided : true,
+    parameters : [
+        { type : float3, name : tint },
+        { type : float, name : alpha }
+    ]
+}
+
+fragment {
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        material.baseColor = vec4(materialParams.tint, materialParams.alpha);
+    }
+}

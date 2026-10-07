@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <chrono>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -145,12 +146,31 @@ struct App {
   float yaw = -0.7f;    // orbit around pool center
   float pitch = 0.9f;   // elevation
   float dist = 8.0f;    // camera distance
-  bool dragging = false;
+  // Blender-style navigation: MMB orbits, Shift+MMB pans, wheel zooms
+  float tx = 0.0f, ty = 0.0f, tz = -0.5f;  // camera target (pan moves this)
+  bool orbit_drag = false;
+  bool pan_drag = false;
   int last_x = 0, last_y = 0;
+  // viewport toggles (Blender-ish: grid, shading mode, A/B compare)
+  bool show_grid = true;
+  bool use_wave = true;   // false = raw geometric quadrature
+  bool split = true;      // left half geometric, right half wave-corrected
+  int shot_wait = 0;      // frames to settle before an interactive screenshot
   float sim_time = 0;
   int frame = 0;
+  // live stats for the title bar
+  double bake_ms = 0.0;
+  double bake_geo_ms = 0.0;
+  double frame_ms = 0.0;
+  float peak_geo = 0.0f, peak_wave = 0.0f;
 };
 static App g_app;
+
+static float3 cam_eye() {
+  return float3{std::sin(g_app.yaw) * std::cos(g_app.pitch) * g_app.dist,
+                std::cos(g_app.yaw) * std::cos(g_app.pitch) * g_app.dist,
+                std::sin(g_app.pitch) * g_app.dist};
+}
 
 static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   switch (msg) {
@@ -158,31 +178,69 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       g_app.quit = true;
       return 0;
     case WM_KEYDOWN:
-      if (wp == VK_ESCAPE) g_app.quit = true;
-      if (wp == VK_SPACE) g_app.paused = !g_app.paused;
-      if (wp == 'S') g_app.want_shot = true;
+      switch (wp) {
+        case VK_ESCAPE: g_app.quit = true; break;
+        case VK_SPACE: g_app.paused = !g_app.paused; break;
+        case 'S': g_app.want_shot = true; break;
+        // NB: lowercase aliases are unsafe here - VK_NUMPAD7 (0x67) == 'g',
+        // VK_NUMPAD1 (0x61) == 'a', VK_NUMPAD3 (0x63) == 'c'.
+        case 'G': g_app.show_grid = !g_app.show_grid; break;
+        case 'B': g_app.use_wave = !g_app.use_wave; break;
+        case 'X': g_app.split = !g_app.split; break;
+        // Blender numpad views
+        case '1': case VK_NUMPAD1: g_app.yaw = 0.0f; g_app.pitch = 0.06f; break;
+        case '3': case VK_NUMPAD3: g_app.yaw = 1.5708f; g_app.pitch = 0.06f; break;
+        case '7': case VK_NUMPAD7: g_app.yaw = 0.0f; g_app.pitch = 1.44f; break;
+        case VK_HOME:
+          g_app.yaw = -0.7f; g_app.pitch = 0.9f; g_app.dist = 8.0f;
+          g_app.tx = 0.0f; g_app.ty = 0.0f; g_app.tz = -0.5f;
+          break;
+        default: break;
+      }
       return 0;
     case WM_LBUTTONDOWN:
-      g_app.dragging = true;
+    case WM_MBUTTONDOWN: {
+      bool shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+      if (msg == WM_MBUTTONDOWN && shift) {
+        g_app.pan_drag = true;
+      } else {
+        g_app.orbit_drag = true;
+      }
       g_app.last_x = LOWORD(lp);
       g_app.last_y = HIWORD(lp);
       SetCapture(hwnd);
       return 0;
+    }
     case WM_LBUTTONUP:
-      g_app.dragging = false;
+    case WM_MBUTTONUP:
+      g_app.orbit_drag = false;
+      g_app.pan_drag = false;
       ReleaseCapture();
       return 0;
-    case WM_MOUSEMOVE:
-      if (g_app.dragging) {
-        int x = LOWORD(lp), y = HIWORD(lp);
+    case WM_MOUSEMOVE: {
+      int x = LOWORD(lp), y = HIWORD(lp);
+      if (g_app.orbit_drag) {
         g_app.yaw += (x - g_app.last_x) * 0.005f;
-        g_app.pitch = std::clamp(g_app.pitch + (y - g_app.last_y) * 0.005f, 0.15f, 1.45f);
-        g_app.last_x = x;
-        g_app.last_y = y;
+        g_app.pitch = std::clamp(g_app.pitch + (y - g_app.last_y) * 0.005f, 0.02f, 1.45f);
+      } else if (g_app.pan_drag) {
+        // pan in the camera plane (Blender Shift+MMB)
+        float cy = std::cos(g_app.yaw), sy = std::sin(g_app.yaw);
+        float cp = std::cos(g_app.pitch), sp = std::sin(g_app.pitch);
+        float3 fwd{-sy * cp, -cy * cp, -sp};   // eye -> target
+        float3 right = normalize(float3{-cy, sy, 0.0f});
+        float3 up = cross(right, fwd);
+        float k = g_app.dist * 0.0016f;
+        float dx = float(x - g_app.last_x) * k, dy = float(y - g_app.last_y) * k;
+        g_app.tx += -right.x * dx + up.x * dy;
+        g_app.ty += -right.y * dx + up.y * dy;
+        g_app.tz += -right.z * dx + up.z * dy;
       }
+      g_app.last_x = x;
+      g_app.last_y = y;
       return 0;
+    }
     case WM_MOUSEWHEEL:
-      g_app.dist = std::clamp(g_app.dist - GET_WHEEL_DELTA_WPARAM(wp) * 0.002f, 3.0f, 25.0f);
+      g_app.dist = std::clamp(g_app.dist - GET_WHEEL_DELTA_WPARAM(wp) * 0.002f, 1.0f, 40.0f);
       return 0;
   }
   return DefWindowProcA(hwnd, msg, wp, lp);
@@ -280,6 +338,19 @@ static MeshData make_box_mesh(float hx, float hy, float hz) {
 struct BodyVis {
   utils::Entity ent;
   TransformManager::Instance tinst;
+  VertexBuffer* vb = nullptr;
+  IndexBuffer* ib = nullptr;
+  MaterialInstance* mi = nullptr;
+};
+
+// Viewport helpers (Blender-style grid + split floor halves)
+struct FloorHalf {
+  utils::Entity ent{};
+  VertexBuffer* vb = nullptr;
+  IndexBuffer* ib = nullptr;
+};
+struct GridMesh {
+  utils::Entity ent{};
   VertexBuffer* vb = nullptr;
   IndexBuffer* ib = nullptr;
   MaterialInstance* mi = nullptr;
@@ -386,40 +457,65 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE, LPSTR cmd, int show) {
   view->setCamera(camera);
   view->setViewport({0, 0, (uint32_t)W, (uint32_t)H});
 
-  // caustic texture (512 + mipmaps; re-baked live every 15 frames)
-  const int TW = 512, TH = 512;
+  // ---------- caustic maps: wave-corrected and raw geometric quadrature ----------
+  // 1024^2 because the Airy band needs >= 3 px per fringe width (EVIDENCE.md §1)
+  const int TW = 1024, TH = 1024;
   caust::WaterParams wp;
-  auto bake_rgba = [&](float t) {
-    auto field = caust::bake(TW, TH, t, wp, false, 0.02f);
-    auto srgb = caust::tonemap(field);
+  auto bake_rgba = [&](float t, bool wave, float* peak_out) {
     std::vector<uint8_t> rgba((size_t)TW * TH * 4);
-    for (int i = 0; i < TW * TH; i++) {
-      rgba[i * 4 + 0] = srgb[i * 3 + 0];
-      rgba[i * 4 + 1] = srgb[i * 3 + 1];
-      rgba[i * 4 + 2] = srgb[i * 3 + 2];
-      rgba[i * 4 + 3] = 255;
+    float peak = 0.0f;
+    if (wave) {
+      auto field = caust::bake(TW, TH, t, wp, false, 0.02f);
+      for (size_t i = 0; i < field.size(); i++) peak = std::max(peak, field[i]);
+      auto srgb = caust::tonemap(field);
+      for (int i = 0; i < TW * TH; i++) {
+        rgba[i * 4 + 0] = srgb[i * 3 + 0];
+        rgba[i * 4 + 1] = srgb[i * 3 + 1];
+        rgba[i * 4 + 2] = srgb[i * 3 + 2];
+        rgba[i * 4 + 3] = 255;
+      }
+    } else {
+      auto g = caust::bake(TW, TH, t, wp, true, 0.02f);  // single channel
+      for (size_t i = 0; i < g.size(); i++) peak = std::max(peak, g[i]);
+      std::vector<float> rgb(g.size() * 3);
+      for (size_t i = 0; i < g.size(); i++) {
+        rgb[i * 3 + 0] = rgb[i * 3 + 1] = rgb[i * 3 + 2] = g[i];
+      }
+      auto srgb = caust::tonemap(rgb);
+      for (int i = 0; i < TW * TH; i++) {
+        rgba[i * 4 + 0] = srgb[i * 3 + 0];
+        rgba[i * 4 + 1] = srgb[i * 3 + 1];
+        rgba[i * 4 + 2] = srgb[i * 3 + 2];
+        rgba[i * 4 + 3] = 255;
+      }
     }
+    if (peak_out) *peak_out = peak;
     return rgba;
   };
-  std::vector<uint8_t> rgba0 = bake_rgba(1.7f);
-  Texture* causticTex =
-      Texture::Builder().width(TW).height(TH).levels(0xFF).sampler(Texture::Sampler::SAMPLER_2D)
-          .format(Texture::InternalFormat::RGBA8)
-          .usage(Texture::Usage::DEFAULT | Texture::Usage::GEN_MIPMAPPABLE)
-          .build(*engine);
-  {
-    uint8_t* owned = new uint8_t[rgba0.size()];
-    std::memcpy(owned, rgba0.data(), rgba0.size());
-    Texture::PixelBufferDescriptor pb(owned, rgba0.size(), backend::PixelDataFormat::RGBA,
+  auto upload = [&](Texture* tex, const std::vector<uint8_t>& rgba) {
+    uint8_t* owned = new uint8_t[rgba.size()];
+    std::memcpy(owned, rgba.data(), rgba.size());
+    Texture::PixelBufferDescriptor pb(owned, rgba.size(), backend::PixelDataFormat::RGBA,
                                       backend::PixelDataType::UBYTE,
                                       [](void* b, size_t, void*) { delete[] (uint8_t*)b; });
-    causticTex->setImage(*engine, 0, std::move(pb));
-    causticTex->generateMipmaps(*engine);
-  }
+    tex->setImage(*engine, 0, std::move(pb));
+    tex->generateMipmaps(*engine);
+  };
+  auto make_tex = [&]() {
+    return Texture::Builder().width(TW).height(TH).levels(0xFF).sampler(Texture::Sampler::SAMPLER_2D)
+        .format(Texture::InternalFormat::RGBA8)
+        .usage(Texture::Usage::DEFAULT | Texture::Usage::GEN_MIPMAPPABLE)
+        .build(*engine);
+  };
+  Texture* causticTex = make_tex();     // wave-corrected
+  Texture* causticTexGeo = make_tex();  // raw geometric quadrature
+  upload(causticTex, bake_rgba(1.7f, true, &g_app.peak_wave));
+  upload(causticTexGeo, bake_rgba(1.7f, false, &g_app.peak_geo));
 
   auto mat_blob = read_file(mat_path);
   Material* mat = Material::Builder().package(mat_blob.data(), mat_blob.size()).build(*engine);
-  MaterialInstance* mi = mat->createInstance();
+  MaterialInstance* mi = mat->createInstance();     // wave-corrected
+  MaterialInstance* miGeo = mat->createInstance();  // geometric
   TextureSampler sampler(TextureSampler::MinFilter::LINEAR_MIPMAP_LINEAR,
                          TextureSampler::MagFilter::LINEAR);
   sampler.setWrapModeS(TextureSampler::WrapMode::REPEAT);
@@ -427,33 +523,110 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE, LPSTR cmd, int show) {
   sampler.setAnisotropy(8.0f);  // moiré reduction on the oblique floor
   mi->setParameter("causticMap", causticTex, sampler);
   mi->setParameter("intensity", 1.0f);
+  miGeo->setParameter("causticMap", causticTexGeo, sampler);
+  miGeo->setParameter("intensity", 1.0f);
 
   struct V { float p[3]; float uv[2]; };
-  V quad[4] = {{{-3, -3, -1}, {0, 0}}, {{3, -3, -1}, {1, 0}},
-               {{3, 3, -1}, {1, 1}},   {{-3, 3, -1}, {0, 1}}};
-  uint16_t qi[6] = {0, 1, 2, 0, 2, 3};
-  VertexBuffer* vb = VertexBuffer::Builder()
-                         .bufferCount(1)
-                         .vertexCount(4)
-                         .attribute(VertexAttribute::POSITION, 0, VertexBuffer::AttributeType::FLOAT3,
-                                    0, 20)
-                         .attribute(VertexAttribute::UV0, 0, VertexBuffer::AttributeType::FLOAT2, 12,
-                                    20)
-                         .build(*engine);
-  vb->setBufferAt(*engine, 0, backend::BufferDescriptor(quad, sizeof(quad),
-                                                        [](void*, size_t, void*) {}));
-  IndexBuffer* ib = IndexBuffer::Builder().indexCount(6).bufferType(IndexBuffer::IndexType::USHORT)
-                        .build(*engine);
-  ib->setBuffer(*engine,
-                backend::BufferDescriptor(qi, sizeof(qi), [](void*, size_t, void*) {}));
-  utils::Entity floorE = em.create();
-  RenderableManager::Builder(1)
-      .boundingBox({{-3, -3, -1}, {3, 3, -1}})
-      .material(0, mi)
-      .geometry(0, RenderableManager::PrimitiveType::TRIANGLES, vb, ib, 0, 6)
-      .culling(false)
-      .build(*engine, floorE);
-  scene->addEntity(floorE);
+  // One quad builder -> two floor halves, so the A/B comparison sits side by side
+  // in a single scene (Blender-style split, not two windows).
+  auto make_quad = [&](float x0, float x1, MaterialInstance* m) {
+    V q[4] = {{{x0, -3, -1}, {0, 0}},
+              {{x1, -3, -1}, {1, 0}},
+              {{x1, 3, -1}, {1, 1}},
+              {{x0, 3, -1}, {0, 1}}};
+    uint16_t qi[6] = {0, 1, 2, 0, 2, 3};
+    VertexBuffer* v = VertexBuffer::Builder()
+                          .bufferCount(1)
+                          .vertexCount(4)
+                          .attribute(VertexAttribute::POSITION, 0,
+                                     VertexBuffer::AttributeType::FLOAT3, 0, 20)
+                          .attribute(VertexAttribute::UV0, 0,
+                                     VertexBuffer::AttributeType::FLOAT2, 12, 20)
+                          .build(*engine);
+    v->setBufferAt(*engine, 0,
+                   backend::BufferDescriptor(q, sizeof(q), [](void*, size_t, void*) {}));
+    IndexBuffer* i2 = IndexBuffer::Builder().indexCount(6)
+                          .bufferType(IndexBuffer::IndexType::USHORT)
+                          .build(*engine);
+    i2->setBuffer(*engine,
+                  backend::BufferDescriptor(qi, sizeof(qi), [](void*, size_t, void*) {}));
+    FloorHalf fh;
+    fh.vb = v;
+    fh.ib = i2;
+    fh.ent = em.create();
+    RenderableManager::Builder(1)
+        .boundingBox({{x0, -3, -1}, {x1, 3, -1}})
+        .material(0, m)
+        .geometry(0, RenderableManager::PrimitiveType::TRIANGLES, v, i2, 0, 6)
+        .culling(false)
+        .build(*engine, fh.ent);
+    scene->addEntity(fh.ent);
+    return fh;
+  };
+  FloorHalf leftFloor = make_quad(-4.0f, 0.0f, miGeo);
+  FloorHalf rightFloor = make_quad(0.0f, 4.0f, mi);
+
+  // ---------- Blender-style viewport grid (toggle with G) ----------
+  auto gridblob = read_file("D:/ValueProjects/caustics/build/materials/grid_lines.filamat");
+  Material* gridMat = Material::Builder().package(gridblob.data(), gridblob.size()).build(*engine);
+  auto make_lines = [&](const std::vector<float>& segs, float3 tint, float alpha) {
+    uint32_t nv = uint32_t(segs.size() / 3);
+    std::vector<uint16_t> idx(nv);
+    for (uint32_t i = 0; i < nv; i++) idx[i] = uint16_t(i);
+    VertexBuffer* v = VertexBuffer::Builder()
+                          .bufferCount(1)
+                          .vertexCount(nv)
+                          .attribute(VertexAttribute::POSITION, 0,
+                                     VertexBuffer::AttributeType::FLOAT3, 0, 12)
+                          .build(*engine);
+    float* pcopy = new float[segs.size()];
+    std::memcpy(pcopy, segs.data(), segs.size() * sizeof(float));
+    v->setBufferAt(*engine, 0,
+                   backend::BufferDescriptor(pcopy, segs.size() * sizeof(float),
+                                             [](void* b, size_t, void*) { delete[] (float*)b; }));
+    IndexBuffer* i2 = IndexBuffer::Builder().indexCount(nv)
+                          .bufferType(IndexBuffer::IndexType::USHORT)
+                          .build(*engine);
+    uint16_t* icopy = new uint16_t[idx.size()];
+    std::memcpy(icopy, idx.data(), idx.size() * sizeof(uint16_t));
+    i2->setBuffer(*engine,
+                  backend::BufferDescriptor(icopy, idx.size() * sizeof(uint16_t),
+                                            [](void* b, size_t, void*) { delete[] (uint16_t*)b; }));
+    GridMesh gm;
+    gm.vb = v;
+    gm.ib = i2;
+    gm.mi = gridMat->createInstance();
+    gm.mi->setParameter("tint", tint);
+    gm.mi->setParameter("alpha", alpha);
+    gm.ent = em.create();
+    RenderableManager::Builder(1)
+        .boundingBox({{-5, -5, -1.2f}, {5, 5, -0.8f}})
+        .material(0, gm.mi)
+        .geometry(0, RenderableManager::PrimitiveType::LINES, v, i2, 0, nv)
+        .culling(false)
+        .priority(2)
+        .build(*engine, gm.ent);
+    scene->addEntity(gm.ent);
+    return gm;
+  };
+  const float gz = -0.995f;  // a hair above the pool floor: no z-fighting
+  std::vector<float> minorSegs, majorSegs;
+  for (int i = -10; i <= 10; i++) {
+    float c = i * 0.5f;
+    if (i % 4 != 0 && i != 0) {
+      minorSegs.insert(minorSegs.end(), {-5.0f, c, gz, 5.0f, c, gz});
+      minorSegs.insert(minorSegs.end(), {c, -5.0f, gz, c, 5.0f, gz});
+    } else if (i != 0) {
+      majorSegs.insert(majorSegs.end(), {-5.0f, c, gz, 5.0f, c, gz});
+      majorSegs.insert(majorSegs.end(), {c, -5.0f, gz, c, 5.0f, gz});
+    }
+  }
+  std::vector<float> xAxis = {-5.0f, 0.0f, gz, 5.0f, 0.0f, gz};
+  std::vector<float> yAxis = {0.0f, -5.0f, gz, 0.0f, 5.0f, gz};
+  GridMesh gMinor = make_lines(minorSegs, float3{0.30f, 0.30f, 0.33f}, 0.35f);
+  GridMesh gMajor = make_lines(majorSegs, float3{0.48f, 0.48f, 0.52f}, 0.60f);
+  GridMesh gAxisX = make_lines(xAxis, float3{0.85f, 0.22f, 0.22f}, 0.95f);
+  GridMesh gAxisY = make_lines(yAxis, float3{0.30f, 0.80f, 0.32f}, 0.95f);
 
   // ---------- water surface at z=0 (transparent, animated ripples) ----------
   auto wblob = read_file("D:/ValueProjects/caustics/build/materials/water_surface.filamat");
@@ -473,10 +646,11 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE, LPSTR cmd, int show) {
                           .build(*engine);
   wvb->setBufferAt(*engine, 0, backend::BufferDescriptor(wquad, sizeof(wquad),
                                                          [](void*, size_t, void*) {}));
+  uint16_t wqi[6] = {0, 1, 2, 0, 2, 3};
   IndexBuffer* wib = IndexBuffer::Builder().indexCount(6).bufferType(IndexBuffer::IndexType::USHORT)
                          .build(*engine);
   wib->setBuffer(*engine,
-                 backend::BufferDescriptor(qi, sizeof(qi), [](void*, size_t, void*) {}));
+                 backend::BufferDescriptor(wqi, sizeof(wqi), [](void*, size_t, void*) {}));
   utils::Entity waterE = em.create();
   RenderableManager::Builder(1)
       .boundingBox({{-3, -3, 0}, {3, 3, 0}})
@@ -518,6 +692,12 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE, LPSTR cmd, int show) {
   int shot_n = 0;
   int shot_at = 90;     // autoshot: frame of the next capture
   int shots_taken = 0;  // autoshot: 3-shot A/B/A proof (water on / off / red)
+  if (autoshot) {
+    // canonical front view so the A/B split maps cleanly onto screen halves:
+    // screen-left = world +X = wave half, screen-right = world -X = geometric half
+    g_app.yaw = 0.0f;
+    g_app.pitch = 0.42f;
+  }
 
   // ---------- main loop ----------
   MSG msg{};
@@ -577,27 +757,64 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE, LPSTR cmd, int show) {
       };
       sync_body(id_sphere, sphereVis);
       sync_body(id_hull, hullVis);
-      // animated caustics: re-bake every 15 frames (~4 Hz water)
-      if ((g_app.frame % 15) == 0) {
-        auto rgba = bake_rgba(1.7f + g_app.sim_time * 0.9f);
-        uint8_t* owned = new uint8_t[rgba.size()];
-        std::memcpy(owned, rgba.data(), rgba.size());
-        Texture::PixelBufferDescriptor pb(owned, rgba.size(), backend::PixelDataFormat::RGBA,
-                                          backend::PixelDataType::UBYTE,
-                                          [](void* b, size_t, void*) { delete[] (uint8_t*)b; });
-        causticTex->setImage(*engine, 0, std::move(pb));
-        causticTex->generateMipmaps(*engine);
+      // animated caustics: re-bake every 20 frames (~3 Hz water)
+      if ((g_app.frame % 20) == 0) {
+        float bt = 1.7f + g_app.sim_time * 0.9f;
+        bool need_wave = g_app.split || g_app.use_wave;
+        bool need_geo = g_app.split || !g_app.use_wave;
+        auto t0 = std::chrono::steady_clock::now();
+        if (need_wave) upload(causticTex, bake_rgba(bt, true, &g_app.peak_wave));
+        auto t1 = std::chrono::steady_clock::now();
+        if (need_geo) upload(causticTexGeo, bake_rgba(bt, false, &g_app.peak_geo));
+        auto t2 = std::chrono::steady_clock::now();
+        g_app.bake_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
+        g_app.bake_geo_ms = std::chrono::duration<double, std::milli>(t2 - t1).count();
       }
+    }
+
+    // ---- viewport state: grid visibility + shading mode (Blender-ish keys) ----
+    static bool last_grid = true, last_wave = true, last_split = true;
+    if (last_grid != g_app.show_grid) {
+      GridMesh* meshes[4] = {&gMinor, &gMajor, &gAxisX, &gAxisY};
+      for (GridMesh* g : meshes) {
+        if (g_app.show_grid) {
+          scene->addEntity(g->ent);
+        } else {
+          scene->remove(g->ent);
+        }
+      }
+      last_grid = g_app.show_grid;
+    }
+    if (last_wave != g_app.use_wave || last_split != g_app.split) {
+      auto& rm2 = engine->getRenderableManager();
+      MaterialInstance* active = g_app.use_wave ? mi : miGeo;
+      rm2.setMaterialInstanceAt(rm2.getInstance(leftFloor.ent), 0,
+                                g_app.split ? miGeo : active);
+      rm2.setMaterialInstanceAt(rm2.getInstance(rightFloor.ent), 0,
+                                g_app.split ? mi : active);
+      last_wave = g_app.use_wave;
+      last_split = g_app.split;
     }
 
     // water shimmer animates on wall-clock time, so it moves even when paused
     waterMi->setParameter("time", (float)t);
 
-    // orbit camera
-    float3 eye{std::sin(g_app.yaw) * std::cos(g_app.pitch) * g_app.dist,
-               std::cos(g_app.yaw) * std::cos(g_app.pitch) * g_app.dist,
-               std::sin(g_app.pitch) * g_app.dist};
-    camera->lookAt(eye, float3{0, 0, -0.5});
+    // orbit camera around the (pannable) target
+    float3 target{g_app.tx, g_app.ty, g_app.tz};
+    camera->lookAt(target + cam_eye(), target);
+
+    // Blender-style header: live viewport stats in the title bar
+    if ((g_app.frame % 30) == 0) {
+      char title[320];
+      snprintf(title, sizeof(title),
+               "caustics viewport  |  %s  |  %s  |  %dx%d  |  bake: wave %.1f ms, geo "
+               "%.1f ms  |  peak: geo %.2fx, wave %.2fx  |  %s",
+               g_app.split ? "A/B split (left = geometric, right = wave-corrected)"
+                           : (g_app.use_wave ? "wave-corrected" : "raw geometric"),
+               g_app.paused ? "PAUSED" : "live", TW, TH, g_app.bake_ms, g_app.bake_geo_ms,
+               g_app.peak_geo, g_app.peak_wave, g_app.show_grid ? "grid on" : "grid off");
+      SetWindowTextA(hwnd, title);
+    }
 
     if (renderer->beginFrame(swapChain)) {
       renderer->render(view);
@@ -647,12 +864,27 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE, LPSTR cmd, int show) {
     g_app.frame++;
   }
 
-  engine->destroy(floorE);
-  engine->destroy(vb);
-  engine->destroy(ib);
+  engine->destroy(leftFloor.ent);
+  engine->destroy(leftFloor.vb);
+  engine->destroy(leftFloor.ib);
+  engine->destroy(rightFloor.ent);
+  engine->destroy(rightFloor.vb);
+  engine->destroy(rightFloor.ib);
   engine->destroy(causticTex);
+  engine->destroy(causticTexGeo);
   engine->destroy(mi);
+  engine->destroy(miGeo);
   engine->destroy(mat);
+  {
+    GridMesh* gmeshes[4] = {&gMinor, &gMajor, &gAxisX, &gAxisY};
+    for (GridMesh* g : gmeshes) {
+      engine->destroy(g->ent);
+      engine->destroy(g->mi);
+      engine->destroy(g->vb);
+      engine->destroy(g->ib);
+    }
+  }
+  engine->destroy(gridMat);
   // body vis: renderable (ent) first, then its material instance, then buffers
   engine->destroy(sphereVis.ent);
   engine->destroy(sphereVis.mi);

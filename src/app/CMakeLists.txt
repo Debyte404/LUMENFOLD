@@ -2,6 +2,8 @@ add_executable(caustics_demo main.cpp)
 add_executable(parity parity_main.cpp)
 add_executable(dump dump_main.cpp)
 add_executable(edt edt.cpp)  # standalone CDT-vs-scipy test (tools/edt_debug.py)
+add_executable(bench bench_main.cpp)  # baker timing: geometric vs wave split
+target_link_libraries(bench PRIVATE caustic)
 target_link_libraries(parity PRIVATE caustic)
 target_link_libraries(dump PRIVATE caustic)
 

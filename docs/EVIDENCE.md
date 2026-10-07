@@ -1,0 +1,223 @@
+# EVIDENCE — measured results for the wave-corrected caustic module
+
+Every number here was produced by a script in `tools/` or by the `bench` binary
+in this repo, on this machine (i7-14650HX, 16C/24T, RTX 4060 Laptop), on the one
+documented test scene: a 6 x 6 m water patch, depth 1 m, 4 directional sine
+waves, sun direction (-0.35,-0.25,-1), t = 1.7 s, airy_scale = 0.02 unless
+stated.
+
+Reproduce:
+```
+python tools/fold_diag.py          # fold-locus convergence
+python tools/band_flux_test.py     # flux-conservation variants
+python tools/tail_study.py         # blowout / tail behaviour
+python tools/efficiency_study.py   # stochastic vs deterministic, RMSE vs cost
+python tools/parity_cpp_vs_py.py   # C++ vs Python port agreement
+python tools/airy_caustic.py       # regenerates docs/caustic_compare.png
+./build/src/app/Release/bench.exe 5    # timing (set CAUSTIC_THREADS)
+```
+
+Honest scope, stated once and applying to every table: ONE scene, ONE machine,
+ONE sun angle, no laboratory ground truth. The "truth" below is the same model
+evaluated at higher resolution, block-averaged down to 256^2. `airy_scale`
+exaggerates the physical fringe width for visibility (real pool-scale fringes
+are sub-millimetre); it is the identical parameter in every path compared.
+
+--------------------------------------------------------------------------------
+## 1. Fold detection: intensity percentile vs analytic |det J|
+--------------------------------------------------------------------------------
+
+The fold (caustic) locus is where the surface -> floor ray map has zero area
+element. The original code detected it as "intensity above the 98th percentile".
+That always flags exactly 2% of pixels regardless of how much of the image is
+actually inside the fold band, so it cannot converge under refinement.
+
+RMSE against a converged 2048^2 reference of the same model, evaluated at 256^2
+(lower is better):
+
+| grid | percentile (old)      | analytic \|det J\| (new) |
+|------|-----------------------|--------------------------|
+|  128 | 0.20598               | 0.20188                  |
+|  256 | **0.12795**           | 0.13738                  |
+|  512 | **0.09296**           | 0.10455                  |
+| 1024 | **0.08534 (stalls)**  | **0.03914 (converges)**  |
+
+Read honestly: at 256^2 and 512^2 the percentile detector is slightly BETTER
+(up to 12%). Its defect is not accuracy, it is that it stops improving - it
+plateaus near 0.085 no matter how fine the grid gets, because the flagged set
+never becomes the true fold set. The analytic locus converges and is 2.2x more
+accurate at 1024^2. Below 1024^2 the two are within noise, which is exactly why
+the defect was invisible in the original implementation: it only manifests as a
+failure to converge, not as an obviously wrong picture.
+
+**Design rule that falls out of this:** the Airy band is meaningless if the
+fringe width `w` spans fewer than ~3 pixels. With `w = 0.02 m` over a 6 m patch
+that means `N >= ~900`. A 512^2 real-time bake is *under-resolved* for the
+fringe structure it claims to draw. The offline showcase render uses 2048^2.
+
+--------------------------------------------------------------------------------
+## 2. Flux conservation: global rescale vs band-local
+--------------------------------------------------------------------------------
+
+Replacing the fold band with the Airy profile changes the band's total energy, so
+it must be renormalized. The original code rescaled the WHOLE channel - after the
+intensity clamp - which pushes the peak back over the ceiling it just enforced.
+
+| grid | variant    | peak  | ceiling 8.10 | RMSE vs truth |
+|------|------------|-------|--------------|---------------|
+|  256 | global     | 11.58 | **violated** | 0.14363       |
+|  256 | band-local |  7.55 | ok           | 0.13738       |
+|  512 | global     | 12.17 | **violated** | 0.10467       |
+|  512 | band-local |  7.71 | ok           | 0.10455       |
+| 1024 | global     |  7.85 | ok           | 0.03914       |
+| 1024 | band-local |  7.69 | ok           | 0.03914       |
+
+Band-local = the Airy profile redistributes the band's OWN energy, so no global
+rescale is needed. The ceiling then holds at every resolution, with equal or
+better accuracy, and it also fixes `airy_caustic.py`'s flux ratio to 1.0000.
+
+--------------------------------------------------------------------------------
+## 3. Splat boundary: clamping vs discarding
+--------------------------------------------------------------------------------
+
+Rays whose floor hit landed outside the 6 x 6 m receiver were clamped to the
+border, piling every escaping ray into a bright rim.
+
+| variant | geometric peak |
+|---------|----------------|
+| clamp   | 350.78         |
+| discard | 9.28           |
+
+A 38x artifact, removed. Energy that leaves the patch simply is not seen by the
+receiver; the field is then normalized by its own mean. This is also what makes
+the C++ and Python fields agree (section 6) - the Python reference always
+discarded.
+
+--------------------------------------------------------------------------------
+## 4. Stochastic geometric vs deterministic wave-corrected
+--------------------------------------------------------------------------------
+
+Both estimators integrate the same model; they differ in how they estimate it.
+`efficiency_study.py` runs M jittered samples per surface cell (a real
+integrator's cost model) against the deterministic pass. Everything is compared
+to the converged WAVE-CORRECTED reference (2048^2, block-averaged to 256^2).
+
+| estimator                | splats   | RMSE vs wave truth |
+|--------------------------|----------|--------------------|
+| MC geometric, M=1        |    65 k  | 0.12294            |
+| MC geometric, M=4        |   262 k  | 0.07838            |
+| MC geometric, M=16       |    1.0 M | 0.06445            |
+| MC geometric, M=64       |    4.2 M | 0.06101            |
+| MC geometric, M=256      |   16.8 M | 0.06013 (floor)    |
+| ours, 256^2, 1 pass      |    65 k  | 0.13738            |
+| ours, 512^2, 1 pass      |   262 k  | 0.10455            |
+| **ours, 1024^2, 1 pass** | **1.0 M**| **0.03914**        |
+
+What this actually says:
+* At small budgets (<= 262 k splats) plain geometric MC is BETTER in RMSE than
+  our method. There is no free lunch at coarse resolution, and any claim of one
+  would be false.
+* At 1.0 M splats our method is 1.65x more accurate than MC at the same cost.
+* MC's error STALLS at 0.06013 no matter how many samples are spent, because it
+  converges to a different model: rays place no energy in the fringe skirt. Our
+  1024^2 pass reaches 0.03914 - 35% below MC's asymptote - using 16x FEWER
+  splats than MC's M=256 run.
+* For the wave-corrected target, geometric sampling is therefore not merely
+  slower; it is unreachable. That is the defensible claim, and it is narrower
+  than "we are faster".
+
+Tail behaviour (why folds are hard), `tail_study.py`, display cap = 6x:
+
+| estimator            | max  | p99.9 | %>cap |
+|----------------------|------|-------|-------|
+| MC geometric M=1     | 8.71 | 6.77  | 0.24% |
+| MC geometric M=256   | 7.25 | 6.19  | 0.15% |
+| ours 512^2 (det J)   | 7.71 | 5.70  | 0.06% |
+| converged wave truth | 7.73 | 6.87  | 0.35% |
+
+The geometric tail decays slowly (8.71 -> 7.25 for 256x more samples). Our field
+sits at 7.71 with 0.06% above cap, i.e. slightly conservative against a truth
+that itself has 0.35% above cap - those are physically resolved bright fringes,
+not noise. Our model is not "smoother by cheating"; it is bounded where the
+geometric estimator is noisy and slowly converging.
+
+--------------------------------------------------------------------------------
+## 5. Cost and parallel scaling (`bench.exe`)
+--------------------------------------------------------------------------------
+
+Single bake, best of 5, thread count from `CAUSTIC_THREADS`:
+
+| grid | geom ms | wave ms | total ms (1 thread) | total ms (8 threads) | speedup |
+|------|---------|---------|---------------------|----------------------|---------|
+|  256 |    7.00 |   12.72 |               19.72 |                16.46 |  1.20x  |
+|  512 |   28.68 |   49.81 |               78.49 |                36.22 |  2.17x  |
+| 1024 |  108.25 |  202.12 |              310.37 |               117.82 |  2.63x  |
+| 2048 |  425.04 |  781.75 |             1206.79 |               449.47 |  2.68x  |
+
+Thread scaling on the same 512^2 bake (measured on the pre-fix build, so the
+serial baseline is the older 88.78 ms figure):
+
+| threads | total ms | speedup | note              |
+|---------|----------|---------|-------------------|
+|       1 |    88.78 |   1.00x |                   |
+|       4 |    37.00 |   2.40x |                   |
+|       8 |    34.78 |   2.55x | best measured     |
+|      16 |    43.29 |   2.05x | oversubscribed    |
+|      24 |    54.24 |   1.64x | bandwidth bound   |
+
+Two wins, deliberately kept separate:
+* **Serial/algorithmic**: 231.58 ms -> 78.49 ms at 512^2 (2.95x) by fusing
+  surface + refraction + splat into one pass and deleting the post-clamp global
+  rescale pass. Same machine, same grid, single thread.
+* **Parallel**: 78.49 ms -> 36.22 ms at 8 threads (2.17x). 8 threads is the
+  optimum on a 16-core part; beyond that the per-thread splat buffers and memory
+  traffic dominate, and 24 threads is actively worse than 1.
+* Combined at 512^2: 231.58 ms -> 36.22 ms = **6.4x**, with the peak artifact
+  gone at the same time.
+
+Cost split: the Airy correction is ~2x the quadrature pass, so about two thirds
+of a bake is the wave term. That is the obvious next optimization target - it is
+embarrassingly parallel per channel and currently dominated by the exact EDT.
+
+--------------------------------------------------------------------------------
+## 6. Port agreement (C++ vs Python reference)
+--------------------------------------------------------------------------------
+
+`parity_cpp_vs_py.py`, 512^2, t = 1.7, airy_scale = 1.0:
+
+| field     | C++ peak | Python peak | max abs diff     |
+|-----------|----------|-------------|------------------|
+| geometric |   9.281  |    9.280    | 5.6e-04 (0.006%) |
+| wave R    |   4.754  |    4.731    | 6.1e-01          |
+| wave G    |   4.762  |    4.749    | 6.1e-01          |
+| wave B    |   4.774  |    4.772    | 6.1e-01          |
+
+Peaks agree to 0.3%. The remaining localized differences sit on fold pixels and
+come from the Airy LUT resolution in C++ versus exact `scipy.special.airy`, plus
+EDT tie-breaking. Parallel vs serial output agrees to 3.8e-06 (relative
+1.1e-08): floating-point reduction order only.
+
+--------------------------------------------------------------------------------
+## 7. What is NOT shown / open problems
+--------------------------------------------------------------------------------
+
+1. **No experimental ground truth.** Nothing here is validated against a
+   photographed or measured caustic. The reference is the model itself at finer
+   resolution. Real validation means fringe spacing against a laser and a known
+   lens - that is the experiment a paper must add.
+2. **One scene.** A sum of 4 sine waves, one time, one sun angle. No ensemble
+   statistics over wave spectra, no wind, no moving bodies.
+3. **`airy_scale` is a visibility parameter**, not a prediction. The honest
+   physics claim is about FORM (finite Airy fringes, chromatic ordering, no
+   1/sqrt divergence), not absolute fringe width.
+4. **Coherence is not modelled.** Sunlight has a ~0.5 um coherence length; we
+   apply the wave correction near folds unconditionally instead of gating it on
+   path-length difference. The `coherence.hpp` gate from the viability study is
+   still unimplemented.
+5. **The fold threshold is still a threshold.** 2nd percentile of |det J| is
+   better-behaved than an intensity percentile, but a scale-space or
+   sign-change formulation would be threshold-free.
+6. **Single machine, single compiler** (MSVC 14.41, /O2). No GPU port yet.
+7. **Efficiency is not uniform.** Below ~262 k splats a stochastic estimator is
+   competitive or better. The advantage only appears once the budget reaches the
+   ~1 M splat range where fringes exist at all.
