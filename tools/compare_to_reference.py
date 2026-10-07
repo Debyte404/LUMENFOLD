@@ -29,8 +29,16 @@ TOL = {
 }
 
 
-def measure(path, label):
-    a = np.asarray(Image.open(path).convert("RGB")).astype(np.float32)
+def measure(path, label, target=None):
+    im = Image.open(path).convert("RGB")
+    orig = f"{im.width}x{im.height}"
+    # Gradient energy is resolution-dependent: comparing a 1800x1125 render to an
+    # 800x457 photograph inflates or deflates "detail" for reasons that have
+    # nothing to do with realism. Resample the render onto the reference's grid
+    # first, then every statistic is measured at the same spatial scale.
+    if target is not None and (im.width, im.height) != target:
+        im = im.resize(target, Image.BOX)
+    a = np.asarray(im).astype(np.float32)
     lum = a.mean(axis=2)
     m = {
         "mean": float(lum.mean()),
@@ -43,6 +51,7 @@ def measure(path, label):
         "warmth": float(a[:, :, 0].mean() - a[:, :, 2].mean()),
         "detail": float(np.abs(np.diff(lum, axis=1)).mean()),
         "size": f"{a.shape[1]}x{a.shape[0]}",
+        "orig": orig,
     }
     return m
 
@@ -57,10 +66,10 @@ def main():
         print(f"reference not found: {args.ref}")
         return 1
     r = measure(args.ref, "reference")
-    m = measure(args.render, "render")
+    m = measure(args.render, "render", target=(int(r["size"].split("x")[0]), int(r["size"].split("x")[1])))
 
     print(f"reference : {args.ref}  ({r['size']})")
-    print(f"render    : {args.render}  ({m['size']})")
+    print(f"render    : {args.render}  ({m['orig']}, measured at {m['size']})")
     print()
     hdr = f"{'statistic':>10} {'reference':>10} {'render':>10} {'delta':>10} {'tol':>7}  verdict"
     print(hdr)

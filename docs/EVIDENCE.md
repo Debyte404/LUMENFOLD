@@ -327,3 +327,103 @@ a 2-D point splat (0.05% -> 1.7% of samples).
 The chromatic separation is carried by the **per-channel ray map** (n varies with
 lambda, so the fold positions shift), not by the Airy width: the field's |R-B| is
 identical at airy_scale 0.0012 / 0.0025 / 0.006.
+
+---
+
+## 10. Cycles integration: the wavy model, photorealism, and the Blender plug-in
+
+### 10.1 The smooth-cylinder caustic was missing the interesting half
+
+The original showcase traced one refraction (the glass wall) and treated the
+water as a plane, which produces a fan of straight lines. A real glass of water
+is turbulent in its caustic because light also enters **above the water line**,
+crosses the air gap inside the glass, and refracts off the **rippling water
+surface** before reaching the table.
+
+`trace_wavy()` in `src/app/showcase_main.cpp` now walks four interfaces
+(air→glass wall, glass→water below the line or glass→air above it, then
+air→water at the wavy surface). With ripples present the pattern is invariant
+along no axis, so the ray map becomes 2-D over `(phi, z0)` and folds are the
+locus where its Jacobian determinant vanishes — the same machinery as the pool
+baker, applied to a new geometry.
+
+| | flat model | wavy model |
+|---|---|---|
+| peak (cap 8.10) | 8.100 | 8.100 (still bounded) |
+| field mean | 0.196 | 0.382 |
+| mean \|R-B\| | 0.057 (too weak) | **0.1194 = 31.2% of field mean, dispersion VISIBLE** |
+| caustic samples in the still | 20 274 | 26 474 |
+
+Bug found on the way, worth recording: at the *inner* wall the ray is still
+travelling inward, so the normal facing it is the **outward** one. Using the
+inward normal made `snell()` reject every ray and the entire field came out 0.000.
+
+### 10.2 Rendering it in Cycles instead of by hand
+
+A hand-written renderer cannot reach Cycles-grade realism (no GI, no MIS, no
+spectral colour management, no real BSDFs). `tools/blender_scene.py` builds the
+scene in Blender 4.2 and injects the baked caustic:
+
+* glass shell (r 0.035 m, h 0.090 m, IOR 1.5) and water (IOR 1.333) as real
+  transmission materials, so the background is genuinely refracted;
+* `AgX` view transform, sun with a physical angular size, gradient environment;
+* the caustic from `--dump-caustic` (16-bit PNG, linear, row 0 = +Y) injected as
+  an Emission shader added on top of the receiver's Principled BSDF;
+* Cycles' own caustics switched off, so the injected caustic is the only one;
+* OptiX GPU: 1800×1125 at 640 samples in **12.4 s**.
+
+### 10.3 Realism, measured against the photograph
+
+There is no image-understanding model in this environment, so "does it look
+photoreal" is checked as statistics against the reference photograph, never by
+eye. `tools/compare_to_reference.py`:
+
+```
+statistic  reference     render      delta     tol  verdict
+      mean      183.2      174.6       -8.7    18.0  ok
+       p25      155.0      122.7      -32.3    25.0  OFF
+       p75      219.3      217.3       -2.0    25.0  ok
+     range      138.0      115.0      -23.0    30.0  ok
+    warmth      -19.3      -16.6       +2.8     8.0  ok
+    detail        1.5        0.9       -0.6     0.8  ok
+```
+
+5/6. The one miss is `p25`: the photograph has a large, genuinely dark shadow
+region and ours has no dark quarter, because the reference is lit by a dim room
+while ours has a bright environment. Two measurement bugs were found and fixed
+while doing this, both of which had been inflating or deflating the verdict:
+
+* **resolution.** Gradient energy is resolution-dependent; a 1800×1125 render
+  compared against an 800×457 photograph is not a like-for-like `detail`. The
+  render is now resampled onto the reference's grid before measuring.
+* **the blown pixels.** 9.4% of the frame was clipped and it did **not** move
+  when the caustic gain changed — because it was not the caustic. It was the
+  table's glossy reflection of the sun's disc (radiance ≈ E/Ω ≈ 5000). The
+  reference surface is matte; lowering the specular level took blown from 9.40%
+  to **0.00%**.
+
+### 10.4 The plug-in, and an honest A/B against Cycles
+
+`blender_addon/caustic_injector.py` installs as a Blender add-on (N-panel →
+*Caustic*): bake with the solver (272 ms at 256², 0.27 s), inject the node graph,
+toggle Cycles' caustics. `tools/test_addon.py` proves it headless — 7/7 PASS,
+including that injection moves 65.5% of pixels and raises mean luma 144.9 → 163.6.
+
+`tools/caustic_vs_cycles.py` renders the same scene with Cycles' native caustics
+and with ours injected, at 64 and 256 samples, **denoiser off** (the denoiser
+hides exactly the noise being measured — this was a real trap: with it on, both
+modes looked noise-free and the A/B was meaningless).
+
+| 2.4° sun, 640×400 | Cycles native | ours injected |
+|---|---|---|
+| RMSE whole frame | 7.67 | **2.29** (3.3× quieter) |
+| RMSE caustic region | 1.50 | 1.42 (1.1× quieter) |
+| bake cost | — | 0.27 s once |
+
+The whole-frame noise improves 3.3× because the injected caustic is
+deterministic. In the caustic region the two are **nearly tied**: at a physical
+sun size most light reaching the table passes straight through the glass and is
+easy to sample, so the concentrated caustic carries little of the energy. This is
+a modest win in this configuration, not an order of magnitude, and it is recorded
+as such. The unconditional advantages remain accuracy at the fold (bounded 7.7×
+vs geometric blow-up, flux 1.0000) and per-channel dispersion, not speed.

@@ -112,6 +112,34 @@ bool write_png(const char* path, int W, int H, const std::vector<uint8_t>& rgb_t
   return true;
 }
 
+// 16-bit RGB PNG, for handing the caustic field to Blender without banding.
+// Samples are big-endian per the PNG spec.
+bool write_png16(const char* path, int W, int H, const std::vector<uint16_t>& rgb_topdown) {
+  std::vector<uint8_t> o = {137, 80, 78, 71, 13, 10, 26, 10};
+  uint8_t ihdr[13] = {(uint8_t)(W >> 24), (uint8_t)(W >> 16), (uint8_t)(W >> 8), (uint8_t)W,
+                      (uint8_t)(H >> 24), (uint8_t)(H >> 16), (uint8_t)(H >> 8), (uint8_t)H,
+                      16, 2, 0, 0, 0};
+  chunk(o, "IHDR", ihdr, 13);
+  std::vector<uint8_t> raw;
+  raw.reserve((size_t)H * (size_t(W) * 6 + 1));
+  for (int y = 0; y < H; y++) {
+    raw.push_back(0);
+    for (int x = 0; x < W; x++)
+      for (int c = 0; c < 3; c++) {
+        uint16_t v = rgb_topdown[((size_t)y * W + x) * 3 + c];
+        raw.push_back(uint8_t(v >> 8));
+        raw.push_back(uint8_t(v & 0xFF));
+      }
+  }
+  auto z = zlib_store(raw.data(), raw.size());
+  chunk(o, "IDAT", z.data(), z.size());
+  chunk(o, "IEND", nullptr, 0);
+  std::ofstream f(path, std::ios::binary);
+  if (!f) return false;
+  f.write((const char*)o.data(), o.size());
+  return true;
+}
+
 // ---------------------------------------------------------------- tiny vector
 struct V3 {
   double x = 0, y = 0, z = 0;
@@ -628,12 +656,294 @@ constexpr double kExposure = 0.125;  // scene -> film
 void table_albedo(double x, double y, double out[3]);
 
 // ============================================================================
+// Wavy water surface inside the glass.
+//
+// The 1-D invariant model (below, now superseded) assumed a smooth cylinder,
+// which yields a smooth straight fan. A real glass of water has a rippling
+// surface, and those ripples are what make the caustic turbulent like the
+// reference photograph. With waves the pattern is no longer invariant along any
+// axis, so the ray map becomes genuinely 2-D: parameters (phi, z0) -> table
+// point, and folds are where its Jacobian determinant vanishes.
+// ============================================================================
+struct WaveParams {
+  int n = 4;
+  double amp[4] = {0.00065, 0.00040, 0.00025, 0.00015};   // metres
+  double lam[4] = {0.042, 0.027, 0.017, 0.011};           // metres
+  double dx[4] = {1.0, 0.35, -0.75, 0.6};
+  double dy[4] = {0.25, 1.0, 0.55, -0.9};
+  double t = 0.0;
+};
+
+double water_h(double x, double y, const WaveParams& w) {
+  double h = 0;
+  for (int i = 0; i < w.n; i++) {
+    double nn = std::hypot(w.dx[i], w.dy[i]);
+    double ux = w.dx[i] / nn, uy = w.dy[i] / nn;
+    double k = 2.0 * kPi / w.lam[i];
+    h += w.amp[i] * std::sin(k * (ux * x + uy * y) + w.t * (1.0 + i));
+  }
+  return h;
+}
+
+void water_normal(double x, double y, const WaveParams& w, double eps, V3& out) {
+  double hx = (water_h(x + eps, y, w) - water_h(x - eps, y, w)) / (2 * eps);
+  double hy = (water_h(x, y + eps, w) - water_h(x, y - eps, w)) / (2 * eps);
+  double inv = 1.0 / std::sqrt(1 + hx * hx + hy * hy);
+  out = normalize(V3{-hx * inv, -hy * inv, inv});
+}
+
+// Extend the 2-D grid with a closest-feature Euclidean distance transform
+// (Felzenszwalb-Huttenlocher), same routine as the pool baker.
+void edt2d(const std::vector<char>& feat, int N, std::vector<double>& d2out) {
+  const double INF = 1e18;
+  std::vector<double> tmp((size_t)N * N, INF);
+  std::vector<double> fv(N), dv(N), zv(N + 1);
+  std::vector<int> vv(N);
+  for (int y = 0; y < N; y++) {
+    for (int x = 0; x < N; x++) fv[x] = feat[(size_t)y * N + x] ? 0.0 : INF;
+    int k = 0;
+    vv[0] = 0;
+    zv[0] = -INF;
+    zv[1] = INF;
+    for (int q = 1; q < N; q++) {
+      double s = ((fv[q] + double(q * q)) - (fv[vv[k]] + double(vv[k] * vv[k]))) /
+                 double(2 * q - 2 * vv[k]);
+      while (s <= zv[k] && k > 0) {
+        k--;
+        s = ((fv[q] + double(q * q)) - (fv[vv[k]] + double(vv[k] * vv[k]))) /
+            double(2 * q - 2 * vv[k]);
+      }
+      k++;
+      vv[k] = q;
+      zv[k] = s;
+      zv[k + 1] = INF;
+    }
+    k = 0;
+    for (int q = 0; q < N; q++) {
+      while (zv[k + 1] < q) k++;
+      double dd = double(q - vv[k]);
+      dv[q] = dd * dd + fv[vv[k]];
+    }
+    for (int x = 0; x < N; x++) tmp[(size_t)y * N + x] = dv[x];
+  }
+  d2out.assign((size_t)N * N, INF);
+  for (int x = 0; x < N; x++) {
+    for (int y = 0; y < N; y++) fv[y] = tmp[(size_t)y * N + x];
+    int k = 0;
+    vv[0] = 0;
+    zv[0] = -INF;
+    zv[1] = INF;
+    for (int q = 1; q < N; q++) {
+      double s = ((fv[q] + double(q * q)) - (fv[vv[k]] + double(vv[k] * vv[k]))) /
+                 double(2 * q - 2 * vv[k]);
+      while (s <= zv[k] && k > 0) {
+        k--;
+        s = ((fv[q] + double(q * q)) - (fv[vv[k]] + double(vv[k] * vv[k]))) /
+            double(2 * q - 2 * vv[k]);
+      }
+      k++;
+      vv[k] = q;
+      zv[k] = s;
+      zv[k + 1] = INF;
+    }
+    k = 0;
+    for (int q = 0; q < N; q++) {
+      while (zv[k + 1] < q) k++;
+      double dd = double(q - vv[k]);
+      d2out[(size_t)q * N + x] = dd * dd + fv[vv[k]];
+    }
+  }
+}
+
+// One ray through the glass of water. Two regimes, both physical:
+//
+//   z0 below the water line  : wall (air->glass), inner wall (glass->water),
+//                              straight through the water to the table. This is
+//                              the smooth cylindrical-lens fan.
+//   z0 above the water line  : wall (air->glass), inner wall (glass->air), then
+//                              the ray falls onto the WAVY water surface
+//                              (air->water) and refracts again. This is the
+//                              turbulent structure - the part the reference
+//                              photograph is full of, and the reason the ray
+//                              map has to be 2-D.
+//
+// (the 3.5 mm glass shell is traversed properly here; only its dispersion is
+// folded into the water index)
+Hit trace_wavy(double phi, double z0, double n_water, double n_glass, const WaveParams& wp) {
+  Hit h{0, 0, 0, false};
+  V3 P{kRout * std::cos(phi), kRout * std::sin(phi), z0};
+  V3 nw{std::cos(phi), std::sin(phi), 0.0};
+  V3 d = normalize(kSun);
+  V3 t1;
+  if (!snell(d, nw, 1.0 / n_glass, t1)) return h;      // air -> glass
+  // to the inner wall
+  double a = t1.x * t1.x + t1.y * t1.y;
+  if (a < 1e-14) return h;
+  double b = 2.0 * (P.x * t1.x + P.y * t1.y);
+  double cc = P.x * P.x + P.y * P.y - kRin * kRin;
+  double disc = b * b - 4 * a * cc;
+  if (disc < 0) return h;
+  double sq = std::sqrt(disc);
+  double sIn = (-b - sq) / (2 * a);
+  if (sIn <= 1e-9) sIn = (-b + sq) / (2 * a);
+  if (sIn <= 1e-9) return h;
+  V3 W = P + t1 * sIn;
+  V3 nIn{W.x / kRin, W.y / kRin, 0.0};                 // outward at the inner wall
+  V3 t2;
+
+  if (W.z < kWaterLevel) {
+    // glass -> water, then straight to the table.
+    // The ray is still travelling INWARD here, so the normal facing it is the
+    // OUTWARD one (+nIn). Using the inward normal made snell() reject every ray
+    // and the whole field came out empty.
+    if (!snell(t1, nIn, n_glass / n_water, t2)) return h;
+    if (t2.z >= -1e-9) return h;
+    double drop = -W.z / t2.z;
+    h.x = W.x + t2.x * drop;
+    h.y = W.y + t2.y * drop;
+    h.ok = true;
+    return h;
+  }
+  // glass -> air, then fall onto the rippling surface
+  if (!snell(t1, nIn, n_glass / 1.0, t2)) return h;
+  if (t2.z >= -1e-9) return h;
+  double s = (kWaterLevel - W.z) / t2.z;
+  if (s <= 0) return h;
+  V3 S = W + t2 * s;
+  for (int it = 0; it < 2; it++) {                     // fixed point on the surface height
+    double zw = kWaterLevel + water_h(S.x, S.y, wp);
+    s = (zw - W.z) / t2.z;
+    if (s <= 0) return h;
+    S = W + t2 * s;
+  }
+  if (std::hypot(S.x, S.y) > kRin) return h;           // leaves through the wall
+  V3 n2;
+  water_normal(S.x, S.y, wp, 2e-5, n2);
+  V3 t3;
+  if (!snell(t2, n2, 1.0 / n_water, t3)) return h;     // air -> water
+  if (t3.z >= -1e-9) return h;
+  double drop = -S.z / t3.z;
+  h.x = S.x + t3.x * drop;
+  h.y = S.y + t3.y * drop;
+  h.ok = true;
+  return h;
+}
+
+Field build_caustic_wavy(int N, double airy_scale, const WaveParams& wp) {
+  const double lambdas[3] = {650.0, 550.0, 450.0};
+  Field f;
+  f.N = N;
+  f.rgb.assign((size_t)N * N * 3, 0.0f);
+
+  const int NP = 420;   // samples around the wall
+  const int NZ = 260;   // samples up the wall
+  const double dz0 = kGlassH / NZ;
+  const double dphi = 2.0 * kPi / NP;
+  const double dxg = 2.0 * kExt / N;
+
+  for (int c = 0; c < 3; c++) {
+    double nw = water_index(lambdas[c]);
+    double ng = glass_index(lambdas[c]);
+    std::vector<double> flux((size_t)N * N, 0.0);
+    std::vector<char> fold((size_t)N * N, 0);
+    // pass 1: ray map, Jacobian, splat
+    std::vector<double> jac((size_t)N * N, 1e30);
+    for (int i = 0; i < NP; i++) {
+      double phi = (i + 0.5) * dphi;
+      for (int j = 0; j < NZ; j++) {
+        double z0 = (j + 0.5) * dz0;
+        Hit h0 = trace_wavy(phi, z0, nw, ng, wp);
+        if (!h0.ok) continue;
+        Hit hp = trace_wavy(phi + 1e-5, z0, nw, ng, wp);
+        Hit hm = trace_wavy(phi - 1e-5, z0, nw, ng, wp);
+        Hit hu = trace_wavy(phi, z0 + 1e-5, nw, ng, wp);
+        Hit hd = trace_wavy(phi, z0 - 1e-5, nw, ng, wp);
+        double jdet = 1e30;
+        if (hp.ok && hm.ok && hu.ok && hd.ok) {
+          double dxdphi = (hp.x - hm.x) / 2e-5, dydphi = (hp.y - hm.y) / 2e-5;
+          double dxdz = (hu.x - hd.x) / 2e-5, dydz = (hu.y - hd.y) / 2e-5;
+          jdet = std::fabs(dxdphi * dydz - dxdz * dydphi);
+        }
+        double wgt = (jdet > 1e-12) ? 1.0 / jdet : 0.0;
+        double fx = (h0.x + kExt) / (2 * kExt) * N - 0.5;
+        double fy = (h0.y + kExt) / (2 * kExt) * N - 0.5;
+        int x0 = int(std::floor(fx)), y0 = int(std::floor(fy));
+        double ax = fx - x0, ay = fy - y0;
+        for (int oy = 0; oy <= 1; oy++)
+          for (int ox = 0; ox <= 1; ox++) {
+            int xx = x0 + ox, yy = y0 + oy;
+            if (xx < 0 || xx >= N || yy < 0 || yy >= N) continue;
+            flux[(size_t)yy * N + xx] += (ox ? ax : 1 - ax) * (oy ? ay : 1 - ay) * wgt;
+          }
+        int cx = std::clamp(x0, 0, N - 1), cy = std::clamp(y0, 0, N - 1);
+        jac[(size_t)cy * N + cx] = std::min(jac[(size_t)cy * N + cx], jdet);
+      }
+    }
+    double mean = 0;
+    for (double v : flux) mean += v;
+    mean /= double(N) * double(N);
+    if (mean <= 0) mean = 1e-12;
+    for (double& v : flux) v /= mean;
+
+    // pass 2: fold locus = |det J| far below the typical compression
+    std::vector<double> js;
+    js.reserve((size_t)N * N);
+    for (double v : jac)
+      if (v < 1e29) js.push_back(v);
+    if (!js.empty()) {
+      std::sort(js.begin(), js.end());
+      double thr = 0.10 * js[js.size() / 2];
+      for (int i = 0; i < N * N; i++) fold[i] = jac[i] < thr;
+    }
+    // pass 3: distance to the fold, then the Airy replacement (band-local flux)
+    std::vector<double> d2;
+    edt2d(fold, N, d2);
+    const double cap = kCapAiry;
+    const double w = airy_scale * std::pow(lambdas[c] / 550.0, 2.0 / 3.0);
+    std::vector<double> sm((size_t)N * N, 0.0);
+    for (int y = 0; y < N; y++)
+      for (int x = 0; x < N; x++) {
+        double a = 0;
+        int k = 0;
+        for (int dy = -2; dy <= 2; dy++)
+          for (int dx = -2; dx <= 2; dx++) {
+            int xx = std::clamp(x + dx, 0, N - 1), yy = std::clamp(y + dy, 0, N - 1);
+            a += flux[(size_t)yy * N + xx];
+            k++;
+          }
+        sm[(size_t)y * N + x] = a / k;
+      }
+    double want = 0, got = 0;
+    for (int i = 0; i < N * N; i++) {
+      double s = std::sqrt(d2[i]) * dxg;
+      if (s < 5 * w) {
+        want += flux[i];
+        got += std::min(sm[i], cap) * (0.15 + 0.85 * airy_prof_1d(s / w));
+      }
+    }
+    double kk = got > 0 ? want / got : 0.0;
+    for (int i = 0; i < N * N; i++) {
+      double s = std::sqrt(d2[i]) * dxg;
+      double v = flux[i];
+      if (s < 5 * w) {
+        double base = std::min(sm[i], cap);
+        v = std::min(base * (0.15 + 0.85 * airy_prof_1d(s / w)) * kk, cap * 1.35);
+      }
+      f.rgb[(size_t)i * 3 + c] = float(std::min(v, cap * 1.35));
+    }
+  }
+  return f;
+}
+
+// ============================================================================
 }  // namespace
 
 int main(int argc, char** argv) {
   int W = 1600, R = 1024, ssaa = 2;
   double airy = 0.006;
   std::string out = "out/showcase.png";
+  std::string dump_caustic;
+  bool flat = false;
   for (int i = 1; i < argc; i++) {
     std::string a = argv[i];
     if (a == "--n" && i + 1 < argc) W = std::atoi(argv[++i]);
@@ -641,6 +951,8 @@ int main(int argc, char** argv) {
     else if (a == "--airy" && i + 1 < argc) airy = std::atof(argv[++i]);
     else if (a == "--ssaa" && i + 1 < argc) ssaa = std::atoi(argv[++i]);
     else if (a == "--out" && i + 1 < argc) out = argv[++i];
+    else if (a == "--dump-caustic" && i + 1 < argc) dump_caustic = argv[++i];
+    else if (a == "--flat") flat = true;
   }
   const int H = int(W * 0.625);
 
@@ -649,7 +961,7 @@ int main(int argc, char** argv) {
   double t0 = 0;
   (void)t0;
 
-  Field f = build_caustic(R, airy);
+  Field f = flat ? build_caustic(R, airy) : build_caustic_wavy(R, airy, WaveParams{});
 
   // report the caustic + dispersion metrics so the image is checked, not assumed
   double peak[3] = {0, 0, 0};
@@ -674,6 +986,27 @@ int main(int argc, char** argv) {
               "-> dispersion %s\n",
               rb_spread, 100.0 * rb_spread / std::max(mean_all, 1e-9), mean_all,
               (rb_spread > 0.05 * mean_all) ? "VISIBLE" : "too weak");
+
+  if (!dump_caustic.empty()) {
+    // Hand the field to Blender: 16-bit, linear, scaled by 1/16 (the display cap
+    // is 8.1), row 0 = +Y so it lines up with a plane whose UV v=1 edge is +Y.
+    // Load it as Non-Color and multiply by 16 in the shader.
+    std::vector<uint16_t> img16((size_t)R * R * 3);
+    for (int y = 0; y < R; y++)
+      for (int x = 0; x < R; x++) {
+        int sy = R - 1 - y;
+        for (int c = 0; c < 3; c++) {
+          double v = double(f.rgb[((size_t)idx(R, x, sy)) * 3 + c]) / 16.0;
+          img16[((size_t)y * R + x) * 3 + c] =
+              uint16_t(std::clamp(v * 65535.0, 0.0, 65535.0));
+        }
+      }
+    if (write_png16(dump_caustic.c_str(), R, R, img16))
+      std::printf("[caustic] wrote %s (%dx%d, 16-bit linear/16, row 0 = +Y)\n",
+                  dump_caustic.c_str(), R, R);
+    else
+      std::printf("[caustic] FAILED to write %s\n", dump_caustic.c_str());
+  }
 
   // ---- camera: auto-framed on the caustic so the fan always fits ----
   double cx = 0, cy = 0, wsum = 0, maxr = 0;

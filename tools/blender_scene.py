@@ -1,0 +1,317 @@
+"""blender_scene.py — photoreal glass-of-water-on-table render in Blender Cycles,
+with OUR wave-corrected caustic injected as light.
+
+Why this exists: a hand-written mini renderer cannot reach Cycles-grade realism
+(no GI, no MIS, no AgX, no real BSDFs). So the base image is a genuine Blender
+render, and the caustic - the one thing Cycles does badly and expensively - is
+supplied by our solver as a 16-bit texture on the receiver. Cycles' own caustics
+are switched off, so every bright ribbon in the output is our model's.
+
+Geometry and sun direction are identical to src/app/showcase_main.cpp, so the
+injected field lines up with Cycles' own shadow.
+
+    blender --background --factory-startup --python tools/blender_scene.py -- \
+        --caustic out/caustic.png --out out/blender_render.png \
+        --samples 512 --w 1280 --h 800 [--blend out/scene.blend]
+"""
+import argparse
+import math
+import os
+import sys
+
+import bpy
+from mathutils import Vector
+
+# ---- must match showcase_main.cpp -----------------------------------------
+GLASS_R = 0.035
+GLASS_H = 0.090
+WALL = 0.0035
+FILL = 0.66
+SUN_DIR = Vector((0.80, 0.42, -0.43))  # direction light travels
+SUN_ANGLE = 0.042                      # radians (our solver uses 1.2 deg radius)
+EXT = 0.16                             # caustic patch half-size
+SUN_E = 19.0                           # perpendicular irradiance, W/m^2
+
+
+def parse_args():
+    argv = sys.argv
+    argv = argv[argv.index("--") + 1:] if "--" in argv else []
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--caustic", default="out/caustic.png")
+    ap.add_argument("--out", default="out/blender_render.png")
+    ap.add_argument("--samples", type=int, default=512)
+    ap.add_argument("--w", type=int, default=1280)
+    ap.add_argument("--h", type=int, default=800)
+    ap.add_argument("--gain", type=float, default=1.0, help="caustic emission gain")
+    ap.add_argument("--blend", default="", help="optional path to save the .blend")
+    ap.add_argument("--sun", type=float, default=None, help="sun irradiance W/m^2")
+    ap.add_argument("--world", type=float, default=None, help="world strength")
+    ap.add_argument("--world-color", default="", help="r,g,b")
+    ap.add_argument("--sun-color", default="", help="r,g,b")
+    ap.add_argument("--dist", type=float, default=0.42)
+    ap.add_argument("--elev", type=float, default=21.0)
+    ap.add_argument("--az", type=float, default=38.0)
+    ap.add_argument("--lens", type=float, default=60.0)
+    ap.add_argument("--exposure", type=float, default=0.0)
+    ap.add_argument("--no-denoise", action="store_true",
+                    help="raw path tracing: keeps the Monte-Carlo noise "
+                         "that the denoiser would hide")
+    ap.add_argument("--sun-angle", type=float, default=2.4,
+                    help="angular diameter of the sun in degrees; "
+                         "small = hard caustics")
+    ap.add_argument("--no-caustic", action="store_true")
+    ap.add_argument("--cycles-caustics", action="store_true",
+                    help="let Cycles find caustics by path tracing "
+                         "instead of injecting ours (for the A/B)")
+    return ap.parse_args(argv)
+
+
+def clear_scene():
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    for c in (bpy.data.meshes, bpy.data.materials, bpy.data.lights,
+              bpy.data.cameras, bpy.data.images, bpy.data.objects):
+        for item in list(c):
+            c.remove(item)
+
+
+def make_table(gain, caustic_path, use_caustic):
+    """0.32 x 0.32 m plane at z=0 with explicit UVs: +X = u, +Y = v."""
+    mesh = bpy.data.meshes.new("table")
+    verts = [(-EXT, -EXT, 0.0), (EXT, -EXT, 0.0), (EXT, EXT, 0.0), (-EXT, EXT, 0.0)]
+    faces = [(0, 1, 2, 3)]
+    mesh.from_pydata(verts, [], faces)
+    mesh.update()
+    uv = mesh.uv_layers.new(name="UVMap")
+    # v=1 at +Y, matching the exported caustic (row 0 = +Y)
+    coords = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
+    for i, (u, v) in enumerate(coords):
+        uv.data[i].uv = (u, v)
+    obj = bpy.data.objects.new("table", mesh)
+    bpy.context.collection.objects.link(obj)
+
+    mat = bpy.data.materials.new("table_surface")
+    mat.use_nodes = True
+    nt = mat.node_tree
+    nodes, links = nt.nodes, nt.links
+    nodes.clear()
+    out = nodes.new("ShaderNodeOutputMaterial")
+    out.location = (600, 0)
+
+    # matte seamless surface, like the reference product shot
+    bsdf = nodes.new("ShaderNodeBsdfPrincipled")
+    bsdf.location = (200, 0)
+    bsdf.inputs["Base Color"].default_value = (0.82, 0.82, 0.82, 1.0)
+    if "Roughness" in bsdf.inputs:
+        bsdf.inputs["Roughness"].default_value = 0.52
+    if "Specular IOR Level" in bsdf.inputs:
+        # a matte surface: the reference is diffuse, and a glossy table reflects
+        # the sun's disk (radiance ~E/Omega ~ 5000) which blew 9.4% of the frame
+        # before this was lowered from 0.35
+        bsdf.inputs["Specular IOR Level"].default_value = 0.05
+
+    if use_caustic and caustic_path and os.path.exists(caustic_path):
+        img = bpy.data.images.load(caustic_path)
+        img.colorspace_settings.name = "Non-Color"
+        tex = nodes.new("ShaderNodeTexImage")
+        tex.image = img
+        tex.interpolation = "Linear"
+        tex.location = (-600, -260)
+        # undo the /16 export scale
+        mul = nodes.new("ShaderNodeMath")
+        mul.operation = "MULTIPLY"
+        mul.inputs[1].default_value = 16.0
+        mul.location = (-360, -260)
+        for c in range(3):
+            if c == 0:
+                links.new(tex.outputs["Color"], mul.inputs[0])
+            else:
+                m = nodes.new("ShaderNodeMath")
+                m.operation = "MULTIPLY"
+                m.inputs[1].default_value = 16.0
+                m.location = (-360, -260 - 160 * c)
+                links.new(tex.outputs["Color"], m.inputs[0])
+        gain_n = nodes.new("ShaderNodeMath")
+        gain_n.operation = "MULTIPLY"
+        gain_n.inputs[1].default_value = gain
+        gain_n.location = (-160, -260)
+        links.new(mul.outputs[0], gain_n.inputs[0])
+        emit = nodes.new("ShaderNodeEmission")
+        emit.location = (60, -300)
+        emit.inputs["Strength"].default_value = 1.0
+        links.new(gain_n.outputs[0], emit.inputs["Color"])
+        add = nodes.new("ShaderNodeAddShader")
+        add.location = (400, 0)
+        links.new(bsdf.outputs[0], add.inputs[0])
+        links.new(emit.outputs[0], add.inputs[1])
+        links.new(add.outputs[0], out.inputs["Surface"])
+    else:
+        links.new(bsdf.outputs[0], out.inputs["Surface"])
+    obj.data.materials.append(mat)
+    return obj
+
+
+def make_glass():
+    bpy.ops.mesh.primitive_cylinder_add(vertices=128, radius=GLASS_R, depth=GLASS_H,
+                                        location=(0, 0, GLASS_H / 2))
+    obj = bpy.context.object
+    obj.name = "glass"
+    bpy.ops.object.mode_set(mode="OBJECT")
+    sol = obj.modifiers.new("wall", "SOLIDIFY")
+    sol.thickness = WALL
+    sol.offset = -1.0
+    bpy.ops.object.modifier_apply(modifier=sol.name)
+    bpy.ops.object.shade_smooth()
+    mat = bpy.data.materials.new("glass")
+    mat.use_nodes = True
+    b = mat.node_tree.nodes["Principled BSDF"]
+    b.inputs["Base Color"].default_value = (1, 1, 1, 1)
+    b.inputs["Roughness"].default_value = 0.0
+    b.inputs["IOR"].default_value = 1.52
+    b.inputs["Transmission Weight"].default_value = 1.0
+    obj.data.materials.append(mat)
+    return obj
+
+
+def make_water():
+    r = GLASS_R - WALL
+    h = GLASS_H * FILL
+    bpy.ops.mesh.primitive_cylinder_add(vertices=128, radius=r, depth=h,
+                                        location=(0, 0, WALL + h / 2))
+    obj = bpy.context.object
+    obj.name = "water"
+    bpy.ops.object.shade_smooth()
+    mat = bpy.data.materials.new("water")
+    mat.use_nodes = True
+    b = mat.node_tree.nodes["Principled BSDF"]
+    b.inputs["Base Color"].default_value = (1, 1, 1, 1)
+    b.inputs["Roughness"].default_value = 0.0
+    b.inputs["IOR"].default_value = 1.333
+    b.inputs["Transmission Weight"].default_value = 1.0
+    obj.data.materials.append(mat)
+    return obj
+
+
+def make_sun(energy=None, color=None, angle=None):
+    d = bpy.data.lights.new("sun", type="SUN")
+    d.energy = SUN_E if energy is None else energy
+    d.angle = SUN_ANGLE if angle is None else angle
+    d.color = (1.0, 0.95, 0.88) if color is None else color
+    obj = bpy.data.objects.new("sun", d)
+    bpy.context.collection.objects.link(obj)
+    # the light travels along SUN_DIR, i.e. its -Z axis points that way
+    obj.rotation_euler = SUN_DIR.to_track_quat("-Z", "Y").to_euler()
+    return obj
+
+
+def make_world(strength=None, color=None):
+    w = bpy.data.worlds.new("world")
+    bpy.context.scene.world = w
+    w.use_nodes = True
+    bg = w.node_tree.nodes["Background"]
+    bg.inputs["Color"].default_value = (0.62, 0.64, 0.68, 1.0) if color is None else color
+    bg.inputs["Strength"].default_value = 0.45 if strength is None else strength
+    return w
+
+
+def make_camera(args):
+    # look at the glass + the fan: aim between them, from an elevation
+    fan = Vector((SUN_DIR.x, SUN_DIR.y, 0.0)).normalized()
+    target = Vector((fan.x * 0.055, fan.y * 0.055, GLASS_H * 0.30))
+    az = math.radians(args.az)
+    elev = math.radians(args.elev)
+    dist = args.dist
+    view = Vector((math.cos(elev) * math.cos(az), math.cos(elev) * math.sin(az), math.sin(elev)))
+    eye = target + view * dist
+    cam = bpy.data.cameras.new("cam")
+    cam.lens = args.lens
+    obj = bpy.data.objects.new("cam", cam)
+    bpy.context.collection.objects.link(obj)
+    obj.location = eye
+    obj.rotation_euler = (target - eye).to_track_quat("-Z", "Y").to_euler()
+    bpy.context.scene.camera = obj
+    return obj
+
+
+def configure_render(args):
+    sc = bpy.context.scene
+    sc.render.engine = "CYCLES"
+    sc.cycles.samples = args.samples
+    sc.cycles.use_denoising = not getattr(args, "no_denoise", False)
+    try:
+        sc.cycles.denoiser = "OPENIMAGEDENOISE"
+    except Exception:
+        pass
+    # the caustic is OURS: switch Cycles' own off so nothing here is a
+    # path-traced caustic sneaking in and being credited to our model
+    if not getattr(args, "cycles_caustics", False):
+        sc.cycles.caustics_reflective = False
+        sc.cycles.caustics_refractive = False
+    sc.cycles.blur_glossy = 1.0
+    sc.cycles.max_bounces = 8
+    sc.cycles.diffuse_bounces = 4
+    sc.cycles.glossy_bounces = 4
+    sc.cycles.transmission_bounces = 12
+    sc.cycles.transparent_max_bounces = 12
+    try:
+        prefs = bpy.context.preferences.addons["cycles"].preferences
+        prefs.refresh_devices()
+        for want in ("OPTIX", "CUDA"):
+            try:
+                prefs.compute_device_type = want
+                for d in prefs.devices:
+                    d.use = (d.type == want)
+                break
+            except Exception:
+                continue
+        sc.cycles.device = "GPU"
+        print("CYCLES_DEVICE", prefs.compute_device_type)
+    except Exception as e:  # noqa: BLE001
+        print("GPU_SETUP_FAILED", e)
+    sc.render.resolution_x = args.w
+    sc.render.resolution_y = args.h
+    sc.render.resolution_percentage = 100
+    sc.render.film_transparent = False
+    sc.render.image_settings.file_format = "PNG"
+    sc.render.image_settings.color_mode = "RGB"
+    try:
+        sc.render.image_settings.color_depth = "16"
+    except Exception:
+        pass
+    sc.view_settings.exposure = args.exposure
+    sc.render.filepath = args.out
+    try:
+        sc.view_settings.view_transform = "AgX"
+        sc.view_settings.look = "AgX - Medium High Contrast"
+    except Exception as e:  # noqa: BLE001
+        print("VIEW_TRANSFORM_FALLBACK", e)
+    return sc
+
+
+def main():
+    args = parse_args()
+    clear_scene()
+    make_table(args.gain, args.caustic,
+               not args.no_caustic and not args.cycles_caustics)
+    make_glass()
+    make_water()
+    # light colour takes 3 components, world Background takes 4
+    sc_col = tuple(float(v) for v in args.sun_color.split(",")) if args.sun_color else None
+    w_col = (tuple(float(v) for v in args.world_color.split(",")) + (1.0,)) if args.world_color else None
+    make_sun(args.sun, sc_col,
+             math.radians(args.sun_angle) if args.sun_angle else None)
+    make_world(args.world, w_col)
+    make_camera(args)
+    sc = configure_render(args)
+    print(f"RENDER_START samples={args.samples} {args.w}x{args.h} "
+          f"caustic={'cycles-native' if args.cycles_caustics else ('off' if args.no_caustic else args.caustic)} gain={args.gain}")
+    sys.stdout.flush()
+    if args.blend:
+        bpy.ops.wm.save_as_mainfile(filepath=args.blend)
+        print("SAVED_BLEND", args.blend)
+    bpy.ops.render.render(write_still=True)
+    print("RENDER_DONE", args.out)
+    sys.stdout.flush()
+
+
+if __name__ == "__main__":
+    main()
