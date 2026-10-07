@@ -1,0 +1,19 @@
+# archives + extracted prebuilts (re-fetch with tools/fetch_third_party.sh)
+third_party/*.zip
+third_party/*.tgz
+third_party/*.tar.gz
+third_party/mujoco-*/
+third_party/filament-*/
+# build output
+build/
+out/
+# python
+__pycache__/
+*.pyc
+.venv/
+# stray object files
+*.obj
+# renders / frames
+frames/
+*.png
+!docs/*.png

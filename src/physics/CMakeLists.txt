@@ -1,0 +1,6 @@
+add_library(two_medium STATIC two_medium.cpp two_medium.hpp)
+target_include_directories(two_medium PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_definitions(two_medium PRIVATE _CRT_SECURE_NO_WARNINGS)
+if(EXISTS "${MUJOCO_DIR}/include/mujoco/mujoco.h")
+  target_include_directories(two_medium PUBLIC "${MUJOCO_DIR}/include")
+endif()

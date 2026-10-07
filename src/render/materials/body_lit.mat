@@ -1,0 +1,19 @@
+material {
+    name : bodyLit,
+    shadingModel : lit,
+    blending : opaque,
+    parameters : [
+        { type : float3, name : baseColor },
+        { type : float, name : roughness }
+    ]
+}
+
+fragment {
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        material.baseColor.rgb = materialParams.baseColor;
+        material.roughness = materialParams.roughness;
+        material.metallic = 0.0;
+        material.reflectance = 0.3;
+    }
+}
