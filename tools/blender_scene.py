@@ -53,6 +53,11 @@ def parse_args():
     ap.add_argument("--az", type=float, default=38.0)
     ap.add_argument("--lens", type=float, default=60.0)
     ap.add_argument("--exposure", type=float, default=0.0)
+    ap.add_argument("--ortho", action="store_true",
+                    help="orthographic top-down camera over exactly the baked patch")
+    ap.add_argument("--hide-glass", action="store_true",
+                    help="hide everything but the table: the reference for a "
+                         "differential render that isolates the caustic")
     ap.add_argument("--no-denoise", action="store_true",
                     help="raw path tracing: keeps the Monte-Carlo noise "
                          "that the denoiser would hide")
@@ -214,6 +219,18 @@ def make_world(strength=None, color=None):
 
 
 def make_camera(args):
+    if getattr(args, "ortho", False):
+        # straight down over exactly the patch the solver bakes, so the render
+        # and our field are the same image
+        cam = bpy.data.cameras.new("cam")
+        cam.type = "ORTHO"
+        cam.ortho_scale = 2 * EXT
+        obj = bpy.data.objects.new("cam", cam)
+        bpy.context.collection.objects.link(obj)
+        obj.location = (0.0, 0.0, 1.0)
+        obj.rotation_euler = (0.0, 0.0, 0.0)
+        bpy.context.scene.camera = obj
+        return obj
     # look at the glass + the fan: aim between them, from an elevation
     fan = Vector((SUN_DIR.x, SUN_DIR.y, 0.0)).normalized()
     target = Vector((fan.x * 0.055, fan.y * 0.055, GLASS_H * 0.30))
@@ -294,6 +311,12 @@ def main():
                not args.no_caustic and not args.cycles_caustics)
     make_glass()
     make_water()
+    if getattr(args, "hide_glass", False):
+        # differential reference: table only, so (with_glass - without_glass)
+        # isolates what the glass actually did to the light
+        for ob in bpy.data.objects:
+            if ob.type == "MESH" and "table" not in ob.name.lower():
+                ob.hide_render = True
     # light colour takes 3 components, world Background takes 4
     sc_col = tuple(float(v) for v in args.sun_color.split(",")) if args.sun_color else None
     w_col = (tuple(float(v) for v in args.world_color.split(",")) + (1.0,)) if args.world_color else None

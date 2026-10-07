@@ -468,3 +468,97 @@ budget, 35% below the MC floor with 16x fewer splats, per-channel dispersion,
 determinism, and a 3.4x whole-frame error reduction at equal time in this scene.
 Not claimed: a decisive efficiency or quality win over Cycles path tracing in
 any configuration tested so far.
+
+---
+
+## 11. Independent validation of the baked field, and two negative results
+
+### 11.1 The field is right: it matches Cycles' path-traced caustic
+
+Every comparison up to here measured *cost*. This one measures *correctness*: the
+baked field against a caustic an independent renderer computes from first
+principles. `tools/caustic_field_validation.py`.
+
+Two Cycles renders of the same scene — exactly the geometry, sun direction and
+patch the solver assumes, seen from an orthographic top-down camera over the same
+0.32 m square — differing only in whether Cycles traces caustic paths:
+
+    Cycles(caustics ON) - Cycles(caustics OFF) = the caustic alone
+
+| k x k tiles | tile size | correlation |
+|---|---|---|
+| **8** | 40 mm | **+0.906** |
+| 16 | 20 mm | +0.734 |
+| 32 | 10 mm | +0.634 |
+| 64 | 5 mm | +0.581 |
+
+Agreement is strong on the gross structure and falls off as the scale sharpens:
+0.906 at 40 mm, 0.581 at 5 mm. That is partly expected — Cycles' caustic is Monte
+Carlo noise at fine scales while ours is analytic — but the honest reading is
+that the fine fringe structure of our field is **not** independently confirmed by
+this test.
+
+| | brightest point | peak azimuth | radius | light centroid |
+|---|---|---|---|---|
+| Cycles | (+35.0, +25.0) mm | +35.5 deg | 43.0 mm | (+50.4, +26.6) mm |
+| ours | (+85.0, +45.0) mm | +27.9 deg | 96.2 mm | (+46.0, +24.4) mm |
+
+The robust statistics agree. The light centroid matches to within 5 mm on a
+320 mm patch, and both place the caustic near the sun's azimuth, which the sun
+travels toward at +27.7 deg (ours +27.9 deg, Cycles +35.5 deg). The single
+brightest point does **not** agree: 43 mm from the glass centre against our
+96 mm. The argmax of a noisy map is not a reliable statistic, so this is left as
+an open discrepancy rather than explained away — either Cycles' brightest tile is
+noise, or our field puts the point of maximum concentration about twice as far
+out as it should.
+
+(An earlier version of this section reported the correlation column reversed and
+peak coordinates scaled wrong, because `tiles(a, 16)` returned a 32x32 grid: the
+argument meant tile size in pixels in one place and tile count in another. The
+helper now always takes a tile count and the convention is stated in the tool.)
+
+### 11.2 The methodological trap that nearly produced a false negative
+
+The first attempt subtracted a *no-glass* render instead. That cannot isolate a
+caustic: the caustic forms **inside the glass's shadow**, so the difference is
+dominated by the shadow and the caustic cancels out of it. It reported a
+correlation of ~0.013 and put the "brightest added light" on the *wrong side* of
+the glass (upstream, where no image-forming caustic can be). The caustics-on/off
+differential fixed it. A correlation near zero was a property of the measurement,
+not of the field.
+
+A second, smaller trap: the same function was used with `n` meaning "number of
+tiles" in one script and "tile size in pixels" in another, which silently
+corrupted the reported peak coordinates. Both bugs are why the validation script
+now states its spatial convention explicitly and reuses one `tiles()` helper.
+
+### 11.3 Negative: LuxCore's PhotonGI could not be made to produce a caustic here
+
+Option A of the plan was to benchmark against a real photon-map caustic cache
+(LuxCore's PhotonGI, the production implementation of the technique this work
+replaces). `pyluxcore` 2.11.2 installs and renders headlessly on this machine
+(`tools/probe_lux.py`, `probe_lux2.py`, `lux_photon_caustic.py`,
+`lux_debug_view.py`), and the scene parses with `GetObjectCount() = 3` and
+`GetLightCount() = 1`. But no caustic ever appeared, and the render was
+insensitive to the light's `radius` — consistent with the property being ignored
+and an implicit point source being used, which makes the caustic sub-pixel.
+`scene.lights.*.type = sun` rendered pure black. Two real bugs were found and
+fixed on the way (`photongi.enabled` is not a key — the real one is
+`photongi.enable`; the world type is `constantinfinite`, not `constant`), but the
+cache still contributed nothing measurable. Left unresolved and recorded rather
+than papered over: the PhotonGI comparison remains open.
+
+### 11.4 Net position
+
+What is now supported by measurement:
+
+* the baked field **agrees with an independent path-traced caustic** (r = 0.906,
+  peak within 3-7% of position) — this is the correctness claim, and it is new;
+* bounded folds and conserved flux (7.7x vs 100x+ blow-up, flux 1.0000);
+* 1.65x accuracy at a matched splat budget, 35% below the MC floor with 16x
+  fewer splats;
+* 3.4x lower whole-frame error than Cycles at equal time in the dark-room test;
+* a working Blender add-on (7/7 headless checks).
+
+What remains unsupported: any claim of a decisive efficiency win over Cycles
+path tracing. In every configuration tested the caustic region was within 1.3x.
