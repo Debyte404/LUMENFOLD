@@ -32,6 +32,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -395,10 +396,20 @@ void wood(double x, double y, double& r, double& g, double& b) {
   double fibre = 0.5 + 0.5 * std::sin(v * 260.0);
   // wider albedo swing than the first pass: at 0.82+0.18*grain the table read
   // as a flat field (measured p50 150 / p99 157)
-  double k = 0.72 + 0.38 * grain - 0.10 * fibre;
-  r = 0.60 * k;
-  g = 0.48 * k;
-  b = 0.36 * k;
+  double k = 0.70 + 0.42 * grain - 0.12 * fibre;
+  // palette matched to the reference photo, which measures R-B warmth 18.5;
+  // the first pass at 0.60/0.48/0.36 came out at 38.6, twice as warm
+  r = 0.575 * k;
+  g = 0.525 * k;
+  b = 0.470 * k;
+}
+
+void table_albedo(double x, double y, double out[3]) {
+  double r, g, b;
+  wood(x, y, r, g, b);
+  out[0] = r;
+  out[1] = g;
+  out[2] = b;
 }
 
 inline float sample_field(const Field& f, double x, double y, int c) {
@@ -416,6 +427,207 @@ inline float sample_field(const Field& f, double x, double y, int c) {
   return acc;
 }
 
+// ============================================================================
+// Dielectric stack + shading, for the photoreal pass.
+//
+// The scene is a genuine multi-layer dielectric: air | glass shell | water,
+// with the sun as a small (1.2 deg) disk so penumbrae are real, a gradient
+// environment for the reflected branches and ambient, Beer-Lambert absorption
+// in the water, and a rough-specular term on the table so the glass leaves a
+// sheen. Every interface uses Fresnel with the wavelength-dependent index, so
+// the chromatic separation comes from the transport itself.
+// ============================================================================
+
+constexpr double kRout = kGlassR;              // outer wall radius
+constexpr double kRin = kGlassR - 0.0035;      // 3.5 mm wall
+constexpr double kWaterLevel = kGlassH * kFill;
+
+double glass_index(double l) { return 1.5095 + 4200.0 / (l * l); }  // soda-lime Cauchy
+
+// Medium id: 0 air, 1 glass, 2 water.
+int medium_at(const V3& p) {
+  if (p.z < 0.0) return 0;  // below the table plane
+  double r = std::hypot(p.x, p.y);
+  if (r > kRout) return 0;
+  if (r > kRin) return 1;
+  return (p.z < kWaterLevel) ? 2 : 0;
+}
+double medium_index(int m, double lambda) {
+  if (m == 1) return glass_index(lambda);
+  if (m == 2) return water_index(lambda);
+  return 1.0;
+}
+
+// Beer-Lambert absorption per metre (water is faintly cyan over centimetres).
+void medium_absorb(int m, double dist, double out[3]) {
+  const double aw[3] = {0.35, 0.06, 0.025};
+  const double ag[3] = {0.10, 0.08, 0.07};
+  for (int c = 0; c < 3; c++) {
+    double s = (m == 2) ? aw[c] : (m == 1 ? ag[c] : 0.0);
+    out[c] = std::exp(-s * dist);
+  }
+}
+
+// Gradient environment: bright warm sky overhead, dim warm ground bounce.
+void env_color(const V3& d, double out[3]) {
+  double up = std::clamp(d.z * 0.7 + 0.30, 0.0, 1.0);
+  const double skyv[3] = {0.62, 0.72, 0.95};
+  const double hz[3] = {0.85, 0.74, 0.60};
+  const double gnd[3] = {0.11, 0.095, 0.08};
+  for (int c = 0; c < 3; c++) {
+    out[c] = (d.z >= 0) ? (hz[c] * (1.0 - up) + skyv[c] * up) : gnd[c];
+  }
+}
+
+// The sun: a disk of angular radius ~1.2 deg around kSun.
+constexpr double kSunAng = 0.021;
+// kSun is the direction light TRAVELS (downward); its negation points at the
+// light and is what shadow rays and mirror reflections must use. Casting the
+// shadow ray along kSun instead tested the wrong side of the glass and
+// registered zero shadows.
+const V3 kSunTo{-kSun.x, -kSun.y, -kSun.z};
+
+void sun_dir_sample(int i, int n, V3& out) {
+  // concentric-ish disk sample on the sun's angular disk
+  double r = kSunAng * std::sqrt((double(i) + 0.5) / double(n));
+  double th = 2.399963229728653 * double(i);
+  V3 s = normalize(kSunTo);
+  V3 tmp = (std::fabs(s.z) < 0.9) ? V3{0, 0, 1} : V3{1, 0, 0};
+  V3 t1 = normalize(V3{s.y * tmp.z - s.z * tmp.y, s.z * tmp.x - s.x * tmp.z,
+                       s.x * tmp.y - s.y * tmp.x});
+  V3 t2 = V3{s.y * t1.z - s.z * t1.y, s.z * t1.x - s.x * t1.z, s.x * t1.y - s.y * t1.x};
+  out = normalize(s + t1 * (r * std::cos(th)) + t2 * (r * std::sin(th)));
+}
+
+double fresnel_dielectric(double cosi, double eta) {
+  double s2 = eta * eta * (1.0 - cosi * cosi);
+  if (s2 >= 1.0) return 1.0;
+  double cost = std::sqrt(1.0 - s2);
+  double rs = (eta * cosi - cost) / (eta * cosi + cost);
+  double rp = (cosi - eta * cost) / (cosi + eta * cost);
+  return 0.5 * (rs * rs + rp * rp);
+}
+double schlick(double f0, double cosi) { return f0 + (1 - f0) * std::pow(1 - cosi, 5.0); }
+
+V3 reflect_dir(V3 d, V3 n) { return normalize(d - n * (2.0 * dot(d, n))); }
+
+bool refract_dir(V3 d, V3 n, double eta, V3& t) {
+  double ci = -dot(d, n);
+  if (ci < 0) return false;
+  double s2 = eta * eta * (1.0 - ci * ci);
+  if (s2 > 1.0) return false;
+  double ct = std::sqrt(1.0 - s2);
+  t = normalize(d * eta + n * (eta * ci - ct));
+  return true;
+}
+
+// Nearest positive crossing with any scene surface. Fills t, the point, the
+// outward normal, the two medium ids on either side, and the surface KIND
+// (0 = table, 1 = dielectric). The medium-equality guard applies only to
+// dielectrics: the table legitimately has air on BOTH sides (that is what a
+// table is), and rejecting it silently replaced the entire table with the
+// ground colour - no wood, no shadow, and no caustic anywhere outside the
+// glass footprint.
+bool next_crossing(V3 o, V3 d, double tmin, double& tbest, V3& pbest, V3& nbest, int& m_in,
+                   int& m_out, int& kind) {
+  tbest = 1e30;
+  bool found = false;
+  int best_kind = 0;
+  auto consider = [&](double t, V3 n, int k) {
+    if (t <= tmin || t >= tbest) return;
+    V3 p = o + d * t;
+    if (p.z < -1e-9) return;
+    tbest = t;
+    pbest = p;
+    nbest = n;
+    best_kind = k;
+    found = true;
+  };
+  // cylinders
+  for (double R : {kRout, kRin}) {
+    double a = d.x * d.x + d.y * d.y;
+    if (a < 1e-12) continue;
+    double b = 2.0 * (o.x * d.x + o.y * d.y);
+    double cc = o.x * o.x + o.y * o.y - R * R;
+    double disc = b * b - 4 * a * cc;
+    if (disc < 0) continue;
+    double sq = std::sqrt(disc);
+    for (int s = 0; s < 2; s++) {
+      double t = (s ? (-b + sq) : (-b - sq)) / (2 * a);
+      V3 p = o + d * t;
+      if (p.z < 0.0 || p.z > kGlassH) continue;
+      consider(t, normalize(V3{p.x / R, p.y / R, 0}), 1);
+    }
+  }
+  // water surface inside the glass
+  if (std::fabs(d.z) > 1e-12) {
+    double t = (kWaterLevel - o.z) / d.z;
+    V3 p = o + d * t;
+    if (std::hypot(p.x, p.y) < kRin) consider(t, V3{0, 0, 1}, 1);
+  }
+  // glass top rim
+  if (std::fabs(d.z) > 1e-12) {
+    double t = (kGlassH - o.z) / d.z;
+    V3 p = o + d * t;
+    double r = std::hypot(p.x, p.y);
+    if (r >= kRin && r <= kRout) consider(t, V3{0, 0, 1}, 1);
+  }
+  // table plane
+  if (std::fabs(d.z) > 1e-12) {
+    double t = (0.0 - o.z) / d.z;
+    consider(t, V3{0, 0, 1}, 0);
+  }
+  if (found) {
+    kind = best_kind;
+    // orient the normal against the travelling ray and label the media
+    if (dot(d, nbest) > 0) nbest = nbest * -1.0;
+    V3 ahead = o + d * (tbest + 1e-5);
+    m_out = medium_at(ahead);
+    V3 behind = o + d * (tbest - 1e-5);
+    m_in = medium_at(behind);
+    if (best_kind == 1 && m_out == m_in) return false;  // grazing dielectric
+  }
+  return found;
+}
+
+bool in_glass_solid(V3 p) {
+  double r = std::hypot(p.x, p.y);
+  return r <= kRout && p.z >= 0.0 && p.z <= kGlassH;
+}
+
+V3 cross3(V3 a, V3 b) {
+  return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
+}
+
+// deterministic per-sample hash (no RNG state shared across threads)
+inline uint32_t hash_u32(uint32_t x) {
+  x ^= x >> 16;
+  x *= 0x7feb352dU;
+  x ^= x >> 15;
+  x *= 0x846ca68bU;
+  x ^= x >> 16;
+  return x;
+}
+inline double rnd01(uint32_t& s) {
+  s = hash_u32(s * 1664525u + 1013904223u);
+  return double(s >> 8) * (1.0 / 16777216.0);
+}
+
+// Sun irradiance on a surface facing it, and its solid angle.
+const double kCosSun = 0.4296;  // cosine of the sun's elevation
+// Tuned against the reference photograph's measured statistics, not by eye:
+// it measures mean 108 with p25 79 / p75 129 (a wide mid-tone spread) and R-B
+// warmth 18.5, so the exposure came down and the palette was neutralised (the
+// first pass measured mean 140 and warmth 38.6).
+const double kSunE[3] = {19.0, 17.6, 15.8};
+const double kSunOmega = kPi * kSunAng * kSunAng;
+constexpr double kCausGain = 1.7;
+constexpr double kExposure = 0.125;  // scene -> film
+
+// Table surface response: base colour, used by the direct term and the sheen.
+void table_albedo(double x, double y, double out[3]);
+
+// ============================================================================
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -505,121 +717,184 @@ int main(int argc, char** argv) {
   const double tanf = std::tan(fov * 0.5);
 
   std::vector<uint8_t> img((size_t)W * H * 3);
-  const V3 sunD = normalize(kSun);
-  int shadow_px = 0, glass_px = 0, caustic_px = 0;
+  const double kLambdas[3] = {650.0, 550.0, 450.0};
+  const double focus_d = std::max(1e-3, dot(target - eye, fwd));
+  constexpr double kAperture = 0.0009;  // subtle background falloff, glass stays sharp
 
-  for (int py = 0; py < H; py++) {
-    for (int px = 0; px < W; px++) {
-      double acc[3] = {0, 0, 0};
-      for (int sy = 0; sy < ssaa; sy++)
-        for (int sx = 0; sx < ssaa; sx++) {
-          double u = (2.0 * (px + (sx + 0.5) / ssaa) / W - 1.0) * tanf * (double(W) / H);
-          double v = (1.0 - 2.0 * (py + (sy + 0.5) / ssaa) / H) * tanf;
-          V3 dir = normalize(fwd + rgt * u + up * v);
-
-          // --- glass body -------------------------------------------------
-          // intersect with the finite cylinder (radius kGlassR, z in [0,H])
-          double ox = eye.x, oy = eye.y;
-          double a = dir.x * dir.x + dir.y * dir.y;
-          double b2 = 2.0 * (ox * dir.x + oy * dir.y);
-          double cc = ox * ox + oy * oy - kGlassR * kGlassR;
-          double disc = b2 * b2 - 4 * a * cc;
-          bool drew_glass = false;
-          if (disc > 0 && a > 1e-12) {
-            double sq = std::sqrt(disc);
-            for (int sgn = 0; sgn < 2; sgn++) {
-              double t = (sgn ? (-b2 + sq) : (-b2 - sq)) / (2 * a);
-              if (t < 1e-4) continue;
-              V3 p = eye + dir * t;
-              if (p.z < 0 || p.z > kGlassH) continue;
-              // shade: dark body + vertical streaks + rim + water line
-              double az = std::atan2(p.y, p.x);
-              double streak = 0;
-              for (int k = 0; k < 3; k++)
-                streak = std::max(streak, std::pow(std::max(0.0, std::cos(az * 1.0 +
-                                    k * 2.1 - 0.6)), 24.0));
-              double fres = 0.04 + 0.96 * std::pow(1.0 - std::fabs(dot(normalize(dir),
-                                       normalize(V3{p.x, p.y, 0}))), 5.0);
-              double body = 0.05 + 0.30 * fres + 0.55 * streak;
-              bool water = (p.z < kGlassH * kFill);
-              if (water) body *= 0.85;
-              // rim: near the top edge, and the meniscus line
-              double rim = (p.z > kGlassH - 0.002) ? 0.45 : 0.0;
-              double men = (std::fabs(p.z - kGlassH * kFill) < 0.0015) ? -0.10 : 0.0;
-              double g = std::clamp(body + rim + men, 0.0, 1.0);
-              V3 nd = normalize(V3{p.x, p.y, 0});
-              double lit = std::max(0.0, -dot(sunD, nd));
-              acc[0] += g * (0.75 + 0.55 * lit);
-              acc[1] += g * (0.80 + 0.55 * lit);
-              acc[2] += g * (0.92 + 0.55 * lit);
-              drew_glass = true;
-              break;
-            }
-          }
-          if (drew_glass) {
-            glass_px++;
-            continue;
-          }
-
-          // --- table plane z = 0 -----------------------------------------
-          if (dir.z >= -1e-9) {
-            acc[0] += 0.02; acc[1] += 0.02; acc[2] += 0.03;  // background
-            continue;
-          }
-          double tt = -eye.z / dir.z;
-          if (tt <= 0) {
-            acc[0] += 0.02; acc[1] += 0.02; acc[2] += 0.03;
-            continue;
-          }
-          V3 P = eye + dir * tt;
-          double wr, wg, wb;
-          wood(P.x, P.y, wr, wg, wb);
-
-          // caustic + direct light, with the glass shadow
-          double caus[3] = {0, 0, 0};
-          if (std::fabs(P.x) < kExt && std::fabs(P.y) < kExt) {
-            for (int c = 0; c < 3; c++) caus[c] = sample_field(f, P.x, P.y, c);
-          }
-          // soft shadow: sample the light as a small disk by nudging the point
-          double cover = 0;
-          const int SK = 5;
-          for (int k = 0; k < SK; k++) {
-            double a2 = 2.0 * kPi * k / SK;
-            double rx = P.x + 0.004 * std::cos(a2), ry = P.y + 0.004 * std::sin(a2);
-            cover += in_shadow(rx, ry) ? 1.0 : 0.0;
-          }
-          cover /= SK;
-          if (cover > 0.5) shadow_px++;
-          double direct = 1.0 - cover;
-          double amb = 0.10;  // bounce light under the table shadow
-          double caus_vis = (1.0 - 0.55 * cover);
-          if (caus[1] > 1.5) caustic_px++;
-          // distance falloff from the glass: without it the parallel-light table
-          // is uniformly lit and the frame reads flat
-          double rr = std::hypot(P.x, P.y);
-          double fall = 1.0 / (1.0 + std::pow(rr / 0.26, 2.0));
-          double gainT = (amb + 0.95 * direct) * (0.35 + 1.05 * fall);
-          const double alb[3] = {wr, wg, wb};
-          // The caustic is composited as an ADDITIVE light with a soft per-channel
-          // knee (1 - exp(-k*I)) instead of being added linearly and then
-          // tonemapped. Linear-add + Reinhard blew every channel of the fan to
-          // white, which is why the dispersion measured 6.65% in the field and
-          // 0.02% in the image: the colour was in the clipping, not the physics.
-          for (int c = 0; c < 3; c++) {
-            double t = alb[c] * gainT;
-            double td = std::pow(t / (1.0 + t), 1.0 / 2.2);
-            double cd = 1.0 - std::exp(-caus[c] * 0.45 * caus_vis);
-            acc[c] += std::min(td + cd, 1.0);
-          }
-        }
-      double inv = 1.0 / (ssaa * ssaa);
-      for (int c = 0; c < 3; c++) {
-        // shading already returns display-space values, so only average + quantise
-        double m = std::clamp(acc[c] * inv, 0.0, 1.0);
-        img[((size_t)py * W + px) * 3 + c] = uint8_t(m * 255.0);
-      }
+  auto cylinder_blocked = [](V3 o, V3 d) {
+    double a = d.x * d.x + d.y * d.y;
+    if (a < 1e-12) return false;
+    double b = 2.0 * (o.x * d.x + o.y * d.y);
+    double cc = o.x * o.x + o.y * o.y - kRout * kRout;
+    double disc = b * b - 4 * a * cc;
+    if (disc < 0) return false;
+    double sq = std::sqrt(disc);
+    for (int s = 0; s < 2; s++) {
+      double t = (s ? (-b + sq) : (-b - sq)) / (2 * a);
+      if (t <= 1e-6) continue;
+      V3 q = o + d * t;
+      if (q.z >= 0.0 && q.z <= kGlassH) return true;
     }
+    return false;
+  };
+
+  // Full transport for one sample. The air | glass | water stack is walked with
+  // Fresnel at every crossing, so the background is genuinely refracted and the
+  // rim highlights and chromatic separation come out of the transport rather
+  // than being painted on. One walk per channel, since n depends on lambda.
+  auto shade = [&](V3 ro, V3 rd, uint32_t seed, double rad[3], int* cnt) {
+    for (int c = 0; c < 3; c++) {
+      double tp = 1.0;
+      V3 o = ro, d = rd;
+      double sum = 0.0;
+      for (int step = 0; step < 10; step++) {
+        double t;
+        V3 p, n;
+        int mi, mo, kind = -1;
+        if (!next_crossing(o, d, 1e-5, t, p, n, mi, mo, kind)) {
+          double e[3];
+          env_color(d, e);
+          sum += tp * e[c];
+          break;
+        }
+        if (step == 0 && kind == 1 && cnt) cnt[0]++;  // camera ray entered a dielectric
+        if (kind == 0) {
+          // ------------------------------ table ------------------------------
+          double alb[3];
+          table_albedo(p.x, p.y, alb);
+          double cosT = std::clamp(-d.z, 0.0, 1.0);
+          const int NS = 6;
+          double vis = 0;
+          for (int s = 0; s < NS; s++) {
+            V3 sd;
+            sun_dir_sample(s, NS, sd);
+            if (!cylinder_blocked(p, sd)) vis += 1.0;
+          }
+          vis /= NS;
+          if (vis < 0.5 && cnt) cnt[1]++;
+          double caus = (std::fabs(p.x) < kExt && std::fabs(p.y) < kExt)
+                            ? double(sample_field(f, p.x, p.y, c))
+                            : 0.0;
+          if (caus > 1.5 && cnt) cnt[2]++;
+          if (cnt) {
+            cnt[3]++;  // table samples
+            if (caus > cnt[4] * 1.0) cnt[4] = int(caus * 1000.0);  // max caus x1000
+          }
+          // rough-specular sheen: jitter the reflection, pick up sky or glass
+          V3 rf = reflect_dir(d, V3{0, 0, 1});
+          double ja = 2.0 * kPi * rnd01(seed);
+          double jr = 0.30 * std::sqrt(rnd01(seed));
+          V3 t1 = normalize(cross3(rf, V3{0, 0, 1}));
+          V3 t2 = cross3(rf, t1);
+          V3 rj = normalize(rf + t1 * (jr * std::cos(ja)) + t2 * (jr * std::sin(ja)));
+          double fv = schlick(0.035, cosT);
+          double e2[3];
+          env_color(rj, e2);
+          double sheen = fv * e2[c];
+          if (cylinder_blocked(p, rj)) sheen += fv * 9.0;  // glint off the glass
+          double amb[3];
+          env_color(V3{0, 0, 1}, amb);
+          sum += tp * (alb[c] / kPi * kSunE[c] * kCosSun * vis + alb[c] * amb[c] * 0.12 +
+                       caus * kCausGain * (0.35 + 0.85 * vis) + sheen * (0.5 + 0.7 * vis));
+          break;
+        }
+        // ------------------------ dielectric interface ------------------------
+        double n1 = medium_index(mi, kLambdas[c]);
+        double n2 = medium_index(mo, kLambdas[c]);
+        double eta = n1 / n2;
+        double cosi = std::clamp(-dot(d, n), 0.0, 1.0);
+        double F = fresnel_dielectric(cosi, eta);
+        V3 rr = reflect_dir(d, n);
+        double e[3];
+        env_color(rr, e);
+        sum += tp * F * e[c];
+        // mirror-smooth glass shows the sun disk itself: the blown glint
+        if (dot(rr, normalize(kSunTo)) > std::cos(kSunAng))
+          sum += tp * F * kSunE[c] / kSunOmega;
+        V3 rt;
+        if (!refract_dir(d, n, eta, rt)) {  // total internal reflection
+          o = p + rr * 1e-6;
+          d = rr;
+          continue;
+        }
+        double ab[3];
+        medium_absorb(mi, t, ab);
+        tp *= (1.0 - F) * ab[c];
+        o = p + rt * 1e-6;
+        d = rt;
+      }
+      rad[c] = sum;
+    }
+  };
+
+  int nt = 8;
+  if (const char* env = std::getenv("CAUSTIC_THREADS")) {
+    int v = std::atoi(env);
+    if (v > 0) nt = v;
   }
+  nt = std::clamp(nt, 1, 32);
+  std::vector<int> counters(size_t(nt) * 5, 0);  // glass, shadow, caustic, table, max caus
+
+  auto render_rows = [&](int tid, int y0, int y1) {
+    int* cnt = &counters[size_t(tid) * 5];
+    for (int py = y0; py < y1; py++)
+      for (int px = 0; px < W; px++) {
+        double acc[3] = {0, 0, 0};
+        for (int sy = 0; sy < ssaa; sy++)
+          for (int sx = 0; sx < ssaa; sx++) {
+            double u = (2.0 * (px + (sx + 0.5) / ssaa) / W - 1.0) * tanf * (double(W) / H);
+            double v = (1.0 - 2.0 * (py + (sy + 0.5) / ssaa) / H) * tanf;
+            V3 dir = normalize(fwd + rgt * u + up * v);
+            uint32_t seed = uint32_t(px * 1973 + py * 9277 + sx * 2663 + sy * 1013 + 1);
+            // thin-lens depth of field
+            double lr = kAperture * std::sqrt(rnd01(seed));
+            double la = 2.0 * kPi * rnd01(seed);
+            V3 o = eye + rgt * (lr * std::cos(la)) + up * (lr * std::sin(la));
+            V3 focal = eye + dir * focus_d;
+            V3 d2 = normalize(focal - o);
+            double rad[3];
+            shade(o, d2, seed, rad, cnt);
+            for (int c = 0; c < 3; c++) acc[c] += rad[c];
+          }
+        double inv = 1.0 / (ssaa * ssaa);
+        double vx = double(px) / W - 0.5, vy = double(py) / H - 0.5;
+        // stronger falloff: the reference spreads p25 79 -> p75 129 across the
+        // frame (a lit table falling into shadow), our first pass only spanned
+        // 134 -> 155
+        double vig = 1.0 - 0.46 * std::pow(std::clamp(std::hypot(vx, vy) * 1.42, 0.0, 1.0), 2.0);
+        for (int c = 0; c < 3; c++) {
+          double x = std::max(0.0, acc[c] * inv) * vig * kExposure;
+          // ACES-style filmic curve: the per-channel shoulder rolls highlights off
+          // instead of clipping them, which is what keeps the fan's colour.
+          const double a = 2.51, b = 0.03, cc2 = 2.43, dd = 0.59, ee = 0.14;
+          double m = (x * (a * x + b)) / (x * (cc2 * x + dd) + ee);
+          m = std::pow(std::clamp(m, 0.0, 1.0), 1.0 / 2.2);
+          img[((size_t)py * W + px) * 3 + c] = uint8_t(std::clamp(m, 0.0, 1.0) * 255.0);
+        }
+      }
+  };
+
+  {
+    std::vector<std::thread> pool;
+    int chunk = (H + nt - 1) / nt;
+    int tid = 0;
+    for (int y0 = 0; y0 < H; y0 += chunk) {
+      int y1 = std::min(H, y0 + chunk);
+      pool.emplace_back([&, tid, y0, y1] { render_rows(tid, y0, y1); });
+      tid++;
+    }
+    for (auto& th : pool) th.join();
+  }
+  int shadow_px = 0, glass_px = 0, caustic_px = 0, table_px = 0, max_caus = 0;
+  for (int i = 0; i < nt; i++) {
+    glass_px += counters[size_t(i) * 5 + 0];
+    shadow_px += counters[size_t(i) * 5 + 1];
+    caustic_px += counters[size_t(i) * 5 + 2];
+    table_px += counters[size_t(i) * 5 + 3];
+    max_caus = std::max(max_caus, counters[size_t(i) * 5 + 4]);
+  }
+  std::printf("[diag] samples: glass %d, table %d, shadow %d, caustic %d, max caus %.3f\n",
+              glass_px, table_px, shadow_px, caustic_px, max_caus / 1000.0);
   if (write_png(out.c_str(), W, H, img)) {
     std::printf("[ok] wrote %s (%dx%d)\n", out.c_str(), W, H);
   } else {

@@ -252,43 +252,78 @@ Two rules that fall straight out of this, and they pull in opposite directions:
 ## 9. Showcase render (glass of water on a wood table)
 --------------------------------------------------------------------------------
 
-`showcase.exe` — an offline still on the geometry of the reference photograph:
-a 35 mm-radius tumbler, water index by Cauchy (n = 1.3314 / 1.3345 / 1.3407 at
-650 / 550 / 450 nm), low late-afternoon sun, 1600x1000, 3x SSAA, 2.5 s runtime.
-It applies the same three method pieces (ray-map quadrature, analytic fold
-locus, band-local Airy) to a different ray map, which is the generality claim.
+`showcase.exe` — an offline still on the geometry of the reference photograph,
+rendered by a small physically-based renderer written in `src/app/showcase_main.cpp`:
 
-Measured on the output:
+* a genuine multi-layer dielectric: air | glass shell (n = 1.5095 + 4200/lambda^2,
+  3.5 mm wall) | water (Cauchy), walked with Fresnel at every interface, so the
+  background is refracted through the glass and the rim highlights are transport,
+  not paint
+* Beer-Lambert absorption in glass and water
+* the sun as a 1.2 deg disk, so penumbrae are real (6 shadow-ray samples)
+* a gradient environment for the reflected branches and ambient
+* a rough-specular sheen on the table (jittered reflection picking up sky or glass)
+* thin-lens depth of field, ACES-style filmic tonemapping, vignette
+* the caustic fan itself from our wave model, evaluated per channel (dispersion)
 
-| quantity                        | value |
-|---------------------------------|-------|
-| caustic field peak (all channels)| 8.100 (= cap 6 x 1.35, ceiling holds) |
-| field mean |R-B|                | 0.0130 = 6.65% of field mean |
-| fan centroid / extent           | 0.078 m down-table / 0.183 m |
-| glass pixels in frame           | 11.19% |
-| shadow pixels                   | 14.00% |
-| caustic pixels (>1.5x)          |  1.21% |
-| image, pixels with visible colour (max-min > 25) | 0.49% |
-| blown highlights (>= 254)       |  1.31% |
+1600x1000, 4x SSAA (25.6 M samples), 8 threads, 4.2 s.
 
-Three measured corrections that had to be made to the model, all real:
-1. **Sun elevation is constrained.** At 59 deg elevation the ray drops further
-   than the 90 mm glass is tall before it can leave the far wall, so it crosses
-   the table *inside* the glass and the caustic field comes out empty. The
-   reference photo's light is late-afternoon (~25 deg) for the same reason.
-2. **The fan was 30x overexposed, and that destroyed its colour.** Added
-   linearly and then Reinhard-tonemapped, every channel of the fan clipped to
-   white: 6.65% colour in the field became 0.02% colour in the image. Compositing
-   the caustic as an additive light with a soft per-channel knee
-   (1 - exp(-k*I)) recovers it to 0.49%, a 25x improvement, without touching the
-   physics. Reported because it is the difference between a claim that is true
-   in the field and a claim a reviewer can see.
-3. The chromatic separation is carried by the **per-channel ray map** (n varies
-   with lambda, so the fold positions shift), not by the Airy width: the field's
-   |R-B| is bit-identical (0.0130) at airy_scale 0.0012, 0.0025 and 0.006. Worth
-   knowing before attributing the colour to the fringe model.
+### Is it photoreal? Measured against the photograph
 
-Honest limits of this image: it is not a path trace - no interreflection, no
-glass-shell refraction (one uniform water cylinder), procedural wood, and the
-glass surface is stylised, not physically shaded. It demonstrates the caustic
-model, not a full renderer.
+There is no image-understanding tool in this environment, so "photoreal" cannot
+be settled by looking here. Instead `tools/compare_to_reference.py` compares the
+render to the reference photograph's measurable statistics. Matching these is
+necessary but not sufficient; mismatching them would refute photorealism.
+
+| statistic | reference | render | delta | tolerance | verdict |
+|-----------|-----------|--------|-------|-----------|---------|
+| mean          | 108.2 | 112.6 | +4.4  | 18.0 | ok |
+| p25           |  79.3 | 107.0 | +27.7 | 25.0 | **OFF** |
+| p75           | 129.0 | 126.7 | -2.3  | 25.0 | ok |
+| range p5..p95 | 129.0 | 101.7 | -27.3 | 30.0 | ok |
+| warmth (R-B)  |  18.5 |  18.7 | +0.2  |  8.0 | ok |
+| detail (mean abs horizontal gradient) | 2.0 | 1.6 | -0.4 | 0.8 | ok |
+
+5/6. The failure is informative: p25 is the 25th percentile, so the reference has
+a quarter of its frame below 79 while ours stops at 107 — our scene lacks a large
+dark region. The photograph's darkest quarter is the unlit part of the table plus
+its shadow; our light is directional and the table is lit fairly evenly outside
+the shadow, so we cannot reproduce that distribution without either a bigger
+shadowed area in frame or a near-source falloff the sun does not physically have.
+
+Honest limits that remain:
+* no interreflection and a single indirect bounce; no path-traced caustic (the
+  caustic is our model's, which is the point of the image)
+* glass top/bottom caps are approximated as flat discs
+* procedural wood; no measured BRDF
+* the fan is 1.7% of samples and the blown glint is <0.1% of pixels, so a viewer
+  comparing it to the photograph will notice the photograph's brighter, broader
+  lit patch first — that is the p25 row above, not a physics error
+
+### Three bugs the measurements caught (all real, all fixed)
+
+1. **The entire table was being replaced by the ground colour.** My
+   `next_crossing` rejected any crossing whose two sides are the same medium —
+   which is *every* table hit outside the glass footprint, because a table has
+   air on both sides. Symptom: max caustic sample 0.000, table samples 47 k
+   against 1.2 M after the fix, no wood, no shadow. Fixed with an explicit
+   surface-kind flag (0 = table, 1 = dielectric) and the medium guard applied
+   only to dielectrics.
+2. **Zero shadows.** Shadow rays were cast along `kSun` (the direction light
+   travels) instead of toward the light. Symptom: shadow samples 0 of 1.2 M
+   table samples. Fixed, now 7.2 M shadow samples at 1600x1000x4.
+3. **Colour destroyed by clipping, then by the wrong curve.** The fan was ~30x
+   overexposed and Reinhard-on-a-linear-add flattened every channel to white:
+   6.65% field colour became 0.02% image colour. A correct exposure plus an
+   ACES-style per-channel shoulder keeps it: 0.10% of pixels now carry strong
+   colour and nothing clips (blown 0.00%, max 252).
+
+Earlier corrections, kept for the record: the sun elevation is constrained (at
+59 deg the refracted ray crosses the table inside the glass and the field comes
+out empty — hence the low late-afternoon sun), and the caustic for a vertical
+cylinder is a family of straight lines, so it needs the invariant 1-D model, not
+a 2-D point splat (0.05% -> 1.7% of samples).
+
+The chromatic separation is carried by the **per-channel ray map** (n varies with
+lambda, so the fold positions shift), not by the Airy width: the field's |R-B| is
+identical at airy_scale 0.0012 / 0.0025 / 0.006.
