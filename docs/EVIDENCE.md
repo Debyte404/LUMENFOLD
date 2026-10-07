@@ -427,3 +427,44 @@ easy to sample, so the concentrated caustic carries little of the energy. This i
 a modest win in this configuration, not an order of magnitude, and it is recorded
 as such. The unconditional advantages remain accuracy at the fold (bounded 7.7×
 vs geometric blow-up, flux 1.0000) and per-channel dispersion, not speed.
+
+### 10.5 The decisive test: dark room, tiny source (negative result)
+
+§10.4 tested the easy case — a physical sun in a bright room, where most light
+passes straight through the glass and the caustic carries little energy.
+`tools/hard_caustic_ab.py` tests the hard case, which is also the case in the
+reference photograph: a 0.05 deg source in a dark room (world 0.015), so the
+caustic is nearly the only light on the table and it is the subject. RMSE is
+measured against each mode's own converged 2048-sample render.
+
+| samples | Cycles RMSE (caustic) | ours | Cycles time | ours | advantage |
+|---|---|---|---|---|---|
+| 16 | 0.87 | 1.08 | 1.6 s | 1.7 s | 0.8x |
+| 64 | 0.51 | 0.53 | 1.8 s | 1.7 s | 1.0x |
+| 256 | 0.46 | **0.34** | 2.0 s | 1.9 s | 1.3x |
+
+Whole frame at 256 samples: Cycles 8.81 vs ours **2.56** (3.4x less error at
+equal time, 2.0 s vs 1.9 s).
+
+**Reading this honestly.** Making the source 48x smaller and the room 33x darker
+did *not* open the gap the theory predicted. In the caustic region the two
+methods are within 1.3x, and ours is actually *worse* at 16 samples. The
+whole-frame 3.4x is real and comes from Cycles' fireflies spreading across the
+frame while the injected caustic contributes no variance at all.
+
+The reason the hard case stayed easy: this caustic is a **short specular chain**
+(light -> glass wall -> water surface -> table). Cycles samples that chain with
+BSDF sampling at high probability, because the surfaces are smooth and the
+transmission dominates. Path tracing collapses on caustics that require a
+*long* chain — light into a diffuse bounce and back through a specular surface
+(SDS paths), or caustics off rough media. This solver models the direct
+image-forming caustic only, so it cannot be tested against those cases without
+new geometry in the solver. That is the open question, and it is solver work,
+not a new measurement.
+
+**What is therefore claimed, and what is not.** Claimed: bounded folds and flux
+conservation (7.7x vs 100x+ blow-up, 1.0000), 1.65x accuracy at a matched splat
+budget, 35% below the MC floor with 16x fewer splats, per-channel dispersion,
+determinism, and a 3.4x whole-frame error reduction at equal time in this scene.
+Not claimed: a decisive efficiency or quality win over Cycles path tracing in
+any configuration tested so far.
