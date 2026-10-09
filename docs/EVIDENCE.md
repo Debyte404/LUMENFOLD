@@ -364,6 +364,11 @@ A hand-written renderer cannot reach Cycles-grade realism (no GI, no MIS, no
 spectral colour management, no real BSDFs). `tools/blender_scene.py` builds the
 scene in Blender 4.2 and injects the baked caustic:
 
+> NOTICE (see §13 item 4): until that fix the injection multiplied the field with
+> a scalar node and rendered it grey, so chromatic structure in these stills came
+> from the environment and sun, not from the baked dispersion. Geometry, shadow
+> and light transport are unaffected.
+
 * glass shell (r 0.035 m, h 0.090 m, IOR 1.5) and water (IOR 1.333) as real
   transmission materials, so the background is genuinely refracted;
 * `AgX` view transform, sun with a physical angular size, gradient environment;
@@ -621,3 +626,81 @@ Production stills, 1600x1000 at 2048 spp with denoising, neither blowing out:
 `docs/comparison_ours_vs_cycles.png` puts the reference photograph, our render
 and the competitor's side by side, with a zoomed caustic crop pair underneath so
 the noise difference is visible and not just tabulated.
+
+---
+
+## 13. My Cycles configuration was wrong — found by challenging the result
+
+The §12 claim that Cycles "under-resolves caustics" was challenged on the
+grounds that Cycles is a production renderer and the likely fault was the setup.
+The challenge was correct. Five faults, all mine or Blender defaults I had not
+overridden:
+
+**1. Filter Glossy (`blur_glossy`) = 1.0 rad — Blender 4.2's own factory
+default.** It blurs glossy and refraction paths, which are the very paths that
+form a caustic. Any caustic comparison run with it on is a comparison through a
+blur filter. Cycles' caustic peak read **+7 levels over the median** with it on
+and **+47 with it off**. Now set to 0.0 in `configure_render()`, with
+`--keep-filter-glossy` to put it back.
+
+**2. `max_bounces = 8`** (lowered by me from the default 12), truncating the
+transmission chain the caustic needs.
+
+**3. `sample_clamp_indirect = 10` (Blender default) and adaptive sampling.**
+Clamping suppresses the rare bright samples that *are* the caustic; adaptive
+sampling can stop before a thin caustic is found. Both are now flags
+(`--clamp-indirect`, `--no-adaptive`) and were disabled so the path tracer got
+its best possible shot before any claim was made about its quality.
+
+**4. THE INJECTION WAS GREYSCALE.** The caustic was multiplied with a scalar
+`ShaderNodeMath` fed from the texture's **colour** output. A Math node collapses
+a colour to one channel, so the per-channel dispersion the bake carries (37.6% of
+the field mean) never reached the render. Fixed to `ShaderNodeMix` in RGBA mode.
+**This invalidates a claim I made when reporting the stills**: "43% of pixels
+carry strong colour" was NOT our dispersion surviving into the image — that
+colour came from the environment and the sun. The number was measured; the
+interpretation was wrong. Any chromatic structure attributed to the *injection*
+in the Cycles stills before this fix was misattributed.
+
+**5. The Airy scale is now chosen by measurement, not taste: 0.006 -> 0.0015 m.**
+Scored against a Cycles render of the same scene (`tools/airy_scale_sweep.py`),
+the caustic centroid sat **10.0 mm** from the path-traced one at 0.006 and
+**5.1 mm** at 0.0015. 0.0006 is no better and breaks the >= 3 px per fringe rule
+at the 1024^2 bake. The dispersion in the bake rose to 37.6% of field mean.
+
+### 13.1 The comparison, re-scored on a COMMON mask
+
+§12 gave each method its own caustic mask. With Cycles correctly configured those
+masks differ wildly — 0.2% of the frame for Cycles against 4.8% for ours — so
+those two RMSE numbers were not measuring the same pixels. Both are now scored
+over one shared region:
+
+| spp | shared mask | Cycles RMSE | ours RMSE | gain |
+|---|---|---|---|---|
+| 256 | 4.09% of frame | 25.95 | **1.50** | 17.3x |
+| 1024 | 4.09% of frame | 26.93 | **1.48** | 18.2x |
+
+At a tighter 2.14% mask the figures are 35.90/37.25 against 2.07/2.05, the same
+17-18x. Both converged references now agree on the caustic peak (+46.7 levels
+over median) and on the background median (208.3) — our injected caustic's
+*brightness* now matches the physically rendered one, which was left open in §12.
+
+Cycles' caustic region does not converge with samples (25.95 -> 26.93 from 256 to
+1024 spp). With indirect clamping off — which is required to let caustics
+through at all — its residual is firefly-dominated, so its own 4096-sample
+reference is itself contaminated.
+
+### 13.2 What still does not match, stated plainly
+
+**Our caustic is ~20x broader.** Ours covers 4.09% of the frame, Cycles' 0.20%.
+Both peak at 255 and the centroids agree within 5 mm, but the Airy/fold smoothing
+spreads energy over ~1.5 mm scales where the true bright cores are
+sub-millimetre and sparse. So the honest summary is: our caustic is far cleaner
+and lands in the right place, and it does **not** reproduce the caustic's fine
+sparsity. Reducing the smoothing further breaks the fringe-visibility rule, so
+this is a real trade-off between noise and detail, not a free win.
+
+Against the reference photograph the still now scores **5/6** (mean, p75, range,
+warmth and detail within tolerance; p25 is the one miss) with detail 1.2 against
+the photograph's 1.5 — the best match so far, up from 0.9 before the water was
+rippled and 1.1 before the Airy scale was corrected.

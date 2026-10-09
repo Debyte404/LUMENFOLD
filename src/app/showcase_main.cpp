@@ -940,7 +940,12 @@ Field build_caustic_wavy(int N, double airy_scale, const WaveParams& wp) {
 
 int main(int argc, char** argv) {
   int W = 1600, R = 1024, ssaa = 2;
-  double airy = 0.006;
+  // 0.0015 m: chosen by measurement, not taste. tools/airy_scale_sweep.py
+  // scores candidate scales against a Cycles render of the same scene; at
+  // 0.006 the caustic centroid sat 10.0 mm from the path-traced one, at
+  // 0.0015 only 5.1 mm. 0.0006 is no better and breaks the >= 3 px per
+  // fringe rule at the 1024^2 bake (0.6 mm ~ 2 px).
+  double airy = 0.0015;
   std::string out = "out/showcase.png";
   std::string dump_caustic;
   bool flat = false;

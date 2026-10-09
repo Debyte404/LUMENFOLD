@@ -67,6 +67,18 @@ def parse_args():
                          "small = hard caustics")
     ap.add_argument("--flat-water", action="store_true",
                     help="flat water surface instead of the rippled one")
+    ap.add_argument("--keep-filter-glossy", action="store_true",
+                    help="keep Blender's 1.0 rad Filter Glossy, which blurs "
+                         "the refraction that makes a caustic")
+    ap.add_argument("--clamp-indirect", type=float, default=None,
+                    help="indirect sample clamp; 0 disables it so caustic "
+                         "samples are not suppressed (Blender default 10)")
+    ap.add_argument("--no-adaptive", action="store_true",
+                    help="disable adaptive sampling, which can stop before a "
+                         "thin caustic is found")
+    ap.add_argument("--dump-settings", action="store_true",
+                    help="print the Cycles settings that decide caustic "
+                         "quality, then exit")
     ap.add_argument("--no-caustic", action="store_true")
     ap.add_argument("--cycles-caustics", action="store_true",
                     help="let Cycles find caustics by path tracing "
@@ -139,29 +151,36 @@ def make_table(gain, caustic_path, use_caustic):
         tex.image = img
         tex.interpolation = "Linear"
         tex.location = (-600, -260)
-        # undo the /16 export scale
-        mul = nodes.new("ShaderNodeMath")
-        mul.operation = "MULTIPLY"
-        mul.inputs[1].default_value = 16.0
-        mul.location = (-360, -260)
-        for c in range(3):
-            if c == 0:
-                links.new(tex.outputs["Color"], mul.inputs[0])
-            else:
-                m = nodes.new("ShaderNodeMath")
-                m.operation = "MULTIPLY"
-                m.inputs[1].default_value = 16.0
-                m.location = (-360, -260 - 160 * c)
-                links.new(tex.outputs["Color"], m.inputs[0])
-        gain_n = nodes.new("ShaderNodeMath")
-        gain_n.operation = "MULTIPLY"
-        gain_n.inputs[1].default_value = gain
-        gain_n.location = (-160, -260)
-        links.new(mul.outputs[0], gain_n.inputs[0])
+        # Undo the /16 export scale and apply the gain as COLOUR multiplications.
+        # A ShaderNodeMath fed from a colour socket silently collapses to a single
+        # channel: the caustic was being injected as greyscale, throwing away the
+        # per-channel dispersion the bake carries (its |R-B| is 31% of the field
+        # mean). ShaderNodeMix in RGBA mode keeps all three channels.
+        def mul_rgb(sock, value, loc):
+            try:
+                n = nodes.new("ShaderNodeMix")       # Blender 3.4+
+                n.data_type = "RGBA"
+                n.blend_type = "MULTIPLY"
+                n.inputs[0].default_value = 1.0
+                links.new(sock, n.inputs[6])
+                n.inputs[7].default_value = (value, value, value, 1.0)
+                out_sock = n.outputs[2]
+            except Exception:
+                n = nodes.new("ShaderNodeMixRGB")
+                n.blend_type = "MULTIPLY"
+                n.inputs["Fac"].default_value = 1.0
+                links.new(sock, n.inputs["Color1"])
+                n.inputs["Color2"].default_value = (value, value, value, 1.0)
+                out_sock = n.outputs["Color"]
+            n.location = loc
+            return out_sock
+
+        scaled = mul_rgb(tex.outputs["Color"], 16.0, (-360, -260))
+        gained = mul_rgb(scaled, gain, (-160, -260))
         emit = nodes.new("ShaderNodeEmission")
         emit.location = (60, -300)
         emit.inputs["Strength"].default_value = 1.0
-        links.new(gain_n.outputs[0], emit.inputs["Color"])
+        links.new(gained, emit.inputs["Color"])
         add = nodes.new("ShaderNodeAddShader")
         add.location = (400, 0)
         links.new(bsdf.outputs[0], add.inputs[0])
@@ -366,8 +385,23 @@ def configure_render(args):
     if not getattr(args, "cycles_caustics", False):
         sc.cycles.caustics_reflective = False
         sc.cycles.caustics_refractive = False
-    sc.cycles.blur_glossy = 1.0
-    sc.cycles.max_bounces = 8
+    # --- caustic-friendly light paths -------------------------------------
+    # Filter Glossy blurs glossy/refraction paths. Blender's own factory default
+    # is 1.0 rad, which SMEARS THE VERY REFRACTION THAT FORMS A CAUSTIC: any
+    # comparison of caustic quality against a path tracer must turn it off, or
+    # the path tracer is being measured through a blur filter. Set to 0 unless
+    # explicitly asked to keep the blur.
+    sc.cycles.blur_glossy = 1.0 if getattr(args, "keep_filter_glossy", False) else 0.0
+    # 8 was cutting the path short; the default is 12 and this scene needs the
+    # transmission chain plus GI.
+    sc.cycles.max_bounces = 12
+    # Indirect clamping suppresses the rare bright samples that ARE a caustic.
+    # Blender defaults it to 10.0; allow it to be disabled to give the path
+    # tracer its best possible shot before any claim is made about its quality.
+    if getattr(args, "clamp_indirect", None) is not None:
+        sc.cycles.sample_clamp_indirect = args.clamp_indirect
+    if getattr(args, "no_adaptive", False):
+        sc.cycles.use_adaptive_sampling = False
     sc.cycles.diffuse_bounces = 4
     sc.cycles.glossy_bounces = 4
     sc.cycles.transmission_bounces = 12
@@ -428,6 +462,12 @@ def main():
     make_world(args.world, w_col)
     make_camera(args)
     sc = configure_render(args)
+    if getattr(args, "dump_settings", False):
+        import sys as _sys
+        _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from audit_cycles_settings import report
+        report()
+        _sys.exit(0)
     print(f"RENDER_START samples={args.samples} {args.w}x{args.h} "
           f"caustic={'cycles-native' if args.cycles_caustics else ('off' if args.no_caustic else args.caustic)} gain={args.gain}")
     sys.stdout.flush()

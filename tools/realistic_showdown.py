@@ -41,7 +41,10 @@ OUT = f"{ROOT}/out"
 COMMON = ["--sun", "8", "--sun-color", "0.98,0.98,1.00",
           "--world", "0.34", "--world-color", "0.45,0.55,0.80",
           "--gain", "0.25", "--exposure", "-0.05", "--sun-angle", "0.53",
-          "--no-denoise"]
+          "--no-denoise",
+          # give the path tracer its best shot: no Filter Glossy blur, no
+          # indirect clamping, no adaptive early-out (see blender_scene.py)
+          "--clamp-indirect", "0", "--no-adaptive"]
 ORTHO = ["--w", "512", "--h", "512", "--ortho"]
 
 
