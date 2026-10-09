@@ -562,3 +562,62 @@ What is now supported by measurement:
 
 What remains unsupported: any claim of a decisive efficiency win over Cycles
 path tracing. In every configuration tested the caustic region was within 1.3x.
+
+---
+
+## 12. A more realistic scene, and the comparison turns in our favour
+
+Three changes make this scene more physical than §10's:
+
+* **the water surface is real geometry** — a 40x128 radial grid displaced by the
+  same wave field the solver traces (`tools/blender_scene.py:wave_h`, amplitudes
+  0.65/0.40/0.25/0.15 mm at 42/27/17/11 mm). The render's caustic and the bake
+  now come from the same object;
+* **the sun is the real size**, 0.53 deg angular diameter, instead of a 2.4 deg
+  stand-in;
+* the glass rim and base are bevelled, and the table carries a fine roughness
+  variation, so nothing is a razor-edged or perfectly uniform procedural plate.
+
+`tools/realistic_showdown.py`, orthographic 512x512, denoiser OFF, both variants
+rendering the identical scene and differing only in where the caustic comes from.
+RMSE is against each method's own converged 4096-sample render.
+
+| samples | Cycles (all) | ours (all) | Cycles (caustic) | ours (caustic) | whole-frame gain |
+|---|---|---|---|---|---|
+| 256 | 3.47 | **0.59** | 1.65 | **0.30** | 5.9x |
+| 1024 | 2.06 | **0.50** | 1.63 | **0.30** | 4.1x |
+
+**5.5x and 5.4x less error in the caustic region**, 4-6x over the whole frame, at
+equal sample counts — and ours is not slower: 1.7-1.9 s against Cycles' 2.2-2.5 s
+at this resolution, plus our one-time 0.27 s bake.
+
+**Why the earlier tests tied and this one does not: the sun's angular size.**
+At 2.4 deg Cycles finds the caustic easily (1.1x, §10.4 and §10.5). At the real
+0.53 deg the source is 4.5x narrower and the caustic becomes hard. The real sun
+IS 0.53 deg, so this is the configuration that matters, and the earlier 2.4 deg
+runs were testing an easier problem than reality.
+
+Two further signals in the data:
+
+* Cycles' caustic error barely improves with samples (RMSE 1.65 -> 1.63 from 256
+  to 1024 spp) while ours is 0.30 and flat. More samples do not fix this quickly.
+* At its converged 4096 spp Cycles puts the caustic peak only **+7 levels** over
+  the median; ours is **+30**. Path tracing under-resolves a thin caustic — the
+  classic low bias from under-sampling rare bright paths.
+
+**Honest caveat.** Our injection gain (0.25) is calibrated against the reference
+photograph, not against Cycles. The two methods therefore disagree on the
+caustic's absolute brightness, and what this section establishes is the *noise*
+advantage, not brightness agreement. Whether our +30 peak or Cycles' +7 is the
+physically correct level is NOT settled here.
+
+Production stills, 1600x1000 at 2048 spp with denoising, neither blowing out:
+
+| | time | mean luma | blown |
+|---|---|---|---|
+| ours | 34.1 s | 174.3 | 0.00% |
+| Cycles | 36.1 s | 169.3 | 0.00% |
+
+`docs/comparison_ours_vs_cycles.png` puts the reference photograph, our render
+and the competitor's side by side, with a zoomed caustic crop pair underneath so
+the noise difference is visible and not just tabulated.

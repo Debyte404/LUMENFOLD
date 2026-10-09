@@ -27,6 +27,7 @@ GLASS_R = 0.035
 GLASS_H = 0.090
 WALL = 0.0035
 FILL = 0.66
+WATER_TOP = 0.0594                      # absolute water line, = solver kWaterLevel
 SUN_DIR = Vector((0.80, 0.42, -0.43))  # direction light travels
 SUN_ANGLE = 0.042                      # radians (our solver uses 1.2 deg radius)
 EXT = 0.16                             # caustic patch half-size
@@ -64,6 +65,8 @@ def parse_args():
     ap.add_argument("--sun-angle", type=float, default=2.4,
                     help="angular diameter of the sun in degrees; "
                          "small = hard caustics")
+    ap.add_argument("--flat-water", action="store_true",
+                    help="flat water surface instead of the rippled one")
     ap.add_argument("--no-caustic", action="store_true")
     ap.add_argument("--cycles-caustics", action="store_true",
                     help="let Cycles find caustics by path tracing "
@@ -113,6 +116,21 @@ def make_table(gain, caustic_path, use_caustic):
         # the sun's disk (radiance ~E/Omega ~ 5000) which blew 9.4% of the frame
         # before this was lowered from 0.35
         bsdf.inputs["Specular IOR Level"].default_value = 0.05
+
+    # real surfaces are not perfectly uniform: a fine roughness variation keeps
+    # the sheen from reading as a flat procedural plate
+    noise = nodes.new("ShaderNodeTexNoise")
+    noise.inputs["Scale"].default_value = 260.0
+    noise.inputs["Detail"].default_value = 8.0
+    noise.location = (-260, 170)
+    rmap = nodes.new("ShaderNodeMapRange")
+    rmap.inputs["From Min"].default_value = 0.35
+    rmap.inputs["From Max"].default_value = 0.65
+    rmap.inputs["To Min"].default_value = 0.44
+    rmap.inputs["To Max"].default_value = 0.62
+    rmap.location = (0, 170)
+    links.new(noise.outputs["Fac"], rmap.inputs["Value"])
+    links.new(rmap.outputs["Result"], bsdf.inputs["Roughness"])
 
     if use_caustic and caustic_path and os.path.exists(caustic_path):
         img = bpy.data.images.load(caustic_path)
@@ -165,6 +183,13 @@ def make_glass():
     sol.thickness = WALL
     sol.offset = -1.0
     bpy.ops.object.modifier_apply(modifier=sol.name)
+    # a real tumbler has a rounded rim and base edge, not a razor edge
+    bev = obj.modifiers.new("rim", "BEVEL")
+    bev.width = 0.0006
+    bev.segments = 3
+    bev.limit_method = "ANGLE"
+    bev.angle_limit = math.radians(40)
+    bpy.ops.object.modifier_apply(modifier=bev.name)
     bpy.ops.object.shade_smooth()
     mat = bpy.data.materials.new("glass")
     mat.use_nodes = True
@@ -177,14 +202,92 @@ def make_glass():
     return obj
 
 
-def make_water():
+def wave_h(x, y):
+    """Water-surface height, matching the solver's WaveParams exactly.
+
+    src/app/showcase_main.cpp uses
+        h = sum_i amp_i * sin(k_i * (ux*x + uy*y) + t * (1 + i))
+    with the same amplitudes, wavelengths, directions and t = 0. Keeping the two
+    in step is what makes the render and the bake the same physical scene.
+    """
+    amp = (0.00065, 0.00040, 0.00025, 0.00015)
+    lam = (0.042, 0.027, 0.017, 0.011)
+    dx = (1.0, 0.35, -0.75, 0.6)
+    dy = (0.25, 1.0, 0.55, -0.9)
+    t = 0.0
+    h = 0.0
+    for i in range(4):
+        n = math.hypot(dx[i], dy[i])
+        ux, uy = dx[i] / n, dy[i] / n
+        k = 2.0 * math.pi / lam[i]
+        h += amp[i] * math.sin(k * (ux * x + uy * y) + t * (1.0 + i))
+    return h
+
+
+def make_water(waves=True):
+    """Water inside the glass, with a genuinely rippled surface.
+
+    A flat disc cannot produce the turbulent caustic of the reference
+    photograph, and it is not the same object our solver traced. This builds a
+    real surface: a radial grid displaced by the same wave field, plus the side
+    wall and floor so the volume is closed.
+    """
     r = GLASS_R - WALL
-    h = GLASS_H * FILL
-    bpy.ops.mesh.primitive_cylinder_add(vertices=128, radius=r, depth=h,
-                                        location=(0, 0, WALL + h / 2))
-    obj = bpy.context.object
-    obj.name = "water"
-    bpy.ops.object.shade_smooth()
+    z_bot = WALL
+    z_top = WATER_TOP                  # absolute, matches the solver's water line
+    NR, NS = 40, 128
+    verts, faces = [], []
+    if waves:
+        verts.append((0.0, 0.0, z_top + wave_h(0.0, 0.0)))       # centre
+        for i in range(1, NR + 1):
+            rr = r * i / NR
+            for j in range(NS):
+                a = 2 * math.pi * j / NS
+                x, y = rr * math.cos(a), rr * math.sin(a)
+                verts.append((x, y, z_top + wave_h(x, y)))
+        ring = lambda i, j: 1 + (i - 1) * NS + (j % NS) if i > 0 else 0
+        for j in range(NS):                                      # centre fan
+            faces.append((0, ring(0, j), ring(0, j + 1)))
+        for i in range(1, NR):
+            for j in range(NS):
+                a, b = ring(i, j), ring(i, j + 1)
+                c, d = ring(i + 1, j + 1), ring(i + 1, j)
+                faces.append((a, b, c, d))
+    else:
+        verts.append((0.0, 0.0, z_top))
+        for i in range(1, NR + 1):
+            rr = r * i / NR
+            for j in range(NS):
+                a = 2 * math.pi * j / NS
+                verts.append((rr * math.cos(a), rr * math.sin(a), z_top))
+        ring = lambda i, j: 1 + (i - 1) * NS + (j % NS) if i > 0 else 0
+        for j in range(NS):
+            faces.append((0, ring(0, j), ring(0, j + 1)))
+        for i in range(1, NR):
+            for j in range(NS):
+                faces.append((ring(i, j), ring(i, j + 1),
+                              ring(i + 1, j + 1), ring(i + 1, j)))
+    # side wall from the rim down, and the floor: closed volume
+    rim0 = len(verts)
+    for j in range(NS):
+        a = 2 * math.pi * j / NS
+        verts.append((r * math.cos(a), r * math.sin(a), z_bot))
+    for j in range(NS):
+        top_a = ring(NR, j)
+        top_b = ring(NR, j + 1)
+        bot_a = rim0 + j
+        bot_b = rim0 + (j + 1) % NS
+        faces.append((top_a, bot_a, bot_b, top_b))
+    verts.append((0.0, 0.0, z_bot))
+    cbot = len(verts) - 1
+    for j in range(NS):
+        faces.append((cbot, rim0 + (j + 1) % NS, rim0 + j))
+
+    mesh = bpy.data.meshes.new("water")
+    mesh.from_pydata(verts, [], faces)
+    mesh.update()
+    obj = bpy.data.objects.new("water", mesh)
+    bpy.context.collection.objects.link(obj)
     mat = bpy.data.materials.new("water")
     mat.use_nodes = True
     b = mat.node_tree.nodes["Principled BSDF"]
@@ -310,7 +413,7 @@ def main():
     make_table(args.gain, args.caustic,
                not args.no_caustic and not args.cycles_caustics)
     make_glass()
-    make_water()
+    make_water(not getattr(args, "flat_water", False))
     if getattr(args, "hide_glass", False):
         # differential reference: table only, so (with_glass - without_glass)
         # isolates what the glass actually did to the light
