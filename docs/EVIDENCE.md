@@ -844,3 +844,30 @@ Only shadow-cancelled (caustics-on minus caustics-off) or purely geometric
 quantities may be compared against the ground truth. Every one of the three times
 this was got wrong, the fix was the same: make sure both sides of the comparison
 describe the same physical quantity.
+
+---
+
+## 15. Production renders
+
+`tools/production_renders.py`, all with the calibrated studio rig (`tools/studio.py`:
+key sun at the real 0.53 deg plus fill and rim area lights, gradient environment,
+procedural normal map on the table).
+
+| deliverable | spec | cost |
+|---|---|---|
+| `out/stills/angle{0..5}*.png` | 2048x1280, 1024 spp, six azimuths | 33-47 s each |
+| `docs/stills_contact_sheet.png` | all six, 3x2 | — |
+| `docs/turntable.mp4` | 960x540, 96 frames, 24 fps, 4 s | 638 s |
+| `docs/ripple.mp4` | 960x540, 72 frames, caustic RE-BAKED every frame | 26.2 s bake + 456 s render |
+
+The ripple clip is the one that matters as evidence: the water surface geometry
+and the baked caustic are driven by the same wave phase (`--wave-t` on both the
+solver and the Blender scene), so what moves in the video is a re-solved caustic,
+not an animated texture. It costs **0.36 s of bake per frame** — 26 s for the
+whole 72-frame clip — against a path tracer that must re-converge its caustic
+every frame from scratch. That is the method's actual selling point, and it only
+exists because the caustic is deterministic.
+
+Still statistics (all 2048x1280): mean luma 188-201, blown 0.00-3.38%,
+dark 0.0-0.7%, warmth -6.3 to -9.4. The one at 3.38% blown is az 320, where the
+key light's specular hits the glass edge; the rest are under 1%.
