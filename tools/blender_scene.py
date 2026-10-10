@@ -65,6 +65,12 @@ def parse_args():
     ap.add_argument("--sun-angle", type=float, default=2.4,
                     help="angular diameter of the sun in degrees; "
                          "small = hard caustics")
+    ap.add_argument("--wave-t", type=float, default=0.0,
+                    help="water ripple phase; must match the solver's "
+                         "--wave-t so geometry and bake agree")
+    ap.add_argument("--studio", action="store_true",
+                    help="key/fill/rim rig, gradient environment, "
+                         "procedural normal maps")
     ap.add_argument("--flat-water", action="store_true",
                     help="flat water surface instead of the rippled one")
     ap.add_argument("--keep-filter-glossy", action="store_true",
@@ -94,7 +100,14 @@ def clear_scene():
             c.remove(item)
 
 
-def make_table(gain, caustic_path, use_caustic):
+def _studio():
+    import sys as _s
+    _s.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import studio
+    return studio
+
+
+def make_table(gain, caustic_path, use_caustic, detail=False):
     """0.32 x 0.32 m plane at z=0 with explicit UVs: +X = u, +Y = v."""
     mesh = bpy.data.meshes.new("table")
     verts = [(-EXT, -EXT, 0.0), (EXT, -EXT, 0.0), (EXT, EXT, 0.0), (-EXT, EXT, 0.0)]
@@ -143,6 +156,9 @@ def make_table(gain, caustic_path, use_caustic):
     rmap.location = (0, 170)
     links.new(noise.outputs["Fac"], rmap.inputs["Value"])
     links.new(rmap.outputs["Result"], bsdf.inputs["Roughness"])
+    if detail:
+        # procedural normal map: broad grain + fine tooth (see tools/studio.py)
+        _studio().table_detail(bsdf, nodes, links)
 
     if use_caustic and caustic_path and os.path.exists(caustic_path):
         img = bpy.data.images.load(caustic_path)
@@ -221,7 +237,7 @@ def make_glass():
     return obj
 
 
-def wave_h(x, y):
+def wave_h(x, y, t=0.0):
     """Water-surface height, matching the solver's WaveParams exactly.
 
     src/app/showcase_main.cpp uses
@@ -233,7 +249,6 @@ def wave_h(x, y):
     lam = (0.042, 0.027, 0.017, 0.011)
     dx = (1.0, 0.35, -0.75, 0.6)
     dy = (0.25, 1.0, 0.55, -0.9)
-    t = 0.0
     h = 0.0
     for i in range(4):
         n = math.hypot(dx[i], dy[i])
@@ -243,7 +258,7 @@ def wave_h(x, y):
     return h
 
 
-def make_water(waves=True):
+def make_water(waves=True, wave_t=0.0):
     """Water inside the glass, with a genuinely rippled surface.
 
     A flat disc cannot produce the turbulent caustic of the reference
@@ -257,13 +272,13 @@ def make_water(waves=True):
     NR, NS = 40, 128
     verts, faces = [], []
     if waves:
-        verts.append((0.0, 0.0, z_top + wave_h(0.0, 0.0)))       # centre
+        verts.append((0.0, 0.0, z_top + wave_h(0.0, 0.0, wave_t)))       # centre
         for i in range(1, NR + 1):
             rr = r * i / NR
             for j in range(NS):
                 a = 2 * math.pi * j / NS
                 x, y = rr * math.cos(a), rr * math.sin(a)
-                verts.append((x, y, z_top + wave_h(x, y)))
+                verts.append((x, y, z_top + wave_h(x, y, wave_t)))
         ring = lambda i, j: 1 + (i - 1) * NS + (j % NS) if i > 0 else 0
         for j in range(NS):                                      # centre fan
             faces.append((0, ring(0, j), ring(0, j + 1)))
@@ -445,9 +460,11 @@ def main():
     args = parse_args()
     clear_scene()
     make_table(args.gain, args.caustic,
-               not args.no_caustic and not args.cycles_caustics)
+               not args.no_caustic and not args.cycles_caustics,
+               detail=getattr(args, "studio", False))
     make_glass()
-    make_water(not getattr(args, "flat_water", False))
+    make_water(not getattr(args, "flat_water", False),
+               getattr(args, "wave_t", 0.0))
     if getattr(args, "hide_glass", False):
         # differential reference: table only, so (with_glass - without_glass)
         # isolates what the glass actually did to the light
@@ -460,6 +477,11 @@ def main():
     make_sun(args.sun, sc_col,
              math.radians(args.sun_angle) if args.sun_angle else None)
     make_world(args.world, w_col)
+    if getattr(args, "studio", False):
+        # a real rig instead of one sun over a flat ambient
+        st = _studio()
+        st.gradient_world(float(args.world))
+        st.add_studio_lights(float(args.sun) if args.sun else 8.0, SUN_DIR)
     make_camera(args)
     sc = configure_render(args)
     if getattr(args, "dump_settings", False):

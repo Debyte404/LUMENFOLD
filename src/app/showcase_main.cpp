@@ -949,6 +949,7 @@ int main(int argc, char** argv) {
   std::string out = "out/showcase.png";
   std::string dump_caustic;
   bool flat = false;
+  double wave_t = 0.0;
   for (int i = 1; i < argc; i++) {
     std::string a = argv[i];
     if (a == "--n" && i + 1 < argc) W = std::atoi(argv[++i]);
@@ -958,6 +959,7 @@ int main(int argc, char** argv) {
     else if (a == "--out" && i + 1 < argc) out = argv[++i];
     else if (a == "--dump-caustic" && i + 1 < argc) dump_caustic = argv[++i];
     else if (a == "--flat") flat = true;
+    else if (a == "--wave-t" && i + 1 < argc) wave_t = std::atof(argv[++i]);
   }
   const int H = int(W * 0.625);
 
@@ -966,7 +968,9 @@ int main(int argc, char** argv) {
   double t0 = 0;
   (void)t0;
 
-  Field f = flat ? build_caustic(R, airy) : build_caustic_wavy(R, airy, WaveParams{});
+    WaveParams wp;
+  wp.t = wave_t;
+  Field f = flat ? build_caustic(R, airy) : build_caustic_wavy(R, airy, wp);
 
   // report the caustic + dispersion metrics so the image is checked, not assumed
   double peak[3] = {0, 0, 0};

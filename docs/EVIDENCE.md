@@ -704,3 +704,107 @@ Against the reference photograph the still now scores **5/6** (mean, p75, range,
 warmth and detail within tolerance; p25 is the one miss) with detail 1.2 against
 the photograph's 1.5 — the best match so far, up from 0.9 before the water was
 rippled and 1.1 before the Airy scale was corrected.
+
+---
+
+## 14. Independent verification of the physics — what survived
+
+Prompted by an adversarial audit (`docs/CRITIQUE.md`). Claims that had only ever
+been asserted were re-tested against independent computations.
+
+### 14.1 The Airy profile is the real Airy function
+
+`tools/verify_wave_correction.py` recomputes the solver's 2048-entry profile
+table independently (the same defining integral, evaluated separately) and
+compares it against `scipy.special.airy`:
+
+| check | result |
+|---|---|
+| max abs deviation from Ai(-u), normalised to peak | **8.1e-03** |
+| first sign change, solver table | u = 2.2915 |
+| first sign change, reference | u = 2.2915 |
+
+### 14.2 The fold pattern really peaks where Ai^2 says
+
+The fold diffraction integral is computed from scratch — a cubic-phase wavefront
+integrated over the pupil, which is the canonical fold, not our code:
+
+| quantity | computed | analytic |
+|---|---|---|
+| location of maximum intensity | X = **-1.00** | Ai^2 peaks at -1.0188 |
+
+### 14.3 The lambda^(2/3) fringe scaling is right
+
+The same integral at three wavelengths, fitting the peak-to-first-minimum width:
+
+| quantity | value |
+|---|---|
+| fitted exponent in lambda | **0.6977** |
+| analytic (from the canonical mapping) | 0.6667 |
+| what the code assumes for dispersion | 0.6667 |
+| error | **0.031** |
+
+This is the load-bearing number for dispersion: the code scales fringe width by
+lambda^(2/3), and an independent integral says the exponent is 0.70, not 1.0 and
+not 0.5.
+
+### 14.4 The ray map survives a second, unrelated implementation
+
+`tools/verify_ray_map.py` launches 810 000 rays along the sun direction, computes
+explicit intersections with the outer wall (398 k rays enter), the cavity wall,
+the rippling water surface and the table, and bins where they land. No
+parametrisation, no analytic Jacobian, no flux renormalisation — the density of
+hits *is* the caustic. Correlation against our baked field:
+
+| tiles | tile size | brute force | Cycles (§11) |
+|---|---|---|---|
+| 8 | 40 mm | **+0.906** | **+0.906** |
+| 16 | 20 mm | +0.858 | +0.734 |
+| 32 | 10 mm | +0.787 | +0.634 |
+| 64 | 5 mm | +0.718 | +0.581 |
+
+Caustic centroid: brute force (**+51.9, +27.3**) mm, ours (+47.3, +24.7) mm —
+**5.2 mm apart on a 320 mm patch**. Two methodologically unrelated witnesses
+agreeing with us to the same degree is real evidence about the ray map.
+
+(A trap worth recording: the brute-force grid initially binned row 0 at -Y while
+the exporter writes row 0 at +Y. That produced a clean Y mirror — identity
+correlation +0.19 against flip-y +0.91 — which looks exactly like a physics
+disagreement and is nothing but a convention. The tool now documents the
+convention and asserts it.)
+
+### 14.5 Chromatic ordering is physically correct
+
+Previously we only showed the channels *differ*. Differing is not correct; the
+ordering must match the index. Mean radius of the brightest 1% of pixels, per
+channel, in the bake:
+
+| channel | mean radius | water index |
+|---|---|---|
+| R (650 nm) | **54.4 mm** | 1.33311 |
+| G (550 nm) | 53.4 mm | 1.33799 |
+| B (450 nm) | **52.9 mm** | 1.34648 |
+
+Red has the lowest index, so it refracts least and lands farthest from the glass;
+blue has the highest and lands closest. **R > G > B, as required.**
+
+### 14.6 What the audit killed
+
+Three of our own claims do not survive and are withdrawn in CRITIQUE.md:
+
+* **"17-18x less caustic noise"** — scored against each method's *own* 4096-sample
+  reference, and Cycles' reference is itself firefly-contaminated (unavoidable:
+  indirect clamping had to be disabled to let caustics through at all). The
+  asymmetry is unmeasured and flatters us.
+* **"Both caustics peak at the same level"** — vacuous: both are clipped at 255.
+* **"Flux conserved to 1.0000"** — circular: the band-local step divides by the
+  measured flux by construction.
+
+### 14.7 The limit that remains
+
+Our caustic covers 8.95% of the patch, the brute-force trace 4.16%, Cycles 0.20%.
+We are **2.1x broader than an independent geometric trace** and ~20x broader than
+a path tracer. Both peaks are clipped, so height tells us nothing. The Airy
+treatment plus the 5x5 band mean spreads energy over ~1.5 mm where the true
+bright cores are sub-millimetre. The caustic is correctly placed, correctly
+ordered, noise-free — and too smooth.
