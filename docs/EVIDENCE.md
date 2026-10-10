@@ -871,3 +871,65 @@ exists because the caustic is deterministic.
 Still statistics (all 2048x1280): mean luma 188-201, blown 0.00-3.38%,
 dark 0.0-0.7%, warmth -6.3 to -9.4. The one at 3.38% blown is az 320, where the
 key light's specular hits the glass edge; the rest are under 1%.
+
+---
+
+## 16. The analytic caustic test — an exact external reference
+
+The audit's last demand was a ground truth that removes self-referencing from
+**both** methods. A glass shell around a water column has no closed form, so the
+solver was posed as an object that does: `--analytic-cylinder` sets the water line
+above the glass and index-matches the inner interface, collapsing the light path
+to a single refraction at the outer wall — a solid cylinder of index n in air
+under parallel light.
+
+Every step of that system is then exact (`tools/analytic_caustic.py`):
+
+```
+entry   P = R (cos phi, sin phi, z0),  normal N = (cos phi, sin phi, 0)
+in      t1 = refract(d, N, 1/n)                      Snell, no approximation
+exit    Q  = far intersection of P + s t1 with the cylinder
+out     t2 = refract(t1, -NQ, n)   with NQ the RADIAL normal (Qx, Qy, 0)/R
+table   hit = Q + t2 * (-Q.z / t2.z)
+```
+
+Nothing in that file samples a grid, splats, or renormalises flux, so it cannot
+inherit the solver's biases. The caustic is where the map phi -> hit folds, i.e.
+where `|d hit / d phi|` vanishes.
+
+### Result
+
+| quantity | value |
+|---|---|
+| azimuths delivering light to the table | 100 000 of 200 001 |
+| **exact** fold, from closed-form Snell | phi = 207.70 deg -> **(+76.4, +40.1) mm** |
+| nearest solver caustic pixel | **(+76.5, +40.2) mm** |
+| **separation** | **0.1 mm on a 320 mm patch (0.03%)** |
+
+The solver's ray map reproduces the exact analytic caustic of a refracting
+cylinder to a tenth of a millimetre. This is the strongest validation in the
+project and it involves no renderer, no reference image and no self-consistency:
+only a closed-form geometric ray path.
+
+**Scope, stated honestly:** this validates the shared *wall-refraction* code path
+and the mapping machinery around it. It does not exercise the rippling-water
+surface branch, which has no closed form and remains validated only by the
+brute-force tracer (§14.4).
+
+### Two bugs found in my own analytic tool
+
+1. **Sphere normal on a cylinder.** I used `Q/|Q|` (correct for a sphere) instead
+   of the radial normal `(Qx, Qy, 0)/R`. The spurious z-tilt pushed every ray past
+   the critical angle at the exit surface, so the tool reported 0 of 200 001
+   azimuths reaching the table — a total internal reflection that does not exist.
+2. The quadratic for the exit intersection has `c = 0` (the entry point is on the
+   surface), so the two roots are 0 and `-b/a`; selecting by sign rather than by
+   magnitude picks the entry point and silently returns a zero-length ray.
+
+### Also observed: the field saturates in this configuration
+
+In the solid-cylinder case the caustic is strong enough that **~1.4% of the patch
+sits at the field's amplitude cap (8.10)**. The ceiling is doing real work here,
+not just guarding against a rare spike, so any claim about relative peak
+brightness in this configuration is meaningless — the same defect that invalidated
+the "both caustics peak the same" claim in the audit.

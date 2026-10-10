@@ -469,6 +469,13 @@ inline float sample_field(const Field& f, double x, double y, int c) {
 constexpr double kRout = kGlassR;              // outer wall radius
 constexpr double kRin = kGlassR - 0.0035;      // 3.5 mm wall
 constexpr double kWaterLevel = kGlassH * kFill;
+// Overridable for the analytic validation (tools/analytic_caustic.py). Setting
+// the water line above the glass and index-matching the inner interface collapses
+// this scene to a SOLID refracting cylinder, which has a closed-form caustic -
+// something the shell+water stack does not. That gives the ray map an exact
+// external reference instead of a self-reference.
+double g_water_level = kWaterLevel;
+bool g_index_match = false;
 
 double glass_index(double l) { return 1.5095 + 4200.0 / (l * l); }  // soda-lime Cauchy
 
@@ -791,7 +798,7 @@ Hit trace_wavy(double phi, double z0, double n_water, double n_glass, const Wave
   V3 nIn{W.x / kRin, W.y / kRin, 0.0};                 // outward at the inner wall
   V3 t2;
 
-  if (W.z < kWaterLevel) {
+  if (W.z < g_water_level) {
     // glass -> water, then straight to the table.
     // The ray is still travelling INWARD here, so the normal facing it is the
     // OUTWARD one (+nIn). Using the inward normal made snell() reject every ray
@@ -807,11 +814,11 @@ Hit trace_wavy(double phi, double z0, double n_water, double n_glass, const Wave
   // glass -> air, then fall onto the rippling surface
   if (!snell(t1, nIn, n_glass / 1.0, t2)) return h;
   if (t2.z >= -1e-9) return h;
-  double s = (kWaterLevel - W.z) / t2.z;
+  double s = (g_water_level - W.z) / t2.z;
   if (s <= 0) return h;
   V3 S = W + t2 * s;
   for (int it = 0; it < 2; it++) {                     // fixed point on the surface height
-    double zw = kWaterLevel + water_h(S.x, S.y, wp);
+    double zw = g_water_level + water_h(S.x, S.y, wp);
     s = (zw - W.z) / t2.z;
     if (s <= 0) return h;
     S = W + t2 * s;
@@ -842,8 +849,8 @@ Field build_caustic_wavy(int N, double airy_scale, const WaveParams& wp) {
   const double dxg = 2.0 * kExt / N;
 
   for (int c = 0; c < 3; c++) {
-    double nw = water_index(lambdas[c]);
     double ng = glass_index(lambdas[c]);
+    double nw = g_index_match ? ng : water_index(lambdas[c]);
     std::vector<double> flux((size_t)N * N, 0.0);
     std::vector<char> fold((size_t)N * N, 0);
     // pass 1: ray map, Jacobian, splat
@@ -960,6 +967,9 @@ int main(int argc, char** argv) {
     else if (a == "--dump-caustic" && i + 1 < argc) dump_caustic = argv[++i];
     else if (a == "--flat") flat = true;
     else if (a == "--wave-t" && i + 1 < argc) wave_t = std::atof(argv[++i]);
+    else if (a == "--water-level" && i + 1 < argc) g_water_level = std::atof(argv[++i]);
+    else if (a == "--index-match") g_index_match = true;
+    else if (a == "--analytic-cylinder") { g_water_level = 10.0; g_index_match = true; }
   }
   const int H = int(W * 0.625);
 

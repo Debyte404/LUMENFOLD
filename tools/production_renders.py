@@ -109,12 +109,45 @@ def video(name, n, w, h, samples, animate_waves, cam_fn):
     return mp4
 
 
+def combined(n=120, w=1280, h=720, samples=320, dist=0.55, lens=50.0):
+    """One clip: the camera orbits while the water and its caustic animate.
+
+    Pulled back from the earlier 0.34 m / 60 mm framing, which cropped the
+    caustic - it is the subject and it spans the table.
+    """
+    d = f"{FRAMES}/combined"
+    os.makedirs(d, exist_ok=True)
+    tb = tr = 0.0
+    for f in range(n):
+        phase = 2 * 3.141592653589793 * f / n
+        cb = f"{OUT}/caustic_c{f:04d}.png"
+        tb += bake(phase, cb, res=768)
+        extra = ["--az", f"{360.0 * f / n:.2f}", "--elev", "22",
+                 "--dist", str(dist), "--lens", str(lens),
+                 "--wave-t", f"{phase:.6f}"]
+        tr += render(cb, f"{d}/f{f:04d}.png", samples, w, h, extra)
+        if f % 15 == 0 or f == n - 1:
+            print(f"    [combined] frame {f+1}/{n}  cum bake {tb:5.1f}s  render {tr:6.1f}s")
+        os.remove(cb)
+    mp4 = f"{OUT}/combined.mp4"
+    encode(f"{d}/f%04d.png", mp4)
+    print(f"  combined: {n} frames  bake {tb:.1f}s  render {tr:.1f}s  total {tb+tr:.1f}s")
+    return mp4
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--skip-stills", action="store_true")
     ap.add_argument("--skip-videos", action="store_true")
+    ap.add_argument("--combined-only", action="store_true",
+                    help="just the orbit + animated caustic clip")
     args = ap.parse_args()
     os.makedirs(FRAMES, exist_ok=True)
+
+    if args.combined_only:
+        print("=== combined: 1280x720, 120 frames, orbit + animated caustic ===")
+        combined()
+        return
 
     if not args.skip_stills:
         print("=== stills: six angles, 2048x1280, 1024 spp ===")
