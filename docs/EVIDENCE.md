@@ -911,6 +911,26 @@ cylinder to a tenth of a millimetre. This is the strongest validation in the
 project and it involves no renderer, no reference image and no self-consistency:
 only a closed-form geometric ray path.
 
+### Whole-structure check
+
+One fold point is a weak test on its own, so the exact map was also binned over
+the same (phi, z0) parametrisation the solver samples and correlated against the
+solver's field:
+
+| tiles | tile | r |
+|---|---|---|
+| 8 | 40 mm | +0.595 |
+| 16 | 20 mm | +0.646 |
+| 32 | 10 mm | +0.720 |
+| 64 | 5 mm | **+0.800** |
+
+Agreement **rises** as the scale sharpens, which is the opposite of the
+full-scene comparisons: with the water surface removed there is no ripple
+structure for the airy smoothing to over-blur, so the solver and the exact map
+converge on the same picture as resolution increases. That is consistent with the
+audit's diagnosis — the residual error lives in the surface treatment, not in the
+wall refraction or the mapping.
+
 **Scope, stated honestly:** this validates the shared *wall-refraction* code path
 and the mapping machinery around it. It does not exercise the rippling-water
 surface branch, which has no closed form and remains validated only by the

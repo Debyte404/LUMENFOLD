@@ -26,6 +26,7 @@ import subprocess
 import zlib
 
 import numpy as np
+from PIL import Image
 
 ROOT = "D:/ValueProjects/caustics"
 OUT = f"{ROOT}/out"
@@ -104,6 +105,24 @@ def read_png16(path):
     return out.astype(np.float32) / 65535.0 * 16.0
 
 
+def exact_map(n, nphi=1400, nz=900, zlo=0.0035, zhi=0.090, size=512):
+    """Bin the exact map over (phi, z0) - the same parametrisation the solver
+    samples - so the comparison is of the same quantity, not a single slice."""
+    g = np.zeros((size, size))
+    phis = np.linspace(0.0, 2 * np.pi, nphi)
+    zs = np.linspace(zlo, zhi, nz)
+    for z0 in zs:
+        for ph in phis:
+            h = hit(ph, n, z0)
+            if h is None:
+                continue
+            ix = int((h[0] + 0.16) / 0.32 * size)
+            iy = int((0.16 - h[1]) / 0.32 * size)
+            if 0 <= ix < size and 0 <= iy < size:
+                g[iy, ix] += 1.0
+    return g
+
+
 def main():
     n = glass_index(550.0)
     print(f"=== exact caustic of a solid refracting cylinder ===")
@@ -153,6 +172,22 @@ def main():
     print(f"  solver field: peak {f.max():.3f}  "
           f"caustic centroid ({X[m].mean():+.1f}, {Y[m].mean():+.1f}) mm  "
           f"n={m.sum()}px")
+
+    print()
+    print("=== whole-structure check: exact density map vs the solver's field ===")
+    em = exact_map(n)
+    emr = np.asarray(Image.fromarray(em.astype("float32"), mode="F")
+                     .resize((W, H)))
+    fr = f
+    def corr(a, b, k):
+        h, w = a.shape
+        A = a[:h//k*k, :w//k*k].reshape(h//k, k, w//k, k).mean(axis=(1,3))
+        B = b[:h//k*k, :w//k*k].reshape(h//k, k, w//k, k).mean(axis=(1,3))
+        A = A - A.mean(); B = B - B.mean()
+        d = np.sqrt((A*A).sum()*(B*B).sum())
+        return float((A*B).sum()/d) if d > 0 else 0.0
+    for k in (8, 16, 32, 64):
+        print(f"    correlation at {k:>3}x{k:<3}  r = {corr(emr, fr, k):+.3f}")
 
     # for each exact fold, how far is the nearest solver caustic pixel?
     xm, ym = X[m], Y[m]
