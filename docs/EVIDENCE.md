@@ -1101,3 +1101,86 @@ dispersion off the RGB channels of a broadband render, where the three masks cam
 out with identical pixel counts (n = 2622 for R, G and B) — the "separation" was
 numeric residue inside one mask, not a measurement. Monochromatic bands remove
 the ambiguity entirely.
+
+---
+
+## 19. A real photon-mapping reference: PBRT-v4 SPPM
+
+Mitsuba settled the dispersion ordering but exposed a harder gap: **nothing
+installed here could converge a caustic at all**. Mitsuba 3.9 and Cycles are both
+brute-force path tracers, and a path tracer needs to hit a small bright patch by
+chance. So PBRT-v4 - the reference implementation of the techniques that can -
+was built from source and driven on the same scene.
+
+### 19.1 What it took, and why it is worth it
+
+`git clone --depth 1` + submodules + a Visual Studio 17 2022 superbuild: about
+eight minutes, no patching. The payoff is the number that defines this project:
+
+| method | 512^2 caustic frame |
+|---|---|
+| PBRT SPPM, 256 iterations x 1 M photons | **34 s** |
+| Cycles / Mitsuba path tracing | does not converge at any practical sample count |
+
+Same exported geometry: `tools/pbrt_reference.py` converts the OBJ meshes to PLY
+(same vertices Blender and Mitsuba use) and writes the `.pbrt` scene.
+
+### 19.2 The trap that nearly produced a false negative
+
+The first comparison said the two caustics were **122 deg apart in azimuth** with
+a correlation of **+0.07** - apparently a decisive refutation of the solver.
+
+It was a camera convention. PBRT's `LookAt` computes the camera's right axis as
+`cross(up, direction)`; for a top-down view with `up = +y` and direction `-z`
+that gives **(-1, 0, 0)**, a left-handed frame, so **the rendered image is
+mirrored in X** relative to a world-space top-down map. PBRT's shadow sat at
+azimuth +151.5 deg, which is exactly where our +27 deg caustic lands under an
+X-mirror - the clue worth remembering.
+
+After mirroring:
+
+| metric | as rendered | X-corrected |
+|---|---|---|
+| correlation, k = 8 (40 mm tiles) | +0.074 | **+0.926** |
+| correlation, k = 16 | +0.064 | +0.767 |
+| correlation, k = 32 | +0.050 | +0.639 |
+| correlation, k = 64 | +0.038 | +0.547 |
+
+### 19.3 Result: the caustic shape is confirmed by photon mapping
+
+| quantity | PBRT-v4 SPPM | ours | agreement |
+|---|---|---|---|
+| caustic centroid azimuth | +29.1 deg | +26.7 deg | 2.4 deg |
+| caustic centroid radius | 50.2 mm | 52.2 mm | 4 % |
+| azimuthal energy peak | +0..+30 deg bin | +0..+30 deg bin | same |
+| energy falloff | symmetric, second bin +30..+60 | same | same |
+| tile correlation at 40 mm | - | - | **r = +0.926** |
+
+Figure: `docs/pbrt_vs_ours.png` (PBRT | ours | overlay).
+
+This is the first independent confirmation of the caustic's *shape* - not its
+dispersion, not its position on a single ray, but the whole two-dimensional
+structure - and it comes from an implementation of the technique the community
+uses to judge caustic renders.
+
+### 19.4 Caveats, stated
+
+* SPPM's estimate is radius-dependent. 256 iterations at an initial radius of
+  6 mm; smaller radii resolve more structure but need more photons. The reported
+  correlation is at 40 mm tiles and above, where the estimate is stable.
+* PBRT's eta values here are 1.52 (glass) and 1.333 (water), single-valued, so
+  this validates *shape*, not dispersion. Dispersion is §18's business.
+* The match is against `out/caustic_wavy.png`, the rippled-water field, so both
+  sides share phase as well as geometry.
+
+### 19.5 PBRT-v4 scene-format traps, recorded so they cost nothing next time
+
+* `WorldBegin` is required; **`WorldEnd` is only accepted if the parser's
+  `formatting` flag is set**, otherwise it is "Unknown directive".
+* `Integrator` must sit **outside** the world block, with camera and film.
+* Named materials are selected with `NamedMaterial`, never `Material <name>`
+  (`Material` takes a material *type*).
+* **SPPM's iteration count is the sampler's samples-per-pixel**, not an
+  `niterations` parameter; `maxdepth`, `photonsperiteration` and `radius` are the
+  real SPPM parameters, and there is no `imagefile` parameter.
+* A zero-length camera shutter interval is a hard error.

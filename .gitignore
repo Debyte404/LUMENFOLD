@@ -17,3 +17,5 @@ __pycache__/
 frames/
 *.png
 !docs/*.png
+third_party/pbrt-v4/
+third_party/luxvenv/
