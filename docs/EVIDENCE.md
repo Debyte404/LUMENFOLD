@@ -953,3 +953,23 @@ sits at the field's amplitude cap (8.10)**. The ceiling is doing real work here,
 not just guarding against a rare spike, so any claim about relative peak
 brightness in this configuration is meaningless — the same defect that invalidated
 the "both caustics peak the same" claim in the audit.
+
+### 16.1 Combined clip: orbit + animated caustic, pulled back, 720p
+
+The earlier clips were either static-camera animation or a static-caustic orbit,
+and the framing cropped the caustic at 0.34 m / 60 mm. `docs/combined.mp4` does
+both at once and pulls back:
+
+| | value |
+|---|---|
+| frames | 120, a full 360 deg orbit and a full ripple cycle together |
+| resolution | 1280x720 (up from 960x540) |
+| camera | distance 0.55 m (up from 0.34), 50 mm lens (from 60 mm) |
+| samples | 320, OptiX, denoised |
+| cost | 0.36 s bake + ~5.9 s render per frame |
+
+Each frame re-bakes the caustic at the frame's wave phase and re-builds the water
+surface from the same phase, so both the geometry and the light are re-solved
+120 times. That is the method's actual advantage stated as a production cost: a
+deterministic caustic that changes with the geometry costs 0.36 s to update,
+against a path tracer that must re-converge its caustic every frame from scratch.
