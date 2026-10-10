@@ -1037,3 +1037,67 @@ unstable in places ours is not.
 
 **Cost here favours us:** 773.3 s against 1043.2 s, 1.35x faster including the
 per-frame bake.
+
+---
+
+## 18. Verification against Mitsuba 3, an independent trusted renderer
+
+Prompted by "use a trusted light simulation we can run on our own hardware to
+test and verify against". Mitsuba 3.9.1, installed as a pip wheel and run on the
+GPU in its spectral variant.
+
+Geometry is not re-derived: `tools/export_scene_obj.py` writes the same vertices
+the Blender scene uses (glass tube 35/31.5/90 mm, rippled water surface at
+59.4 mm, 0.32 m table), so a difference cannot be a meshing artefact.
+
+### 18.1 The finding that changes the plan
+
+**Mitsuba 3 has no photon-mapping integrator.** `sppm` and `bdpt` do not exist in
+3.9 — enumerated, both fail to instantiate. Available: direct, path, volpath,
+volpathmis, depth, moment. So Mitsuba is a *third path tracer*, not the
+converged caustic reference that was wanted, and its caustic behaves exactly like
+Cycles': firefly-dominated, with the image max falling from 8.62 at 4096 spp to
+1.78 at 8192 spp. No trusted caustic-converging renderer is currently installed.
+
+### 18.2 What it did verify: the dispersion ORDER, independently
+
+Mitsuba's spectral variant ships **measured** refractive-index data for water and
+BK7 — independent of the Cauchy fit this project uses. That makes it the right
+instrument for the one claim that had never been independently grounded.
+
+Two genuinely monochromatic renders (16 nm bands, no RGB channel mixing), each
+paired with an optics-absent render so the caustic is isolated as
+(present) − (absent):
+
+| band | added-light centroid beyond 40 mm |
+|---|---|
+| 650 nm (red) | **95.7 mm** |
+| 450 nm (blue) | 94.1 mm |
+| red − blue | **+1.6 mm (+1.74%)** |
+
+Physics requires blue (higher index) to refract more and focus closer, so red
+must land farther. Mitsuba, with measured material data, says red lands farther.
+Ours (Cauchy fit) says the same: R 54.4 > G 53.4 > B 52.9 mm, +2.9%.
+
+**Ordering: independently confirmed. Magnitude: same order, 1.7% against our
+2.9%** — the difference being attributable to the two material models and to
+Mitsuba's noise.
+
+### 18.3 The limits of this instrument, stated
+
+* Peak radii from Mitsuba are **not** usable: it puts 650 nm's peak at 11.2 mm and
+  450 nm's at 26.2 mm, which is firefly residue, not physics. Only the integrated
+  centroid beyond 40 mm is robust, and that is what is reported.
+* Mitsuba's caustic does not converge at practical sample counts, so it cannot
+  arbitrate the caustic's **shape**. For shape the strongest instruments remain
+  those already used: closed-form theory (0.1 mm on the fold) and this project's
+  own exact brute-force tracer (r = 0.906).
+* Its source is 2.9 deg against our 0.53 deg, because a smaller source makes a
+  path tracer useless. That is why the comparison is on ordering, not absolute
+  radius.
+
+A second trap avoided here and worth recording: the first attempt read the
+dispersion off the RGB channels of a broadband render, where the three masks came
+out with identical pixel counts (n = 2622 for R, G and B) — the "separation" was
+numeric residue inside one mask, not a measurement. Monochromatic bands remove
+the ambiguity entirely.
