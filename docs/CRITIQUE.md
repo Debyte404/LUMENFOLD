@@ -130,6 +130,63 @@ G 53.4 mm, B 52.9 mm**. Water's index falls with wavelength (R 1.33311,
 G 1.33799, B 1.34648), so red refracts least and must land farthest. It does.
 The ordering is right.
 
+### C12. "Wave-corrected fringes" — THE FRINGES WE DRAW ARE NOT PHYSICAL. Major correction.
+
+Prompted by the question "how do we verify this is what an actual caustic will
+look like". The answer exposed a claim we have been implying for the whole
+project without ever testing it.
+
+`tools/fringe_scale.py` computes the fold's physical diffraction width from the
+ray map's cubic term:
+
+| quantity | value |
+|---|---|
+| physical diffraction width at the fold | **123 um** |
+| width the renderer uses (`airy_scale`) | 1500 um |
+| ratio | **12.2x too wide** |
+
+And then the reason it does not matter, which is worse:
+
+| quantity | value |
+|---|---|
+| sun's angular size | 0.53 deg |
+| blur that imposes at ~100 mm to the fold | **925 um** |
+| ratio to the fringe spacing | **7.5x** |
+
+**Under a real sun this caustic has no visible fringes at all.** The source's
+angular size washes them out. That matches everyday experience — nobody sees
+fringes in a glass of water's caustic in sunlight; they see a smooth bright ridge
+with colour fringing from dispersion.
+
+So the fringe structure in every render we have produced is a **visibility
+choice**, not a depiction of reality, and no photograph can confirm it. Any
+statement implying the fringe pattern has been or could be experimentally
+validated must be removed.
+
+**What survives is boundedness.** The physical content of the wave model is not
+"there are fringes", it is "the intensity stays finite at the fold instead of
+diverging". That is testable with an HDR photograph of a real caustic, and it is
+the claim to take to an experiment. The protocol and the falsifiable numbers are
+in `docs/PHYSICAL_TEST.md`; `tools/verify_against_photo.py` measures them.
+
+### C13. Nothing in this project has touched reality.
+
+Every check is simulation against simulation — Cycles, the brute-force tracer,
+the closed-form cylinder. They establish that the maths is implemented correctly
+and that the ray map is right for the modelled geometry. None of them can say
+whether a real glass of water produces the pattern we draw. The existing reference
+photograph cannot close that gap either: four parameters are unknown (glass
+dimensions, water level, light direction, camera scale) and its caustic core is
+clipped across 2,919 pixels. Two measurable features fitted with four free
+parameters is not a test.
+
+As a weak consistency check the photograph does carry one real signal, and it is
+the one that survives a bad calibration: measured per-colour radii on the real
+caustic give **red 4.969, green 4.959, blue 4.892** glass radii — red lands
+farthest, blue closest, matching the index ordering, with an R-B separation of
+1.6% against our predicted 2.9%. The ordering is a genuine physical consistency
+check; the absolute radii are worthless because the calibration was guessed.
+
 ### C9. "The method is more efficient" — TRUE ONLY INSIDE A NARROW SCOPE.
 
 The 0.27 s bake is for **one fixed geometry** the solver was written for: a
