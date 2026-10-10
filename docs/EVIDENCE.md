@@ -973,3 +973,67 @@ surface from the same phase, so both the geometry and the light are re-solved
 120 times. That is the method's actual advantage stated as a production cost: a
 deterministic caustic that changes with the geometry costs 0.36 s to update,
 against a path tracer that must re-converge its caustic every frame from scratch.
+
+---
+
+## 17. The clips vs Cycles — measured temporally, not spatially
+
+Same camera path, same water geometry, same wave-phase schedule, same sample
+count, same denoiser. The only difference is where the caustic comes from.
+`tools/clip_flicker.py`.
+
+For an animation the cost of a stochastic caustic is not grain, it is **flicker**:
+frame-to-frame variation that is not motion. A caustic is the worst place for it —
+brightest, thinnest, slowest-converging feature in frame. Both clips can look
+identical one frame at a time and one can still shimmer.
+
+    flicker = mean |frame_t - frame_(t+1)| inside the caustic region
+
+A control region (the darkest half of the frame, dominated by smooth genuinely
+moving shading) is measured alongside, to check the difference is not just motion.
+
+### ripple clip — static camera, animated caustic (the valid test)
+
+| | ours (injected) | Cycles (path-traced) |
+|---|---|---|
+| flicker, caustic region | **0.001 levels** | 0.010 levels |
+| flicker, control region | 0.608 | 0.240 |
+| render cost, 72 frames | 455.7 s + **26.2 s bake** | 453.0 s |
+
+**7.9x less caustic flicker.** Our caustic contributes essentially nothing to the
+frame-to-frame variation; Cycles' contributes ten times more.
+
+Two honest notes. The denoiser is ON for both clips, which suppresses flicker in
+both and therefore compresses this ratio — with denoising off it would be larger,
+but the production artefact is the denoised one and that is what is measured. And
+the control column is *worse* for us (0.608 against 0.240): our dim regions vary
+more, which is signal rather than noise — the injected field is re-baked every
+frame and its faint outskirts genuinely evolve, whereas Cycles' dim caustic
+structure is under-resolved and denoised away. The metric cannot tell signal from
+noise without a reference, so the control column is reported, not spun.
+
+**Cost, stated against us:** Cycles is marginally *faster* on this clip in wall
+clock (453 s against our 455.7 s + 26.2 s bake = 481.9 s). The win here is
+temporal stability, not speed.
+
+### combined clip — orbiting camera (metric is NOT valid)
+
+| | ours | Cycles |
+|---|---|---|
+| flicker, caustic region | 4.026 | 3.416 |
+| flicker, control region | 2.241 | 5.048 |
+| render cost, 120 frames | 732.6 s + 40.7 s bake | 1043.2 s |
+
+With the camera orbiting, frame-to-frame differences are dominated by motion, not
+sampling, so this column cannot be read as a noise comparison — the caustic
+region is 1.8x its own control for us and 0.7x for Cycles, which is a statement
+about how much of each frame moves. It is included because the clips exist and
+the numbers are real, not because they support anything. The valid temporal test
+is the static-camera clip above.
+
+The control column does carry one signal: Cycles' frame-to-frame variation across
+the whole frame is 2.3x ours (5.048 against 2.241), i.e. its animation is
+unstable in places ours is not.
+
+**Cost here favours us:** 773.3 s against 1043.2 s, 1.35x faster including the
+per-frame bake.

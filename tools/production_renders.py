@@ -31,6 +31,11 @@ FRAMES = f"{OUT}/frames"
 
 # the calibrated studio look (see EVIDENCE 13): real solar size, cool gradient
 # environment, key/fill/rim
+# --- the competitor on the same clips -------------------------------------
+# Identical camera, geometry, wave phase and sample count. The ONLY difference
+# is where the caustic comes from: our injected bake, or Cycles tracing it.
+CYCLES_MODE = ["--cycles-caustics", "--no-caustic"]
+
 STUDIO = ["--studio", "--sun", "6.5", "--world", "0.55", "--gain", "0.25",
           "--sun-angle", "0.53", "--clamp-indirect", "0"]
 
@@ -135,14 +140,46 @@ def combined(n=120, w=1280, h=720, samples=320, dist=0.55, lens=50.0):
     return mp4
 
 
+def cycles_clip(name, n, w, h, samples, animate_waves, cam_fn, dist=0.55,
+                lens=50.0):
+    """The same clip rendered by Cycles' own caustics."""
+    d = f"{FRAMES}/{name}"
+    os.makedirs(d, exist_ok=True)
+    tb = tr = 0.0
+    for f in range(n):
+        phase = (2 * 3.141592653589793 * f / n) if animate_waves else 0.0
+        extra = cam_fn(f, n) + ["--wave-t", f"{phase:.6f}"] + CYCLES_MODE
+        t0 = time.time()
+        render(f"{OUT}/caustic_wavy.png", f"{d}/f{f:04d}.png", samples, w, h, extra)
+        tr += time.time() - t0
+        if f % 15 == 0 or f == n - 1:
+            print(f"    [{name}] frame {f+1}/{n}  cum render {tr:6.1f}s")
+    mp4 = f"{OUT}/{name}.mp4"
+    encode(f"{d}/f%04d.png", mp4)
+    print(f"  {name}: {n} frames  render {tr:.1f}s")
+    return mp4
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--skip-stills", action="store_true")
     ap.add_argument("--skip-videos", action="store_true")
     ap.add_argument("--combined-only", action="store_true",
                     help="just the orbit + animated caustic clip")
+    ap.add_argument("--cycles-clips", action="store_true",
+                    help="render the same two clips with Cycles' own caustics")
     args = ap.parse_args()
     os.makedirs(FRAMES, exist_ok=True)
+
+    if args.cycles_clips:
+        print("=== cycles_ripple: 960x540, 72 frames, caustics path-traced ===")
+        cycles_clip("cycles_ripple", 72, 960, 540, 384, True,
+                    lambda f, n: ["--az", "35", "--elev", "19", "--dist", "0.32"],
+                    dist=0.32)
+        print("=== cycles_combined: 1280x720, 120 frames ===")
+        cycles_clip("cycles_combined", 120, 1280, 720, 320, True,
+                    lambda f, n: ["--az", f"{360.0*f/n:.2f}", "--elev", "22"])
+        return
 
     if args.combined_only:
         print("=== combined: 1280x720, 120 frames, orbit + animated caustic ===")
