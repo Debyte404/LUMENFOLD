@@ -24,6 +24,9 @@ detail.
 
 ### C1. "17-18x less caustic noise than Cycles" — INFLATED. Downgrade.
 
+(Note: the *accuracy* half of this story is now independently supported — see C6.
+It is specifically the noise ratio that remains unproven.)
+
 Each method is scored against **its own** 4096-sample render. Cycles' reference is
 not clean: with indirect clamping disabled — which is *required* to let caustics
 through at all — its residual is firefly-dominated, so part of the "error" we
@@ -82,11 +85,25 @@ not that the physics conserves energy. It should never have been listed beside
 independent results. The non-circular version — does the total energy leaving the
 glass equal the energy entering it? — has **not** been measured.
 
-### C6. "1.65x more accurate than Monte Carlo at a matched splat budget" — NOT INDEPENDENTLY GROUNDED.
+### C6. Accuracy — NOW INDEPENDENTLY GROUNDED (upgraded after the audit).
 
-Same structure as C1: the comparison is against our own high-resolution
-reference. The brute-force tracer now exists and could serve as an independent
-reference; until it is used for that, this number is a self-consistency check.
+The original "1.65x more accurate than Monte Carlo" was self-referenced, same
+structure as C1. That has now been replaced by a comparison against a reference
+neither method produced: the brute-force geometric trace
+(`tools/accuracy_vs_ground_truth.py`).
+
+| tiles | tile | OUR FIELD | CYCLES |
+|---|---|---|---|
+| 8 | 40 mm | **0.907** | 0.825 |
+| 16 | 20 mm | **0.858** | 0.602 |
+| 32 | 10 mm | **0.787** | 0.475 |
+| 64 | 5 mm | **0.718** | 0.400 |
+
+Of the ground truth's caustic core, **our field covers 99.9%** and Cycles'
+caustic covers **54.7%** — it misses about half of it. Our field is closer to the
+independent reference at every scale, and the margin widens as the scale
+sharpens. That is a real accuracy result and it supersedes the self-referenced
+one.
 
 ### C7. "Wave correction" — VERIFIED. This is the real result.
 

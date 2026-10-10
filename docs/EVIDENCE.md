@@ -808,3 +808,39 @@ a path tracer. Both peaks are clipped, so height tells us nothing. The Airy
 treatment plus the 5x5 band mean spreads energy over ~1.5 mm where the true
 bright cores are sub-millimetre. The caustic is correctly placed, correctly
 ordered, noise-free — and too smooth.
+
+### 14.8 Accuracy against an independent ground truth (the fair test)
+
+The critique's core demand was a reference neither method produced. The
+brute-force trace supplies one: 1.96 M rays, explicit intersections, no
+parametrisation. `tools/accuracy_vs_ground_truth.py` correlates each method's
+caustic against it.
+
+| tiles | tile | OUR FIELD | CYCLES |
+|---|---|---|---|
+| 8 | 40 mm | **0.907** | 0.825 |
+| 16 | 20 mm | **0.858** | 0.602 |
+| 32 | 10 mm | **0.787** | 0.475 |
+| 64 | 5 mm | **0.718** | 0.400 |
+
+Coverage of the ground truth's caustic core (1.02% of the frame):
+
+| method | covers |
+|---|---|
+| our field | **99.9%** |
+| Cycles caustic | 54.7% |
+
+So on the one measurement that is not self-referenced, our field is closer to the
+independent geometric truth at every scale, and Cycles misses roughly half the
+caustic core. This supersedes the self-referenced "1.65x vs Monte Carlo" figure
+and is the claim to lead with.
+
+A third instance of the same measurement trap is worth recording, because it is
+now the most common error in this project's history: correlating a *render*
+against the ground truth gives negative numbers for both methods (-0.54 and
+-0.80), because a render contains a shadow and the geometric ground truth does
+not. Dark-shadow-pixel against bright-caustic-pixel is an inverse relationship.
+Only shadow-cancelled (caustics-on minus caustics-off) or purely geometric
+quantities may be compared against the ground truth. Every one of the three times
+this was got wrong, the fix was the same: make sure both sides of the comparison
+describe the same physical quantity.
