@@ -1318,9 +1318,20 @@ is larger relative to its own radius.
 Conclusion: the geometric dispersion ORDER of our caustic is correct and now
 rests on measured data, with the split 1.4x smaller than before. The chromatic
 claims in EVIDENCE 12 and PHYSICAL_TEST are restored in ORDER; the magnitudes
-quoted there were computed with the mis-fitted indices and are stale - the
-stills and clips predate this fix and must be re-rendered before any dispersion
-number is quoted again.
+quoted there were computed with the mis-fitted indices and are stale.
+
+STALENESS NOTICE (2026-10-11, second pass): the re-measurement is complete and
+the numbers that matter are current -- solver/brute-force agreement r = 0.916,
+accuracy 0.917, edges ours R 107 / G 105 / B 102 vs SPPM R 56 / G 54 / B 51,
+spread 32.2%%, breadth 2.3x (EVIDENCE 14.4/14.5/14.7/14.8, CRITIQUE C4/C6/C8).
+What REMAINS stale is pixels, not numbers: docs/showcase_glass.png is
+re-rendered, but the six-angle stills, the contact sheet, the comparison
+figure, and all clips (ripple, turntable, combined, Cycles counterparts)
+predate the index fix and the Blender IOR correction (1.333->1.335 water,
+1.52->1.525 glass). A full re-render is ~40 min of GPU for a sub-percent
+visual change (the index shift moves the caustic edge by ~2 mm on a 320 mm
+patch); it is deferred until the next visual deliverable, and no dispersion
+number may be quoted from those pixels meanwhile.
 
 Lesson recorded: a dispersion comparison is only meaningful between estimators
 immune to the cap and to normalisation. Neither the ridge argmax (cap) nor the
