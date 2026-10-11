@@ -32,7 +32,8 @@ from PIL import Image
 
 SUN_AZ_PRED = 27.7          # deg, simulation
 CENTROID_R_PRED = 1.50      # x glass radius
-RB_SEP_PRED = 2.9           # % of radius
+RB_SEP_PRED = 4.9           # % of EDGE radius (was 2.9% of centroid radius
+                            # under the legacy Cauchy; see EVIDENCE 20.3)
 
 
 def main():

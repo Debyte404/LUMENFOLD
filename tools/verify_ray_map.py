@@ -30,12 +30,23 @@ SUN = SUN / np.linalg.norm(SUN)
 
 
 def water_index(lam_nm):
-    # Cauchy, matching the solver's water model
-    return 1.3208 + 5200.0 / (lam_nm ** 2)
+    # Daimon & Masumura (2007), 4-term Sellmeier for HPLC-distilled water at
+    # 20.0 C -- the measured data the solver evaluates (see
+    # src/app/showcase_main.cpp). The Cauchy previously here
+    # (1.3208 + 5200/L^2) is NOT the same curve and must not be revived.
+    l = lam_nm * 1e-3
+    l2 = l * l
+    B = (5.684027565e-1, 1.726177391e-1, 2.086189578e-2, 1.130748688e-1)
+    C = (5.101829712e-3, 1.821153936e-2, 2.620722293e-2, 1.069792721e1)
+    s = 1.0 + sum(b * l2 / (l2 - c) for b, c in zip(B, C))
+    return float(np.sqrt(s))
 
 
 def glass_index(lam_nm):
-    return 1.5095 + 4200.0 / (lam_nm ** 2)
+    # Rubin (1985) soda-lime silica window glass -- the measured data the
+    # solver evaluates (see src/app/showcase_main.cpp).
+    L = lam_nm * 1e-3
+    return 1.5130 - 0.003169 * L * L + 0.003962 / (L * L)
 
 
 AMP = (0.00065, 0.00040, 0.00025, 0.00015)

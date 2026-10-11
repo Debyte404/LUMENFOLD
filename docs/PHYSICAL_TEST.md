@@ -17,7 +17,7 @@ list of what a photograph *cannot* settle.
 | the fan's angular span | spans roughly **-40 to +95 deg** of azimuth, **16 to 119 mm** radius | bounding the bright region | qualitative |
 | the fold's position | the sharp bright edge at the radius where the ray map folds | visual/radial profile | few mm |
 | dispersion ORDER | **red lands farther out than blue** | per-colour centroids in the photo | direction |
-| dispersion SIZE | R-B separation = **2.9% of the radius** | per-colour centroids | +-1% |
+| dispersion SIZE | R-B separation = **4.9% of the edge radius** (5 mm on 102 mm; was 2.9% of centroid radius under the legacy Cauchy) | per-colour edges | +-1% |
 | peak boundedness | the fold's intensity is **finite**, a ridge not a spike | HDR exposure, peak/background ratio | see below |
 
 `tools/physical_predictions.py` prints these from the current bake;

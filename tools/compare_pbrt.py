@@ -77,7 +77,14 @@ def main():
     args = ap.parse_args()
 
     p = read_exr(args.a)
-    print(f"pbrt  : {p.shape}  mean {p.mean():.6f}  max {p.max():.4f}")
+    # PBRT's LookAt builds the camera right axis as cross(up, direction),
+    # which for a top-down view is (-1, 0, 0): a left-handed frame, so the
+    # rendered image is MIRRORED in X relative to a world-space top-down map
+    # (see EVIDENCE 19.2 -- scoring the unmirrored image produced a false
+    # +0.07 correlation on a +0.926 agreement). Undo it before scoring.
+    p = p[:, ::-1, :]
+    print(f"pbrt  : {p.shape} (X-mirror corrected, see EVIDENCE 19.2)  "
+          f"mean {p.mean():.6f}  max {p.max():.4f}")
     lum = p.mean(axis=2)
     H, W = lum.shape
     yy, xx = np.mgrid[0:H, 0:W]

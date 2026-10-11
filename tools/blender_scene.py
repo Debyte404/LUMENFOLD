@@ -231,7 +231,9 @@ def make_glass():
     b = mat.node_tree.nodes["Principled BSDF"]
     b.inputs["Base Color"].default_value = (1, 1, 1, 1)
     b.inputs["Roughness"].default_value = 0.0
-    b.inputs["IOR"].default_value = 1.52
+    b.inputs["IOR"].default_value = 1.525
+    # measured soda-lime glass at 550 nm (Rubin 1985), matching the solver;
+    # Cycles' IOR is achromatic so the central channel is the honest choice
     b.inputs["Transmission Weight"].default_value = 1.0
     obj.data.materials.append(mat)
     return obj
@@ -327,7 +329,9 @@ def make_water(waves=True, wave_t=0.0):
     b = mat.node_tree.nodes["Principled BSDF"]
     b.inputs["Base Color"].default_value = (1, 1, 1, 1)
     b.inputs["Roughness"].default_value = 0.0
-    b.inputs["IOR"].default_value = 1.333
+    b.inputs["IOR"].default_value = 1.335
+    # measured water at 550 nm (Daimon & Masumura 2007), matching the solver;
+    # Cycles' IOR is achromatic so the central channel is the honest choice
     b.inputs["Transmission Weight"].default_value = 1.0
     obj.data.materials.append(mat)
     return obj

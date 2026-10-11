@@ -53,29 +53,30 @@ agreement is withdrawn.
 
 Robust, threshold-relative, reproduced by three independent renders (Cycles
 native, Cycles via the caustics-on/off differential, and the brute-force tracer:
-brute (+51.9, +27.3) mm, ours (+47.3, +24.7) mm, offset **5.2 mm** on a 320 mm
+brute (+51.7, +27.2) mm, ours (+47.8, +25.0) mm, offset **4.5 mm** on a 320 mm
 patch). This is one of the few claims that survives everything we threw at it.
 
-### C4. "The field is validated at r = 0.906" — HOLDS, and stronger than before.
+### C4. "The field is validated at r = 0.916" — HOLDS, and stronger than before.
 
 Originally this rested on one comparison (Cycles, caustics-on minus caustics-off,
 r = +0.906 at 40 mm tiles). It now has a second, methodologically unrelated
 witness: `tools/verify_ray_map.py` launches 810 000 rays, intersects them
 explicitly with the wall, the cavity wall, the rippling surface and the table,
 and simply counts where they land — no parametrisation, no Jacobian, no flux
-renormalisation. Correlation with our field:
+renormalisation. Re-run 2026-10-11 with measured indices on both sides
+(Daimon & Masumura / Rubin). Correlation with our re-baked field:
 
-| tiles | tile size | brute force | Cycles (from §11) |
+| tiles | tile size | brute force | Cycles (from §11, legacy indices) |
 |---|---|---|---|
-| 8 | 40 mm | **+0.906** | **+0.906** |
-| 16 | 20 mm | +0.858 | +0.734 |
-| 32 | 10 mm | +0.787 | +0.634 |
-| 64 | 5 mm | +0.718 | +0.581 |
+| 8 | 40 mm | **+0.916** | **+0.906** |
+| 16 | 20 mm | +0.869 | +0.734 |
+| 32 | 10 mm | +0.795 | +0.634 |
+| 64 | 5 mm | +0.720 | +0.581 |
 
 Two independent implementations agreeing with us at the same strength is real
 evidence about the ray map. Caveat: agreement is coarse-scale; at 5 mm our field
 correlates with the brute force at +0.72, so fine structure is only partly
-confirmed.
+confirmed. (The Cycles column is the legacy measurement, kept for the record.)
 
 ### C5. "Flux conserved to 1.0000" — CIRCULAR.
 
@@ -90,16 +91,17 @@ glass equal the energy entering it? — has **not** been measured.
 The original "1.65x more accurate than Monte Carlo" was self-referenced, same
 structure as C1. That has now been replaced by a comparison against a reference
 neither method produced: the brute-force geometric trace
-(`tools/accuracy_vs_ground_truth.py`).
+(`tools/accuracy_vs_ground_truth.py`). Re-run 2026-10-11 with measured indices
+on all sides:
 
 | tiles | tile | OUR FIELD | CYCLES |
 |---|---|---|---|
-| 8 | 40 mm | **0.907** | 0.825 |
-| 16 | 20 mm | **0.858** | 0.602 |
-| 32 | 10 mm | **0.787** | 0.475 |
-| 64 | 5 mm | **0.718** | 0.400 |
+| 8 | 40 mm | **0.917** | 0.824 |
+| 16 | 20 mm | **0.869** | 0.603 |
+| 32 | 10 mm | **0.795** | 0.475 |
+| 64 | 5 mm | **0.720** | 0.400 |
 
-Of the ground truth's caustic core, **our field covers 99.9%** and Cycles'
+Of the ground truth's caustic core, **our field covers 100.0%** and Cycles'
 caustic covers **54.7%** — it misses about half of it. Our field is closer to the
 independent reference at every scale, and the margin widens as the scale
 sharpens. That is a real accuracy result and it supersedes the self-referenced
@@ -123,11 +125,17 @@ That last one is the load-bearing number for the whole dispersion story.
 
 ### C8. "Dispersion is correct" — VERIFIED (ordering, not just magnitude).
 
-We previously reported only that the channels *differ* (|R-B| = 37.6% of field
-mean). Differing is not correct — the ordering must match the physics. Measured
-on the bake: mean radius of the brightest 1% per channel is **R 54.4 mm,
-G 53.4 mm, B 52.9 mm**. Water's index falls with wavelength (R 1.33311,
-G 1.33799, B 1.34648), so red refracts least and must land farthest. It does.
+We previously reported only that the channels *differ* (|R-B| = 32.2% of field
+mean on the re-baked field with measured indices; 37.6% under the legacy
+Cauchy). Differing is not correct — the ordering must match the physics. The
+brightest-1% mean-radius estimator previously quoted here (R 54.4 / G 53.4 /
+B 52.9 mm) is RETIRED: on measured indices it reads flat (54.4/54.5/54.5 mm)
+because the mask is dominated by the capped core. The comparable feature is
+the caustic edge (EVIDENCE 20.3): our solver R 107 / G 105 / B 102 mm against
+PBRT SPPM R 56 / G 54 / B 51 mm. Water's index falls with wavelength (measured:
+R 1.33167, G 1.33468, B 1.33961; the STALE Cauchy values R 1.33311 / G 1.33799
+/ B 1.34648 are kept in EVIDENCE 14.5 for the record), so red refracts least
+and must land farthest. It does.
 The ordering is right.
 
 ### C12. "Wave-corrected fringes" — THE FRINGES WE DRAW ARE NOT PHYSICAL. Major correction.
@@ -184,7 +192,8 @@ As a weak consistency check the photograph does carry one real signal, and it is
 the one that survives a bad calibration: measured per-colour radii on the real
 caustic give **red 4.969, green 4.959, blue 4.892** glass radii — red lands
 farthest, blue closest, matching the index ordering, with an R-B separation of
-1.6% against our predicted 2.9%. The ordering is a genuine physical consistency
+1.6% against our predicted 2.1% (edge-based, R-B = 5 mm on a 102 mm radius;
+previously 2.9% under the legacy Cauchy). The ordering is a genuine physical consistency
 check; the absolute radii are worthless because the calibration was guessed.
 
 ### C9. "The method is more efficient" — TRUE ONLY INSIDE A NARROW SCOPE.
@@ -214,8 +223,8 @@ the reference on 5 of 6 measured statistics".
 
 ## The limit that actually matters
 
-Against a brute-force trace the caustic covers **8.95%** of the patch; the brute
-force says **4.16%**; Cycles says **0.20%**. Our field is 2.1x broader than an
+Against a brute-force trace the caustic covers **9.37%** of the patch; the brute
+force says **4.16%**; Cycles says **0.20%**. Our field is 2.3x broader than an
 independent geometric trace and ~20x broader than a path tracer. Both peaks are
 clipped so the peak height tells us nothing. The smoothing — the Airy treatment
 plus the 5x5 band mean — spreads energy over ~1.5 mm, while the true bright cores

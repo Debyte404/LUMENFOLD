@@ -86,12 +86,22 @@ def main():
     print("    tools/analytic_caustic.py: agreement there was 0.1 mm)")
     print()
     print("3. DISPERSION - which colour lands farther out")
+    print("   (caustic EDGE per channel: outermost radius above 2% of that")
+    print("   channel's own max -- invariant to uniform scale and unaffected")
+    print("   by the ceiling on the core, see EVIDENCE 20.3. The brightest-1%")
+    print("   mean radius is RETIRED: the capped core makes it read flat.)")
     radii = {}
     for c, ch in enumerate("RGB"):
         v = f[:, :, c]
-        mm_ = v >= np.percentile(v, 99.9)
-        radii[ch] = R[mm_].mean()
-    print(f"   red   {radii['R']:.1f} mm   green {radii['G']:.1f} mm   "
+        mx = v.max()
+        nb = 160
+        b = np.clip((R / 160.0 * nb).astype(int), 0, nb - 1)
+        prof = np.bincount(b.ravel(), weights=v.ravel(), minlength=nb)
+        cnt = np.bincount(b.ravel(), minlength=nb)
+        mean = np.where(cnt > 0, prof / np.maximum(cnt, 1), 0.0)
+        idx = np.nonzero(mean > 0.02 * mx)[0]
+        radii[ch] = float((idx.max() + 1) / nb * 160.0) if idx.size else float("nan")
+    print(f"   red edge   {radii['R']:.1f} mm   green {radii['G']:.1f} mm   "
           f"blue  {radii['B']:.1f} mm")
     print(f"   separation R-B = {radii['R']-radii['B']:.1f} mm = "
           f"{100*(radii['R']-radii['B'])/radii['B']:.1f}% of the radius")

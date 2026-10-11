@@ -557,7 +557,9 @@ than papered over: the PhotonGI comparison remains open.
 
 What is now supported by measurement:
 
-* the baked field **agrees with an independent path-traced caustic** (r = 0.906,
+* the baked field **agrees with an independent path-traced caustic** (r = 0.906
+  on legacy indices; r = 0.916 re-measured 2026-10-11 with Daimon & Masumura /
+  Rubin on both sides,
   peak within 3-7% of position) — this is the correctness claim, and it is new;
 * bounded folds and conserved flux (7.7x vs 100x+ blow-up, flux 1.0000);
 * 1.65x accuracy at a matched splat budget, 35% below the MC floor with 16x
@@ -654,7 +656,7 @@ its best possible shot before any claim was made about its quality.
 
 **4. THE INJECTION WAS GREYSCALE.** The caustic was multiplied with a scalar
 `ShaderNodeMath` fed from the texture's **colour** output. A Math node collapses
-a colour to one channel, so the per-channel dispersion the bake carries (37.6% of
+a colour to one channel, so the per-channel dispersion the bake carries (32.2% on the re-baked field with measured indices; 37.6% under the legacy Cauchy) of
 the field mean) never reached the render. Fixed to `ShaderNodeMix` in RGBA mode.
 **This invalidates a claim I made when reporting the stills**: "43% of pixels
 carry strong colour" was NOT our dispersion surviving into the image — that
@@ -666,7 +668,7 @@ in the Cycles stills before this fix was misattributed.
 Scored against a Cycles render of the same scene (`tools/airy_scale_sweep.py`),
 the caustic centroid sat **10.0 mm** from the path-traced one at 0.006 and
 **5.1 mm** at 0.0015. 0.0006 is no better and breaks the >= 3 px per fringe rule
-at the 1024^2 bake. The dispersion in the bake rose to 37.6% of field mean.
+at the 1024^2 bake. The dispersion in the bake rose to 37.6% of field mean under the legacy Cauchy (32.2% re-measured with measured indices).
 
 ### 13.1 The comparison, re-scored on a COMMON mask
 
@@ -754,17 +756,20 @@ not 0.5.
 explicit intersections with the outer wall (398 k rays enter), the cavity wall,
 the rippling water surface and the table, and bins where they land. No
 parametrisation, no analytic Jacobian, no flux renormalisation — the density of
-hits *is* the caustic. Correlation against our baked field:
+hits *is* the caustic. Correlation against our baked field (re-measured
+2026-10-11 with measured indices on both sides; the Cycles column is the
+legacy §11 measurement, kept for the record):
 
-| tiles | tile size | brute force | Cycles (§11) |
+| tiles | tile size | brute force | Cycles (§11, legacy) |
 |---|---|---|---|
-| 8 | 40 mm | **+0.906** | **+0.906** |
-| 16 | 20 mm | +0.858 | +0.734 |
-| 32 | 10 mm | +0.787 | +0.634 |
-| 64 | 5 mm | +0.718 | +0.581 |
+| 8 | 40 mm | **+0.916** | **+0.906** |
+| 16 | 20 mm | +0.869 | +0.734 |
+| 32 | 10 mm | +0.795 | +0.634 |
+| 64 | 5 mm | +0.720 | +0.581 |
 
-Caustic centroid: brute force (**+51.9, +27.3**) mm, ours (+47.3, +24.7) mm —
-**5.2 mm apart on a 320 mm patch**. Two methodologically unrelated witnesses
+Caustic centroid (re-measured): brute force (**+51.7, +27.2**) mm, ours
+(+47.8, +25.0) mm — **4.5 mm apart on a 320 mm patch** (was 5.2 mm under
+legacy indices). Two methodologically unrelated witnesses
 agreeing with us to the same degree is real evidence about the ray map.
 
 (A trap worth recording: the brute-force grid initially binned row 0 at -Y while
@@ -773,20 +778,35 @@ correlation +0.19 against flip-y +0.91 — which looks exactly like a physics
 disagreement and is nothing but a convention. The tool now documents the
 convention and asserts it.)
 
-### 14.5 Chromatic ordering is physically correct
+### 14.5 Chromatic ordering: ORDER verified, this estimator retired
 
 Previously we only showed the channels *differ*. Differing is not correct; the
-ordering must match the index. Mean radius of the brightest 1% of pixels, per
-channel, in the bake:
+ordering must match the index. The estimator used here -- mean radius of the
+brightest 1% of pixels per channel -- is NOT comparable across the index fix:
+on the re-baked field with measured indices it reads R 54.4 / G 54.5 /
+B 54.5 mm, i.e. flat. That is the same estimator artefact EVIDENCE 20.3
+diagnoses on the fan centroid: the brightest-percentile mask is dominated by
+the capped core (every channel peaks at the 8.100 ceiling), so it cannot move
+with the index. The comparable feature is the caustic EDGE (EVIDENCE 20.3),
+which is invariant to uniform scale and unaffected by a ceiling on the core:
 
-| channel | mean radius | water index |
+    measured indices -- our solver edge  R 107.0  G 105.0  B 102.0 mm
+    measured indices -- PBRT SPPM edge    R  56.0  G  54.0  B  51.0 mm
+
+Red outside blue, monotonic R > G > B, on both sides. The historical table
+below (legacy mis-fitted Cauchy) is kept for the record but is STALE -- its
+magnitudes carry the 1.97x dispersion excess, and the estimator itself is
+retired in favour of the edge:
+
+| channel | mean radius (STALE) | water index (STALE Cauchy) |
 |---|---|---|
 | R (650 nm) | **54.4 mm** | 1.33311 |
 | G (550 nm) | 53.4 mm | 1.33799 |
 | B (450 nm) | **52.9 mm** | 1.34648 |
 
 Red has the lowest index, so it refracts least and lands farthest from the glass;
-blue has the highest and lands closest. **R > G > B, as required.**
+blue has the highest and lands closest. **R > G > B, as required -- now on
+measured indices and a ceiling-immune estimator.**
 
 ### 14.6 What the audit killed
 
@@ -802,8 +822,9 @@ Three of our own claims do not survive and are withdrawn in CRITIQUE.md:
 
 ### 14.7 The limit that remains
 
-Our caustic covers 8.95% of the patch, the brute-force trace 4.16%, Cycles 0.20%.
-We are **2.1x broader than an independent geometric trace** and ~20x broader than
+Our caustic covers 9.37% of the patch (re-measured with measured indices;
+previously 8.95% under the legacy Cauchy), the brute-force trace 4.16%, Cycles 0.20%.
+We are **2.3x broader than an independent geometric trace** and ~20x broader than
 a path tracer. Both peaks are clipped, so height tells us nothing. The Airy
 treatment plus the 5x5 band mean spreads energy over ~1.5 mm where the true
 bright cores are sub-millimetre. The caustic is correctly placed, correctly
@@ -814,16 +835,17 @@ ordered, noise-free — and too smooth.
 The critique's core demand was a reference neither method produced. The
 brute-force trace supplies one: 1.96 M rays, explicit intersections, no
 parametrisation. `tools/accuracy_vs_ground_truth.py` correlates each method's
-caustic against it.
+caustic against it. Re-run 2026-10-11 with measured indices on all sides
+(solver re-baked, brute-force tracer on Daimon & Masumura / Rubin):
 
 | tiles | tile | OUR FIELD | CYCLES |
 |---|---|---|---|
-| 8 | 40 mm | **0.907** | 0.825 |
-| 16 | 20 mm | **0.858** | 0.602 |
-| 32 | 10 mm | **0.787** | 0.475 |
-| 64 | 5 mm | **0.718** | 0.400 |
+| 8 | 40 mm | **0.917** | 0.824 |
+| 16 | 20 mm | **0.869** | 0.603 |
+| 32 | 10 mm | **0.795** | 0.475 |
+| 64 | 5 mm | **0.720** | 0.400 |
 
-Coverage of the ground truth's caustic core (1.02% of the frame):
+Coverage of the ground truth's caustic core (1.00% of the frame):
 
 | method | covers |
 |---|---|
@@ -1077,10 +1099,10 @@ paired with an optics-absent render so the caustic is isolated as
 
 Physics requires blue (higher index) to refract more and focus closer, so red
 must land farther. Mitsuba, with measured material data, says red lands farther.
-Ours (Cauchy fit) says the same: R 54.4 > G 53.4 > B 52.9 mm, +2.9%.
+Ours (legacy Cauchy fit) said the same: R 54.4 > G 53.4 > B 52.9 mm, +2.9% -- estimator and magnitudes STALE (see 14.5); the edge-based order on measured indices is R 107 / G 105 / B 102 mm.
 
 **Ordering: independently confirmed. Magnitude: same order, 1.7% against our
-2.9%** — the difference being attributable to the two material models and to
+2.9% (STALE -- legacy Cauchy magnitudes)** — the difference being attributable to the two material models and to
 Mitsuba's noise.
 
 ### 18.3 The limits of this instrument, stated
@@ -1091,7 +1113,7 @@ Mitsuba's noise.
 * Mitsuba's caustic does not converge at practical sample counts, so it cannot
   arbitrate the caustic's **shape**. For shape the strongest instruments remain
   those already used: closed-form theory (0.1 mm on the fold) and this project's
-  own exact brute-force tracer (r = 0.906).
+  own exact brute-force tracer (r = 0.916 re-measured with measured indices).
 * Its source is 2.9 deg against our 0.53 deg, because a smaller source makes a
   path tracer useless. That is why the comparison is on ordering, not absolute
   radius.

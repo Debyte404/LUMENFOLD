@@ -37,7 +37,11 @@ SUN = SUN / np.linalg.norm(SUN)
 
 
 def glass_index(l):
-    return 1.5095 + 4200.0 / (l * l)
+    # Rubin (1985) soda-lime silica window glass, matching the solver
+    # (see src/app/showcase_main.cpp). The Cauchy previously here
+    # (1.5095 + 4200/L^2) sat ~0.0017 low and must not be revived.
+    L = l * 1e-3  # nm -> um
+    return 1.5130 - 0.003169 * L * L + 0.003962 / (L * L)
 
 
 def refract(d, N, eta):
