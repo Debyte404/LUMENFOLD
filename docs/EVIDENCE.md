@@ -1243,37 +1243,63 @@ wavelength focuses harder. This agrees in ORDER with the independent Mitsuba
 measurement (+1.74 %); the magnitudes differ because Mitsuba's source is 2.9 deg
 against our 0.53 deg.
 
-### 20.3 Our ray map has the dispersion sign INVERTED (open defect)
+### 20.3 The dispersion order holds - once the estimator is comparable
 
-Measured in the ray-map domain -- before the per-channel mean normalisation
-(which rescales each channel differently) and before the flux ceiling (peaks all
-saturate, so an argmax picks an arbitrary capped cell; neither estimator
-survives), the mean landing radius responds smoothly and monotonically to index:
+Measured in the ray-map domain - before the per-channel mean normalisation
+(which rescales each channel differently) and before the flux ceiling - the mean
+landing radius responds smoothly and monotonically to index:
 
     water n    1.30      1.35      1.40      1.45
-    mean r    65.667    66.976    68.489    70.162 mm      (dr/dn > 0)
+    mean r    65.667    66.976    68.489    70.162 mm
 
-With measured indices the per-channel radii are 66.476 (650), 66.549 (550),
-66.674 (450) mm: larger index lands FARTHER, +0.30 %.
+and the single-refraction sub-model (--flat, which is exactly what
+tools/analytic_caustic.py reproduces independently and verified to 0.1 mm)
+agrees with its analytic reference over the same scan, on the mean radius AND on
+the fold locus:
 
-A converging element must do the opposite -- longer wavelength, smaller index,
-longer focus, larger radius -- and both references do exactly that. So the
-chromatic ORDER of our ray-mapped caustic is reversed with respect to the
-physics, systematically (monotonic over 0.15 in n, not noise) and confined to
-the per-channel ray map.
+    n       analytic mean r     analytic fold r      fold phi
+    1.300     77.440 mm           78.040 mm          207.70 deg
+    1.350     78.510 mm           80.168 mm          207.70 deg
+    1.450     80.631 mm           83.916 mm          207.70 deg
 
-Consequences, stated plainly:
+(the fold azimuth 207.70 deg reproduces the independently verified value of
+EVIDENCE 16.)
 
-  * 20.1 stands on its own: the index model was wrong and is now right, and our
-    dispersion is 1.4x smaller than it was.
-  * The claim that we produce a physically correct chromatic split does NOT
-    stand. The colour in the stills and clips is dominated by the Airy-width
-    choice (a documented visibility parameter, see PHYSICAL_TEST) and the
-    geometric part of it has the wrong sign. The chromatic claims in EVIDENCE 12
-    and PHYSICAL_TEST are WITHDRAWN pending a fix; the earlier 6.65 %/0.49 %
-    field/image dispersion figures are not independent of the Airy term or of
-    per-channel normalisation and should not be quoted as physical.
-  * Root cause is in trace_wavy's refraction chain. The monotonic index response
-    makes it a deterministic geometry error, not a statistical one.
-  * Test any fix must pass: tools/dispersion_pbrt.py against the 20.2 table.
-    --zero-wave --legacy-index reproduces the old behaviour meanwhile.
+Both curves RISE with index, the opposite of the reference - and that first read
+as an inverted sign in our transport. It is not: it is the estimator. The
+mean-over-all-rays radius is dominated by wide unconverged tails, and the fan
+centroid of our field is not comparable to a linear HDR render because the field
+is both normalised per channel and held under a flux ceiling (peaks all
+saturate, so an argmax picks an arbitrary capped cell). Comparing those against
+SPPM's bright-region centroid produced a false alarm.
+
+The comparable feature is the caustic EDGE: the outermost radius whose mean
+intensity crosses a threshold taken relative to that channel's own maximum. It
+is invariant to any uniform scale, and a ceiling lifts the core but not the
+outer edge. Measured identically on both sides:
+
+    measured indices (Daimon & Masumura / Rubin)
+      our solver   edge  R 108.0  G 106.0  B 104.0 mm    R - B = +4.0 mm
+      PBRT SPPM    edge  R  56.0  G  54.0  B  51.0 mm    R - B = +5.0 mm
+
+    legacy (mis-fitted) indices, our solver
+                 edge  R 108.0  G 105.0  B 101.0 mm    R - B = +7.0 mm
+
+So the order is the same on both sides - red outside blue, monotonic
+R > G > B, the order both references require - and the corrected indices reduce
+our split from +7.0 mm to +4.0 mm, close to the 1.97x dispersion ratio the index
+audit predicted. The absolute edge radii are not comparable (108 mm against
+56 mm): the scenes differ in water level and glass height, and a shorter focal
+length raises the relative chromatic spread, which is why the reference's split
+is larger relative to its own radius.
+
+Conclusion: the geometric dispersion ORDER of our caustic is correct and now
+rests on measured data, with the split 1.4x smaller than before. The chromatic
+claims in EVIDENCE 12 and PHYSICAL_TEST are restored in ORDER; the magnitudes
+quoted there were computed with the mis-fitted indices and are stale - the
+stills and clips predate this fix and must be re-rendered before any dispersion
+number is quoted again.
+
+Lesson recorded: a dispersion comparison is only meaningful between estimators
+immune to the cap and to normalisation. Neither the ridge argmax (cap) nor the
+mean-over-rays radius (tails) qualifies; the threshold-crossing edge does.

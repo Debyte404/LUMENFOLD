@@ -242,6 +242,11 @@ not fixed yet.
    not, the breadth is not a resolution artefact and the smoothing model is
    simply wrong in shape.
 
-> NOTICE (2026-10-11): C9 (dispersion/chromatic separation) is WITHDRAWN. Our
-> per-channel ray map inverts the sign of the chromatic split relative to both
-> Mitsuba and PBRT SPPM on measured indices. See docs/EVIDENCE.md section 20.
+> NOTICE (2026-10-11): C9 (dispersion/chromatic separation) stands in ORDER but
+> its published MAGNITUDES are stale. The index model was a fitted Cauchy with
+> 1.97x too much dispersion; it is now measured data, so our split is 1.4x
+> smaller than the figures in this document. Order (red outside blue, monotonic)
+> is verified against PBRT SPPM and Mitsuba. An intermediate reading of "sign
+> inverted" was an estimator artefact, not physics - the ridge argmax is set by
+> the flux ceiling and the mean-over-rays radius by unconverged tails; only a
+> threshold-crossing edge is comparable. See docs/EVIDENCE.md section 20.

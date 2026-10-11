@@ -331,11 +331,15 @@ Field build_caustic(int N, double airy_scale) {
     std::vector<char> fold1d((size_t)N, 0);
     std::vector<double> jacmin((size_t)N, 1e30);
 
+    // geometric dispersion diagnostic (cap-free, normalisation-free)
+    double sum_r = 0, sum_w = 0;
     // pass 1: accumulate the 1D quadrature and the fold marks
     for (int i = 0; i < M; i++) {
       double phi = (i + 0.5) * dphi;
       Hit h = trace(phi, n);
       if (!h.ok) continue;
+      sum_r += std::hypot(h.x, h.y);
+      sum_w += 1.0;
       Hit hp = trace(phi + 1e-6, n), hm = trace(phi - 1e-6, n);
       double jac = (hp.ok && hm.ok)
                        ? std::hypot(hp.x - hm.x, hp.y - hm.y) / 2e-6
@@ -351,6 +355,9 @@ Field build_caustic(int N, double airy_scale) {
       int uc = std::clamp(u0, 0, N - 1);
       jacmin[uc] = std::min(jacmin[uc], jac);
     }
+    if (sum_w > 0)
+      std::printf("  [geom] ch%d n %.5f  mean hit r %7.3f mm  (%d rays)\n", c, n,
+                  1000 * sum_r / sum_w, int(sum_w));
     // normalize the 1D profile to mean 1
     double mean = 0;
     for (double v : flux) mean += v;
@@ -1144,6 +1151,38 @@ int main(int argc, char** argv) {
       double py = (double(y) / (R - 1) - 0.5) * 2 * kExt;
       std::printf("           peak  ch%d  r %6.2f mm  az %+7.2f deg  I %.4f\n", c,
                   1000 * std::hypot(px, py), std::atan2(py, px) * 180.0 / kPi, best);
+    }
+  }
+
+  // Caustic EDGE radius per channel: the outermost radius at which the radial
+  // profile crosses a threshold taken RELATIVE to that channel's own maximum.
+  // This is the one feature comparable with the SPPM reference: it is invariant
+  // to the per-channel mean normalisation (relative threshold) and to the flux
+  // ceiling (the cap lifts the core, not the outer edge), whereas the ridge
+  // argmax is set by whichever capped cell is scanned first and the
+  // mean-over-all-rays radius is dominated by wide unconverged tails. The edge
+  // is also the physically meaningful boundary: the fold locus.
+  {
+    const int NB = 160;                    // radial bins over the patch
+    for (int c = 0; c < 3; c++) {
+      std::vector<double> prof(NB, 0.0), cnt(NB, 0.0);
+      double mx = 0;
+      for (int i = 0; i < R * R; i++) {
+        double v = f.rgb[(size_t)i * 3 + c];
+        int x = i % R, y = i / R;
+        double px = (double(x) / (R - 1) - 0.5) * 2 * kExt;
+        double py = (double(y) / (R - 1) - 0.5) * 2 * kExt;
+        int b = int(std::hypot(px, py) / kExt * NB);
+        if (b >= NB) continue;
+        prof[b] += v;
+        cnt[b] += 1.0;
+        mx = std::max(mx, v);
+      }
+      int edge = -1;
+      for (int b = 0; b < NB; b++)
+        if (cnt[b] > 0 && prof[b] / cnt[b] > 0.02 * mx) edge = b;
+      std::printf("           edge  ch%d  r %6.2f mm  (2%% of channel max)\n", c,
+                  1000.0 * (edge + 1) / NB * kExt);
     }
   }
 

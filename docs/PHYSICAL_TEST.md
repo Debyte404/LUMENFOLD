@@ -97,7 +97,11 @@ test — a match would be meaningless and a mismatch uninterpretable. It also
 clips. It is useful as a *target* for what a real caustic looks like, not as
 evidence.
 
-> NOTICE (2026-10-11): the chromatic-split numbers in this document are
-> WITHDRAWN pending a fix. The index model they rested on was fitted, not
-> measured, and our per-channel ray map carries the dispersion with the wrong
-> SIGN versus two trusted references. See docs/EVIDENCE.md section 20.
+> NOTICE (2026-10-11): the chromatic-split MAGNITUDES in this document are
+> STALE. The index model they rested on was a fitted Cauchy whose dispersion was
+> 1.97x the measured value; both indices are now measured data (Daimon & Masumura
+> 2007 for water, Rubin 1985 for soda-lime glass) and our geometric split is 1.4x
+> smaller. The ORDER (red outside blue, monotonic) is verified against PBRT SPPM
+> with a like-for-like estimator, but the stills and clips here predate the fix
+> and must be re-rendered before any dispersion number is quoted. See
+> docs/EVIDENCE.md section 20.

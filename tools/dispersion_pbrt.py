@@ -55,6 +55,23 @@ def grid(img):
     return X, Y, np.hypot(X, Y)
 
 
+def edge_radius(img, X, Y, rad, frac=0.02, nb=160):
+    """Outermost radius whose mean intensity exceeds frac of the image max.
+
+    The feature comparable across renderers: relative threshold, so it is
+    invariant to any uniform scale; the outer edge is unaffected by a ceiling on
+    the core. Same definition as the solver's "edge" metric.
+    """
+    lum = np.maximum(img.mean(axis=2), 0.0)
+    mx = lum.max()
+    b = np.clip((rad / HALF * nb).astype(int), 0, nb - 1)
+    prof = np.bincount(b.ravel(), weights=lum.ravel(), minlength=nb)
+    cnt = np.bincount(b.ravel(), minlength=nb)
+    mean = np.where(cnt > 0, prof / np.maximum(cnt, 1), 0.0)
+    idx = np.nonzero(mean > frac * mx)[0]
+    return float((idx.max() + 1) / nb * HALF) if idx.size else float("nan")
+
+
 def centroid(img, X, Y, rad):
     """Intensity centroid of the positive part in r > R0."""
     lum = np.maximum(img.mean(axis=2) - 0.0, 0.0)
@@ -79,19 +96,22 @@ def main():
         cx, cy, r = centroid(c, X, Y, rad)
         az = np.degrees(np.arctan2(cy, cx))
         peak = (img - base).max()
-        got[lam] = (r, az, peak)
+        e = edge_radius(c, X, Y, rad)
+        got[lam] = (r, az, peak, e)
         print(f"  {lam} nm  (water {nw}, glass {ng})  "
               f"caustic centroid  r {r:6.2f} mm  azimuth {az:+7.2f} deg  "
               f"peak {peak:6.3f}")
-    rR, azR, _ = got[650]
-    rG, azG, _ = got[550]
-    rB, azB, _ = got[450]
+    rR, azR, _, eR = got[650]
+    rG, azG, _, eG = got[550]
+    rB, azB, _, eB = got[450]
     print()
     print(f"  SPPM reference  R(650) r {rR:.2f} mm   B(450) r {rB:.2f} mm")
     print(f"  R - B radius    = {rR - rB:+.2f} mm   ({100 * (rR - rB) / rB:+.3f}% of B)")
     print(f"  R - G radius    = {rR - rG:+.2f} mm   ({100 * (rR - rG) / rG:+.3f}% of G)")
     print(f"  azimuth R {azR:+.2f}  G {azG:+.2f}  B {azB:+.2f} deg   "
           f"(spread {max(azR, azG, azB) - min(azR, azG, azB):.2f} deg)")
+    print(f"  caustic EDGE radius   R {eR:.1f}  G {eG:.1f}  B {eB:.1f} mm"
+          f"   -> R-B {eR - eB:+.1f} mm")
     print()
     print("  red farther from the axis than blue?",
           "YES" if rR > rB else "NO")
