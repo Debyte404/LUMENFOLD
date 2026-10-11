@@ -62,6 +62,10 @@ def main():
     ap.add_argument("--photons", type=int, default=500000)
     ap.add_argument("--radius", type=float, default=0.008)
     ap.add_argument("--hide-optics", action="store_true")
+    ap.add_argument("--eta-water", type=float, default=1.333,
+                    help="water index for this render (measured data per channel)")
+    ap.add_argument("--eta-glass", type=float, default=1.52,
+                    help="glass index for this render (measured data per channel)")
     ap.add_argument("--out", default=f"{OUT}/pbrt_caustic.exr")
     args = ap.parse_args()
 
@@ -111,8 +115,8 @@ WorldBegin
 LightSource "distant" "point3 from" [{lx:.6f} {ly:.6f} {lz:.6f}]
             "point3 to" [0 0 0] "rgb L" [8.0 8.0 8.0]
 
-MakeNamedMaterial "glass" "string type" "dielectric" "float eta" [1.52]
-MakeNamedMaterial "water" "string type" "dielectric" "float eta" [1.333]
+MakeNamedMaterial "glass" "string type" "dielectric" "float eta" [{args.eta_glass}]
+MakeNamedMaterial "water" "string type" "dielectric" "float eta" [{args.eta_water}]
 MakeNamedMaterial "table" "string type" "diffuse" "rgb reflectance" [0.8 0.8 0.8]
 
 AttributeBegin
@@ -123,14 +127,17 @@ AttributeEnd
 
 # WorldEnd omitted: pbrt v4 only swallows it when its formatting flag is set
 """
-    path = f"{OUT}/caustic.pbrt"
+    path = os.path.splitext(args.out)[0] + ".pbrt"
     with open(path, "w") as f:
         f.write(scene)
     print(f"wrote {path}")
     print(f"integrator requested: {args.integrator}")
 
     if os.path.exists(PBRT):
-        cmd = [PBRT, "--" + args.integrator, path]
+        # The integrator is set in the scene file: `pbrt --sppm file` is a hard
+        # error in v4 (it prints usage and renders nothing). Only --nthreads and
+        # friends are accepted here.
+        cmd = [PBRT, "--nthreads", "20", path]
         print("running:", " ".join(cmd))
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=7200)
         print(r.stdout[-1500:] or r.stderr[-1500:])

@@ -96,3 +96,8 @@ scale and pose. Two measurable features fitted with four free parameters is not 
 test — a match would be meaningless and a mismatch uninterpretable. It also
 clips. It is useful as a *target* for what a real caustic looks like, not as
 evidence.
+
+> NOTICE (2026-10-11): the chromatic-split numbers in this document are
+> WITHDRAWN pending a fix. The index model they rested on was fitted, not
+> measured, and our per-channel ray map carries the dispersion with the wrong
+> SIGN versus two trusted references. See docs/EVIDENCE.md section 20.

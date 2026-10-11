@@ -241,3 +241,7 @@ not fixed yet.
    and check whether the 2.1x breadth against the brute force closes. If it does
    not, the breadth is not a resolution artefact and the smoothing model is
    simply wrong in shape.
+
+> NOTICE (2026-10-11): C9 (dispersion/chromatic separation) is WITHDRAWN. Our
+> per-channel ray map inverts the sign of the chromatic split relative to both
+> Mitsuba and PBRT SPPM on measured indices. See docs/EVIDENCE.md section 20.

@@ -165,12 +165,37 @@ constexpr double kFill = 0.66;      // water fills 2/3
 // where the caustic is a long fan thrown well clear of the glass.
 const V3 kSun = {0.80, 0.42, -0.43};  // direction light TRAVELS (downward)
 
-// Cauchy for water: n(lambda) = A + B/lambda^2 (lambda in nm).
-// A/B chosen to give ~1.3314 / 1.3345 / 1.3407 at 650 / 550 / 450 nm.
-constexpr double kCauchyA = 1.31700;
-constexpr double kCauchyB = 6080.0;
+// Water index of refraction: Daimon & Masumura (2007), 4-term Sellmeier for
+// HPLC-distilled water at 20.0 C, valid 0.182-1.129 um (the whole visible).
+//   n^2 = 1 + sum_i B_i l^2 / (l^2 - C_i),  l in um
+//   Appl. Opt. 46, 3811-3820. Data: refractiveindex.info database, H2O/Daimon-20.0C.
+//
+// THIS REPLACED A FIT THAT WAS WRONG BY 2x. The previous model was a 2-term
+// Cauchy (A = 1.31700, B = 6080) whose dispersion was 1.97x too strong: it gave
+// n(450) = 1.34702 and n(550) = 1.33710 against measured 1.33961 and 1.33468.
+// The old comment claimed it reproduced 1.3314/1.3345/1.3407, but no Cauchy can
+// - those three do not lie on one; the constant was simply mis-fit. Combined
+// with the glass shell the rendered chromatic separation was 1.40x too large,
+// which is exactly the 1.67x excess this solver showed against Mitsuba's
+// measured-data etch earlier (2.9% vs 1.74%). See EVIDENCE section 20.
+constexpr double kWatB[4] = {5.684027565e-1, 1.726177391e-1,
+                             2.086189578e-2, 1.130748688e-1};
+constexpr double kWatC[4] = {5.101829712e-3, 1.821153936e-2,
+                             2.620722293e-2, 1.069792721e1};
+
+// --legacy-index reproduces the pre-fix models so the size of the bug stays
+// measurable and reproducible (see EVIDENCE section 20).
+bool g_legacy_index = false;
+double g_water_override = 0.0, g_glass_override = 0.0;
+
 double water_index(double lambda_nm) {
-  return kCauchyA + kCauchyB / (lambda_nm * lambda_nm);
+  if (g_water_override > 0.0) return g_water_override;   // --water-index, for sign tests
+  if (g_legacy_index) return 1.31700 + 6080.0 / (lambda_nm * lambda_nm);
+  const double l = lambda_nm * 1e-3;      // nm -> um
+  const double l2 = l * l;
+  double s = 1.0;
+  for (int i = 0; i < 4; ++i) s += kWatB[i] * l2 / (l2 - kWatC[i]);
+  return std::sqrt(s);
 }
 
 // Vector Snell. d and n unit, d pointing INTO the surface (dot(d,n) < 0).
@@ -477,7 +502,17 @@ constexpr double kWaterLevel = kGlassH * kFill;
 double g_water_level = kWaterLevel;
 bool g_index_match = false;
 
-double glass_index(double l) { return 1.5095 + 4200.0 / (l * l); }  // soda-lime Cauchy
+// Soda-lime silica window glass: Rubin (1985), Sol. Energy Mater. 12, 275-288,
+// n = A + B L^2 + C / L^2 with L in um, valid 0.31-4.6 um.
+// Data: refractiveindex.info database, glass/misc/soda-lime/Rubin-clear.
+// (The previous Cauchy 1.5095 + 4200/l^2 had the right SLOPE to within 0.8% but
+// sat ~0.0017 low in absolute index; this replaces it with the measured form.)
+double glass_index(double l_nm) {
+  if (g_glass_override > 0.0) return g_glass_override;   // --glass-index, for sign tests
+  if (g_legacy_index) return 1.5095 + 4200.0 / (l_nm * l_nm);
+  const double L = l_nm * 1e-3;           // nm -> um
+  return 1.5130 - 0.003169 * L * L + 0.003962 / (L * L);
+}
 
 // Medium id: 0 air, 1 glass, 2 water.
 int medium_at(const V3& p) {
@@ -853,6 +888,12 @@ Field build_caustic_wavy(int N, double airy_scale, const WaveParams& wp) {
     double nw = g_index_match ? ng : water_index(lambdas[c]);
     std::vector<double> flux((size_t)N * N, 0.0);
     std::vector<char> fold((size_t)N * N, 0);
+    // Geometric dispersion diagnostics, accumulated on the RAY MAP itself: this
+    // is before the per-channel mean normalisation (which rescales each channel
+    // differently) and before the flux ceiling (peaks all saturate at kCapAiry,
+    // so an argmax picks an arbitrary capped cell). Both of those contaminated
+    // the centroid and peak estimators and hid the sign of the effect.
+    double sum_r = 0, sum_w = 0, sum_rw = 0, fold_r = 0, best_j = 1e30;
     // pass 1: ray map, Jacobian, splat
     std::vector<double> jac((size_t)N * N, 1e30);
     for (int i = 0; i < NP; i++) {
@@ -872,6 +913,13 @@ Field build_caustic_wavy(int N, double airy_scale, const WaveParams& wp) {
           jdet = std::fabs(dxdphi * dydz - dxdz * dydphi);
         }
         double wgt = (jdet > 1e-12) ? 1.0 / jdet : 0.0;
+        {
+          double rr = std::hypot(h0.x, h0.y);
+          sum_r += rr;
+          sum_w += 1.0;
+          sum_rw += rr * wgt;
+          if (jdet < best_j) { best_j = jdet; fold_r = rr; }
+        }
         double fx = (h0.x + kExt) / (2 * kExt) * N - 0.5;
         double fy = (h0.y + kExt) / (2 * kExt) * N - 0.5;
         int x0 = int(std::floor(fx)), y0 = int(std::floor(fy));
@@ -886,6 +934,11 @@ Field build_caustic_wavy(int N, double airy_scale, const WaveParams& wp) {
         jac[(size_t)cy * N + cx] = std::min(jac[(size_t)cy * N + cx], jdet);
       }
     }
+    if (sum_w > 0)
+      std::printf("  [geom] ch%d n %.5f  mean hit r %7.3f mm  flux-wtd %7.3f mm"
+                  "  fold r %7.3f mm\n",
+                  c, nw, 1000 * sum_r / sum_w, 1000 * sum_rw / std::max(sum_w, 1e-30),
+                  1000 * fold_r);
     double mean = 0;
     for (double v : flux) mean += v;
     mean /= double(N) * double(N);
@@ -956,6 +1009,12 @@ int main(int argc, char** argv) {
   std::string out = "out/showcase.png";
   std::string dump_caustic;
   bool flat = false;
+  // --zero-wave: full 3-interface transport (air -> glass -> water -> glass, both
+  // indices per channel) with the surface flattened. Needed to isolate index
+  // dispersion: on a rippled surface the fringe pattern dominates the centroid
+  // and the chromatic shift is buried. --flat is NOT this: it selects the older
+  // single-refraction cylinder, which omits the glass entirely.
+  bool zero_wave = false;
   double wave_t = 0.0;
   for (int i = 1; i < argc; i++) {
     std::string a = argv[i];
@@ -966,7 +1025,11 @@ int main(int argc, char** argv) {
     else if (a == "--out" && i + 1 < argc) out = argv[++i];
     else if (a == "--dump-caustic" && i + 1 < argc) dump_caustic = argv[++i];
     else if (a == "--flat") flat = true;
+    else if (a == "--zero-wave") zero_wave = true;
     else if (a == "--wave-t" && i + 1 < argc) wave_t = std::atof(argv[++i]);
+    else if (a == "--legacy-index") g_legacy_index = true;
+    else if (a == "--water-index" && i + 1 < argc) g_water_override = std::atof(argv[++i]);
+    else if (a == "--glass-index" && i + 1 < argc) g_glass_override = std::atof(argv[++i]);
     else if (a == "--water-level" && i + 1 < argc) g_water_level = std::atof(argv[++i]);
     else if (a == "--index-match") g_index_match = true;
     else if (a == "--analytic-cylinder") { g_water_level = 10.0; g_index_match = true; }
@@ -979,7 +1042,9 @@ int main(int argc, char** argv) {
   (void)t0;
 
     WaveParams wp;
-  wp.t = wave_t;
+    wp.t = wave_t;
+    if (zero_wave)
+      for (int i = 0; i < wp.n; i++) wp.amp[i] = 0.0;
   Field f = flat ? build_caustic(R, airy) : build_caustic_wavy(R, airy, wp);
 
   // report the caustic + dispersion metrics so the image is checked, not assumed
@@ -1005,6 +1070,82 @@ int main(int argc, char** argv) {
               "-> dispersion %s\n",
               rb_spread, 100.0 * rb_spread / std::max(mean_all, 1e-9), mean_all,
               (rb_spread > 0.05 * mean_all) ? "VISIBLE" : "too weak");
+
+  // Per-channel caustic centroid: the physical chromatic separation, in mm. This
+  // is the quantity an independent photon-mapping render can be scored against,
+  // because it does not depend on the Airy width or any display choice.
+  {
+    double cc[3][2] = {{0, 0}, {0, 0}, {0, 0}};
+    for (int c = 0; c < 3; c++) {
+      double w = 0;
+      for (int i = 0; i < R * R; i++) {
+        double v = f.rgb[(size_t)i * 3 + c];
+        if (v <= 1.2) continue;
+        int x = i % R, y = i / R;
+        cc[c][0] += ((double(x) / (R - 1) - 0.5) * 2 * kExt) * v;
+        cc[c][1] += ((double(y) / (R - 1) - 0.5) * 2 * kExt) * v;
+        w += v;
+      }
+      if (w > 0) { cc[c][0] /= w; cc[c][1] /= w; }
+    }
+    std::printf("[caustic] centroid mm  R (%.1f, %.1f)  G (%.1f, %.1f)  B (%.1f, %.1f)"
+                "   -> R-B separation %.2f mm\n",
+                1000 * cc[0][0], 1000 * cc[0][1], 1000 * cc[1][0], 1000 * cc[1][1],
+                1000 * cc[2][0], 1000 * cc[2][1],
+                1000.0 * std::hypot(cc[0][0] - cc[2][0], cc[0][1] - cc[2][1]));
+  }
+
+  // The metric used to score against the photon-mapping references (Mitsuba 3,
+  // PBRT-v4 SPPM): the intensity-weighted centroid of each channel restricted to
+  // the FAN region (r > 40 mm). Radial position, so it is independent of the Airy
+  // width and of every display choice - only the index model moves it.
+  {
+    const double r0 = 0.040;
+    double cc[3][2] = {{0, 0}, {0, 0}, {0, 0}}, w[3] = {0, 0, 0};
+    for (int c = 0; c < 3; c++)
+      for (int i = 0; i < R * R; i++) {
+        double v = f.rgb[(size_t)i * 3 + c];
+        if (v <= 0) continue;
+        int x = i % R, y = i / R;
+        double px = (double(x) / (R - 1) - 0.5) * 2 * kExt;
+        double py = (double(y) / (R - 1) - 0.5) * 2 * kExt;
+        if (std::hypot(px, py) < r0) continue;
+        cc[c][0] += px * v;
+        cc[c][1] += py * v;
+        w[c] += v;
+      }
+    for (int c = 0; c < 3; c++)
+      if (w[c] > 0) { cc[c][0] /= w[c]; cc[c][1] /= w[c]; }
+    double rR = std::hypot(cc[0][0], cc[0][1]);
+    double rG = std::hypot(cc[1][0], cc[1][1]);
+    double rB = std::hypot(cc[2][0], cc[2][1]);
+    std::printf("[caustic] fan centroid r>40mm  R %.2f mm  G %.2f mm  B %.2f mm"
+                "   -> (R-B)/B = %+.3f%%   (R-G)/G = %+.3f%%\n",
+                1000 * rR, 1000 * rG, 1000 * rB,
+                100.0 * (rR - rB) / std::max(rB, 1e-12),
+                100.0 * (rR - rG) / std::max(rG, 1e-12));
+  }
+
+  // Brightest-point radius per channel. The fan centroid above is not
+  // normalisation-invariant: each channel's profile is scaled by its own mean, so
+  // a channel whose caustic is more concentrated picks up different tail weight.
+  // The argmax is invariant under any uniform scale, and a smooth scan of the
+  // water index is the decisive test of the transport's dispersion SIGN.
+  {
+    for (int c = 0; c < 3; c++) {
+      double best = -1;
+      int bi = -1;
+      for (int i = 0; i < R * R; i++) {
+        double v = f.rgb[(size_t)i * 3 + c];
+        if (v > best) { best = v; bi = i; }
+      }
+      int x = bi % R, y = bi / R;
+      double px = (double(x) / (R - 1) - 0.5) * 2 * kExt;
+      double py = (double(y) / (R - 1) - 0.5) * 2 * kExt;
+      std::printf("           peak  ch%d  r %6.2f mm  az %+7.2f deg  I %.4f\n", c,
+                  1000 * std::hypot(px, py), std::atan2(py, px) * 180.0 / kPi, best);
+    }
+  }
 
   if (!dump_caustic.empty()) {
     // Hand the field to Blender: 16-bit, linear, scaled by 1/16 (the display cap

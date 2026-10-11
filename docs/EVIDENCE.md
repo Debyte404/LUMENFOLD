@@ -1184,3 +1184,96 @@ uses to judge caustic renders.
   `niterations` parameter; `maxdepth`, `photonsperiteration` and `radius` are the
   real SPPM parameters, and there is no `imagefile` parameter.
 * A zero-length camera shutter interval is a hard error.
+
+## 20. Index dispersion: a measured-data correction, and a sign inversion in our own ray map
+
+Date 2026-10-11. Triggered by re-reading the Mitsuba run of EVIDENCE 18: that
+reference measured red-farther-than-blue by +1.74 % while our solver reported
++2.9 % -- a factor 1.67 that had been filed as noise. It is not noise.
+
+### 20.1 The index model was wrong (fixed)
+
+showcase_main.cpp carried a two-term Cauchy for water, n = 1.31700 + 6080/L^2,
+with a comment claiming it reproduced 1.3314/1.3345/1.3407 at 650/550/450 nm.
+It does not, and no single (A,B) can: that triple is not on a Cauchy curve.
+
+    lambda    Cauchy(1.317, 6080)    measured    error
+    650 nm    1.33139                1.33167     -0.0003
+    550 nm    1.33710                1.33468     +0.0024
+    450 nm    1.34702                1.33961     +0.0074
+
+Dispersion over 450-650 nm: 0.01563 against a measured 0.00794 -- 1.97x too
+strong. That factor, not physics, is most of the gap to Mitsuba. The audit found
+the glass model (Cauchy 1.5095 + 4200/L^2) 4-8 % off in slope as well.
+
+Both are now measured data evaluated directly, not fitted:
+
+  water  Daimon & Masumura (2007), Appl. Opt. 46, 3811 -- 4-term Sellmeier for
+         HPLC-distilled water at 20.0 C, valid 0.182-1.129 um
+  glass  Rubin (1985), Sol. Energy Mater. 12, 275 -- soda-lime silica window
+         glass, n = 1.5130 - 0.003169 L^2 + 0.003962/L^2, L in um
+
+taken from the refractiveindex.info database -- the measured tables the reference
+renderers use. The old constants remain behind --legacy-index, so the size of
+the error stays reproducible.
+
+Cross-check: the Sellmeier slope, n(486.1) - n(656.3) = 0.00598, agrees with the
+classic water line values (0.00600) to 0.3 %; only a constant +0.0004 offset
+from differing temperatures separates them.
+
+### 20.2 What a converged reference says
+
+PBRT-v4 SPPM on the exported geometry: three renders differing ONLY in the index
+pair (one per spectral channel, measured data), 192 iterations x 1e6 photons,
+plus a --hide-optics baseline. The caustic is isolated as render minus baseline
+-- the lit table dominates the raw image (mean 0.874 almost uniformly), and
+scoring a raw render measures the ambient, which produced a meaningless 7.31 mm
+centroid on the first attempt.
+
+    channel   eta (water, glass)    caustic centroid r   azimuth    peak
+    650 nm    1.33167, 1.52104      30.72 mm             +28.60     8.204
+    550 nm    1.33468, 1.52514      30.21 mm             +28.66     8.429
+    450 nm    1.33961, 1.53192      29.35 mm             +28.68     8.994
+
+    R - B = +1.37 mm (+4.657 %), monotonic R > G > B, azimuth spread 0.08 deg
+
+Red lands outside blue, monotonically, with the azimuth fixed to 0.08 deg: a
+pure radial chromatic split, the peak growing toward blue as the shorter
+wavelength focuses harder. This agrees in ORDER with the independent Mitsuba
+measurement (+1.74 %); the magnitudes differ because Mitsuba's source is 2.9 deg
+against our 0.53 deg.
+
+### 20.3 Our ray map has the dispersion sign INVERTED (open defect)
+
+Measured in the ray-map domain -- before the per-channel mean normalisation
+(which rescales each channel differently) and before the flux ceiling (peaks all
+saturate, so an argmax picks an arbitrary capped cell; neither estimator
+survives), the mean landing radius responds smoothly and monotonically to index:
+
+    water n    1.30      1.35      1.40      1.45
+    mean r    65.667    66.976    68.489    70.162 mm      (dr/dn > 0)
+
+With measured indices the per-channel radii are 66.476 (650), 66.549 (550),
+66.674 (450) mm: larger index lands FARTHER, +0.30 %.
+
+A converging element must do the opposite -- longer wavelength, smaller index,
+longer focus, larger radius -- and both references do exactly that. So the
+chromatic ORDER of our ray-mapped caustic is reversed with respect to the
+physics, systematically (monotonic over 0.15 in n, not noise) and confined to
+the per-channel ray map.
+
+Consequences, stated plainly:
+
+  * 20.1 stands on its own: the index model was wrong and is now right, and our
+    dispersion is 1.4x smaller than it was.
+  * The claim that we produce a physically correct chromatic split does NOT
+    stand. The colour in the stills and clips is dominated by the Airy-width
+    choice (a documented visibility parameter, see PHYSICAL_TEST) and the
+    geometric part of it has the wrong sign. The chromatic claims in EVIDENCE 12
+    and PHYSICAL_TEST are WITHDRAWN pending a fix; the earlier 6.65 %/0.49 %
+    field/image dispersion figures are not independent of the Airy term or of
+    per-channel normalisation and should not be quoted as physical.
+  * Root cause is in trace_wavy's refraction chain. The monotonic index response
+    makes it a deterministic geometry error, not a statistical one.
+  * Test any fix must pass: tools/dispersion_pbrt.py against the 20.2 table.
+    --zero-wave --legacy-index reproduces the old behaviour meanwhile.
