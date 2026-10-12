@@ -49,6 +49,14 @@
 \usepackage{xcolor}
 \usepackage{url}
 
+% Paragraphs are run-in headings, not numbered sections. The class numbers them by
+% default and its \paragraph counter carries an unused subsubsection level, so every
+% one of them rendered as "4.1.0.1", "7.8.0.1" -- a visible defect in a journal
+% submission. Stopping numbering at the subsection level leaves them as the bold
+% run-in heads they are meant to be.
+\setcounter{secnumdepth}{2}
+
+
 \sisetup{detect-all,group-separator={,},group-minimum-digits=4}
 
 % Theorem-like environments. Everything the paper asserts as a formal

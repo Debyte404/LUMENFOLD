@@ -207,10 +207,17 @@ the optic and the solver needs new work.
 
 Further limits are itemised in **Section 8** of the paper. Two are worth stating here:
 
-- **The correction is defined only for a fold.** At a cusp the local phase is quartic and
-  the diffraction pattern is a **Pearcey** function; the method as stated has no content
-  for it. We have not built or tested that case — it is flagged as the most obvious next
-  step and as an untested conjecture, not as a contribution.
+- **The correction is defined only for a fold — and the cusp case has now been
+  tested.** At a cusp the local phase is quartic and the diffraction pattern is a
+  **Pearcey** function rather than an Airy one, and the divergence exponent changes
+  with it: a fold's amplitude goes as `|δ|^-1/4`, a cusp's as `|y|^-1/3` (measured
+  −0.2434 and −0.3333 against the analytic −1/4 and −1/3). The substitution itself
+  transfers cleanly — the corrected field is bounded exactly where the geometric one
+  diverges. **The cost does not**: a direct Pearcey evaluation measures ~2.1×10⁴
+  slower than an Airy table lookup, and the table route that would make it affordable
+  needs roughly 35 minutes to build at 256². The generalisation is mathematically
+  available and computationally is not, at least not this way — see
+  `tools/pearcey_cusp.py`.
 - **The coherent limit is not the sun.** The source subtends 0.53°, a geometric blur of
   ~925 µm at the receiver, against a physical fringe spacing of 123 µm — about 7.5×
   smaller. A photograph of this scene under the sun would not show the fringe structure

@@ -117,10 +117,15 @@ rippled surface. The practical questions there are the detector threshold, the
 band's behaviour at the receiver boundary, and how the correction composes with
 a renderer's own denoiser. All three are measurable.
 
-The science continuation is the cusp. The fold is the only catastrophe with the
-property that made this work possible, namely that the diffraction integral
-factors into a one-dimensional cubic phase. At a cusp the local form is quartic,
-the pattern is a Pearcey function, and the scaling is different. Whether the
-same band-local construction carries over at a comparable cost is the natural
-question this paper leaves open, and we have deliberately not guessed at the
-answer.
+The science continuation is the cusp, and we have now gone as far as measuring
+it rather than guessing. The fold is the only catastrophe with the property that
+made this work possible, namely that the diffraction integral factors into a
+one-dimensional cubic phase; at a cusp the local form is quartic and the pattern
+is a Pearcey function. We built that case and tested the recipe on it
+(Section~\ref{sec:verify-cusp}). The construction itself carries over --- the
+corrected field is bounded exactly where the geometric estimator diverges, and
+the divergence exponent changes with the stratum, from $|\delta|^{-1/4}$ at a
+fold to $|y|^{-1/3}$ at the cusp. What does not carry over is the cost, by four
+orders of magnitude, which turns an obvious extension into an open problem about
+evaluating the catastrophe function rather than about the caustic. That is a
+narrower claim than we would like and a more useful one than leaving it open.

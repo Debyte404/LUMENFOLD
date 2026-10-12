@@ -1280,6 +1280,66 @@ and NO output: the placeholder ORCID rendered as nothing at all, which is why th
 placeholder survived until the real iD was added and `orcid.pdf` was copied
 alongside it.
 
+### 14.5l The cusp case: tested, and it fails on cost (2026-10-12)
+
+The paper's Section 8.1 said the cusp case was an untested conjecture. It has now
+been tested (`tools/pearcey_cusp.py`), and it splits in two.
+
+**Setup.** Cusp normal form phi(u) = u^4 + x u^2 + y u. Ray map phi' = 4u^3 + 2xu + y.
+Fold curve phi'' = 12u^2 + 2x = 0, parametrised (x, y) = (-6s^2, 8s^3). Cusp point
+where phi''' also vanishes: the origin. Diffraction integral is the Pearcey
+function Pe(x,y) = int exp(i phi) du.
+
+**The implementation is validated against a closed form**, which is what makes the
+rest trustworthy. Substituting t = a u^4 in int exp(-a u^4) du = (1/2) a^(-1/4)
+Gamma(1/4) and continuing a -> -i gives Pe(0,0) = (1/2) Gamma(1/4) exp(i pi/8).
+Note Gamma(1/4), not Gamma(3/4): the substitution turns exp(i u^4) du into
+t^(-3/4) exp(it) dt, so the Mellin exponent is s = 1/4. I got this wrong first and
+only caught it by checking against the direct
+int_0^inf cos(x^n) dx = Gamma(1/n) cos(pi/2n)/n formula.
+
+    closed form   +1.6748133935 +0.6937304220i
+    rotated       +1.674813394  +0.693730422i     rel err 1.2e-16
+    real-axis     agrees with the rotated contour to 1.6e-6 at 5 off-axis points
+
+Two different contours and two different integrands, so the agreement is evidence
+rather than self-consistency.
+
+**Two traps when measuring the exponents.**
+
+1. Sitting *on* the fold is useless: phi'' is zero there, so the amplitude is
+   infinite and a numeric root finder returns whatever its own precision allows.
+   The exponent must be fitted by approaching transversally.
+2. A fold has a **lit** and a **shadow** side. Approached from the shadow side the
+   two merging rays are complex and the amplitude is simply flat. The first run did
+   exactly that and reported an exponent of +0.0000, which looked like a broken
+   implementation and was correct physics for the wrong side.
+
+**Measured exponents** (lit side for the fold; x = 0 for the cusp):
+
+    fold   amplitude  -0.2434   (analytic -1/4)
+           intensity  -0.4867   (analytic -1/2)
+    cusp   amplitude  -0.3333   (analytic -1/3)
+           intensity  -0.6667   (analytic -2/3)
+
+The cusp does NOT inherit the fold's exponent. Along x = 0 there is exactly one real
+stationary point, at u = (-y/4)^(1/3), so phi'' = 12u^2 and the amplitude goes as
+|y|^(-1/3). Different exponent, so a different catastrophe function: Airy cannot
+simply be reused. |Pe|^2 converges to a finite limit (0.416 fold, 3.286 cusp) on
+exactly the approaches where the geometric estimator diverges.
+
+**The cost is what fails**, and this is the negative result:
+
+    Airy lookup (1-D table, 2048 entries)      0.79 us
+    Pearcey direct (2-D, numeric integral)     16.9 ms        ratio 2.1e4
+    a precomputed surface, the only other route:
+       128^2  8.65 min       256^2  34.6 min       512^2  138.6 min
+
+So "detect the higher-order stratum, substitute the catastrophe function" is
+mathematically available and computationally is not, at least not by the direct
+route. The conjecture that the cost might carry over does not hold; the paper now
+reports the measurement instead of the conjecture.
+
 ### 14.6 What the audit killed
 
 Three of our own claims do not survive and are withdrawn in CRITIQUE.md:
