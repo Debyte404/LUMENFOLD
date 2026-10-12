@@ -38,6 +38,11 @@ from PIL import Image
 import os as _os
 _ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
 
+# WinGet's package root, resolved per-account instead of hardcoded.
+_WINGET_PKGS = _os.path.join(
+    _os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WinGet", "Packages"
+).replace("\\", "/") + "/"
+
 ROOT = _ROOT
 EXE = f"{ROOT}/build/src/app/Release/showcase.exe"
 BLENDER = "C:/Program Files/Blender Foundation/Blender 4.2/blender.exe"
@@ -162,10 +167,10 @@ def find_ffmpeg():
     """
     import glob
     cands = [
-        r"C:/Users/Lenovo/AppData/Local/Microsoft/WinGet/Packages/"
+        _WINGET_PKGS +
         r"Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-7.1-full_build/bin/ffmpeg.exe",
     ]
-    cands += glob.glob(r"C:/Users/Lenovo/AppData/Local/Microsoft/WinGet/Packages/"
+    cands += glob.glob(_WINGET_PKGS +
                        r"Gyan.FFmpeg*/**/bin/ffmpeg.exe", recursive=True)
     cands.append("ffmpeg")
     for c in cands:

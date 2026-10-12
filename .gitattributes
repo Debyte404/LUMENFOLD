@@ -1,0 +1,36 @@
+# Normalize line endings on checkout/commit so a Windows-created repo does not
+# show every file as modified on Linux and macOS, where the tooling is expected
+# to run.
+* text=auto eol=lf
+
+# Windows-only project files still want CRLF.
+*.sln text eol=crlf
+*.vcxproj text eol=crlf
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+
+# Shell scripts must keep LF or bash refuses to run them.
+*.sh text eol=lf
+
+# Binary assets: never touch, never diff.
+*.png   binary
+*.jpg   binary
+*.gif   binary
+*.mp4   binary
+*.pdf   binary
+*.npy   binary
+*.npz   binary
+*.exr   binary
+*.tgz   binary
+*.zip   binary
+*.blend binary
+*.filamat binary
+
+# Generated TeX intermediates are noise in a diff.
+*.aux binary
+*.bbl binary
+
+# Keep the language breakdown honest: the paper is LaTeX, the analyses are
+# Python, and the vendored class file should not dominate the statistics.
+docs/paper/*.cls linguist-vendored
+docs/paper/*.bst linguist-vendored

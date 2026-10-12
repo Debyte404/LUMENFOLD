@@ -1,18 +1,44 @@
-# Wave-corrected caustics over photon splatting
+# LUMENFOLD
 
-A caustic estimator that replaces the geometric fold singularity with the wave-optical
-Airy profile inside a detected fold band, plus a measured comparison of it against the
-caustic solvers in current practice — **PBRT-v4 SPPM, Blender Cycles, and Mitsuba 3**.
+**Wave-corrected caustics over photon splatting** — a caustic estimator that replaces
+the geometric fold singularity with the wave-optical Airy profile inside a detected
+fold band, and a measured comparison of it against the caustic solvers in current
+practice (**PBRT-v4 SPPM, Blender Cycles, Mitsuba 3**).
 
-**The paper:** [`docs/paper/main.pdf`](docs/paper/main.pdf) — typeset in the official
-Computer Graphics Forum class (`egpubl.cls`, Eurographics), 22 pages, with lemmas,
-theorems and proofs. Source is `docs/paper/main.tex`; rebuild with
-`python tools/build_paper_pdf.py`. The earlier markdown draft is kept at
-[`docs/PAPER.md`](docs/PAPER.md).
-Every number in it traces to a measurement in [`docs/EVIDENCE.md`](docs/EVIDENCE.md),
-including the ones that went against us — the adversarial audit of our own claims is
-[`docs/CRITIQUE.md`](docs/CRITIQUE.md), and every citation was verified against
-Crossref by `tools/verify_refs.py`.
+Ankit Chetri (Debyte404) · [ORCID 0009-0004-2672-3503](https://orcid.org/0009-0004-2672-3503)
+
+**The paper:** [`docs/paper/main.pdf`](docs/paper/main.pdf) — 23 pages, typeset in the
+official Eurographics / *Computer Graphics Forum* class (`egpubl.cls`). Source is
+`docs/paper/main.tex`; rebuild with `python tools/build_paper_pdf.py`, which compiles
+under either tectonic or a full pdfLaTeX and reports overfull boxes for both. An
+earlier markdown draft is kept at [`docs/PAPER.md`](docs/PAPER.md).
+
+Every number in the paper traces to a measurement in
+[`docs/EVIDENCE.md`](docs/EVIDENCE.md) — including the ones that went against us.
+The adversarial audit of our own claims is [`docs/CRITIQUE.md`](docs/CRITIQUE.md), and
+every citation was verified against Crossref by `tools/verify_refs.py`.
+
+## Quickstart
+
+The solver and every number in the paper need **only a C++ compiler, CMake and
+Python**. There are no mandatory third-party dependencies.
+
+```bash
+cmake -S . -B build
+cmake --build build --config Release      # builds 8 targets, no external SDKs
+
+python tools/verify_ray_map.py            # independent brute-force ground truth
+python tools/accuracy_vs_ground_truth.py  # three-way accuracy against that truth
+```
+
+Only the two interactive 3D viewer targets want MuJoCo and Filament (~5 GB). They are
+skipped automatically when absent — `src/physics` guards its MuJoCo include behind an
+`if(EXISTS)` test — and `tools/fetch_third_party.sh` fetches them if you want the
+viewer. The reference renderers used for comparison (PBRT-v4, Mitsuba 3, Blender) are
+external projects expected on `PATH`.
+
+Python side: `numpy` for the analysis tools, plus `scipy` for
+`verify_wave_correction.py` and `matplotlib` for the figure scripts.
 
 ## Headline result
 
@@ -117,18 +143,13 @@ src/app/viewer_*.cpp          MuJoCo + Filament viewer from that earlier stage
 models/, blender_addon/       MJCF scene, Blender caustic injector
 tools/                        measurement + verification harnesses  -> tools/README.md
 docs/                         paper, evidence, audit, figures, media -> docs/README.md
-third_party/                  prebuilt drops, NOT committed (fetch script in tools/)
+third_party/                  prebuilt drops, NOT committed (tools/fetch_third_party.sh)
 out/                          working artefacts (gitignored); out/probes = superseded
 ```
 
-## Build
+## Reproducing the results
 
-```bash
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Release
-```
-
-The measurement and verification harnesses are Python:
+The paper's own reproduction list is **Section 11**. The core harnesses:
 
 ```bash
 python tools/verify_ray_map.py            # the independent brute-force ground truth
@@ -138,30 +159,29 @@ python tools/spmm_vs_groundtruth.py       # SPPM scored on the same axis
 python tools/analytic_caustic.py          # closed-form cylinder reference
 python tools/energy_audit.py              # Fresnel-weighted energy bookkeeping
 python tools/ensemble_study.py            # robustness across 8 wave phases
-python tools/make_paper_figures.py        # regenerate docs/figures/
-python tools/make_paper_figures_pdf.py    # the paper's vector PDF figures
-python tools/build_paper_pdf.py           # compile the CGF paper (tectonic)
-python tools/check_paper.py               # dangling refs / uncited bibliography
+python tools/make_all_figures.py          # all ten paper figures, in order
+python tools/build_paper_pdf.py           # compile the CGF paper
+python tools/check_paper.py               # dangling refs, title page, flattened files
 python tools/scan_ai_tells.py             # AI-writing tells in the manuscript
 python tools/verify_refs.py               # every citation, against Crossref
 ```
 
-The full reproduction list, including the renderer-side harnesses (PBRT-v4 SPPM,
-Mitsuba 3, Blender/Cycles) is Section 9 of the paper.
+Every tool derives the repository root from its own `__file__`, so they run from any
+working directory.
 
 ## Honest scope
 
 One scene, one machine, no laboratory ground truth — this is a **computational
 evaluation** and physical-apparatus validation is deliberately out of scope. The
-physical claim is one of *form* (finite fringes, chromatic ordering, no
-`1/√·` divergence), not absolute fringe width: for a glass this size the real fringes
-are 0.123 mm wide and a 0.53° sun blurs them away entirely, so a photograph would not
-show them however they are rendered. The GIFs and the paper therefore use the physical
-width and show no decorative fringes at all; the exaggerated renders exist only in
-`out/` and are labelled as superseded. The efficiency claim is amortised against **one
-fixed geometry family**; change the optic and the solver needs new work. Ten further
-limits are itemised in Section 7 of the paper, and three claims from our own earlier
-record are explicitly withdrawn there.
+physical claim is one of *form* (finite fringes, chromatic ordering, no `1/√·`
+divergence), not absolute fringe width: for a glass this size the real fringes are
+0.123 mm wide and a 0.53° sun blurs them away entirely, so a photograph would not show
+them however they are rendered. The GIFs and the paper therefore use the physical width
+and show no decorative fringes at all; the exaggerated renders exist only in `out/` and
+are labelled as superseded. The efficiency claim is amortised against **one fixed
+geometry family**; change the optic and the solver needs new work. Further limits are
+itemised in Section 8 of the paper, and three claims from our own earlier record are
+explicitly withdrawn there.
 
 ## History
 
@@ -171,3 +191,24 @@ google-deepmind/mujoco#3452, closed unmerged), rendered through Filament. `model
 and the `viewer_*` binaries are that stage, kept because the caustic work grew out of the
 same scene. The caustics estimator and the comparison against SPPM/Cycles/Mitsuba — the
 current work — live in `src/render/caustic.*` and `src/app/showcase_main.cpp`.
+
+## License
+
+MIT for the code, tools and figure scripts — see [`LICENSE`](LICENSE). The paper text
+(`docs/paper/**`, `docs/PAPER.md`) is a manuscript intended for journal submission and
+is governed by the venue's terms, not by the MIT grant.
+
+## Citation
+
+If you use this work, please cite the paper once it appears; the ORCID above is
+stable in the meantime.
+
+```bibtex
+@misc{chetri2026lumenfold,
+  title  = {Wave-Corrected Caustics over Photon Splatting},
+  author = {Chetri, Ankit},
+  year   = {2026},
+  note   = {ORCID 0009-0004-2672-3503},
+  url    = {https://github.com/Debyte404/LUMENFOLD}
+}
+```

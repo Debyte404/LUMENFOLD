@@ -21,3 +21,6 @@ frames/
 !docs/figures/*.png
 third_party/pbrt-v4/
 third_party/luxvenv/
+
+# editor/agent tool scratch (not part of the project)
+.commandcode/

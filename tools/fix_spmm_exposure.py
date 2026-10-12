@@ -30,6 +30,11 @@ from PIL import Image
 import os as _os
 _ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
 
+# WinGet's package root, resolved per-account instead of hardcoded.
+_WINGET_PKGS = _os.path.join(
+    _os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WinGet", "Packages"
+).replace("\\", "/") + "/"
+
 ROOT = _ROOT
 SRC = f"{ROOT}/out/gif_src"
 PBRT_DIR = f"{SRC}/spmm"
@@ -85,7 +90,7 @@ def main():
     print(f"converted {len(exrs)} frames with the single global scale")
 
     # re-encode with a palettegen-capable ffmpeg
-    cands = glob.glob(r"C:/Users/Lenovo/AppData/Local/Microsoft/WinGet/Packages/"
+    cands = glob.glob(_WINGET_PKGS +
                       r"Gyan.FFmpeg*/**/bin/ffmpeg.exe", recursive=True) + ["ffmpeg"]
     FF = next((c for c in cands if "palettegen" in subprocess.run(
         [c, "-hide_banner", "-filters"], capture_output=True, text=True).stdout), "ffmpeg")
