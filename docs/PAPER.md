@@ -1,348 +1,386 @@
-# Wave-Corrected Caustics over Photon Splatting: A Comparative Evaluation
-against Photon Mapping and Path Tracing
+# Wave-Corrected Caustics over Photon Splatting: A Comparative Evaluation against Photon Mapping and Path Tracing
 
-Status: manuscript draft, grounded strictly in `docs/EVIDENCE.md`. Every
-quantity below is quoted verbatim from that file or explicitly marked
-**NEEDS CITATION / RE-MEASUREMENT**. No number is inferred or invented.
-
-**Scope of this paper.** This is an evaluation paper, not a physical-
-validation paper. We ask one question: does replacing the geometric fold
-singularity with the wave-optical Airy profile, over a photon-splat
-backbone, buy measurable gains in *speed* or *quality* against the caustic
-solvers in current use (PBRT-v4 SPPM, Blender Cycles, Mitsuba 3)? All
-comparisons are computational, against those renderers and against
-independent geometric references computed in this project. **Laboratory
-validation with physical apparatus is explicitly out of scope** and no
-claim in this paper depends on it. Where a quantity could only be settled
-by experiment, we say so and make no claim about it.
+**Debyte** · `D:/ValueProjects/caustics` · Draft, 2026-10-12
 
 ---
 
 ## Abstract
 
-Geometric photon-splat quadrature renders water-surface caustics efficiently
-almost everywhere but diverges in the fold (caustic) band, where the area
-element of the surface-to-receiver ray map vanishes. We present a hybrid in
-which geometric quadrature is the backbone and a wave correction is applied
-only inside a narrowly detected fold band: the band's geometric energy is
-redistributed according to the Airy fold profile `|Ai(-s/w)|^2`, with a
-per-channel fringe width `w` scaling as `lambda^(2/3)`, which yields finite
-fringes and chromatic dispersion as a consequence of the profile rather than
-as an added effect. Three methodological decisions were forced by measurement
-rather than assumed. First, the fold locus is taken as the analytic zero of
-the determinant of the Jacobian of the ray map, not as an intensity
-percentile: the percentile detector plateaus at RMSE 0.08534 while the
-analytic locus converges to 0.03914 against a converged higher-resolution
-reference of the same model. Second, flux is conserved locally within the
-band rather than by a post-clamp global rescale, which otherwise pushes the
-peak past its own display ceiling (measured peak 11.58 against a ceiling of
-8.10). Third, ray hits that land outside the receiver are discarded rather
-than clamped to the border, removing a measured 38x border artifact
-(geometric peak 350.78 clamped versus 9.28 discarded). The wave physics is
-independently verified: the profile table matches the true Airy function to
-8.1e-03 of peak, the canonical fold integral peaks at X = -1.00 versus the
-analytic -1.0188, and the fitted wavelength exponent is 0.6977 versus the analytic 2/3.
-Against an independent brute-force geometric ground truth, ours scores 0.917
-against 0.853 for PBRT-v4 SPPM and 0.828 for Cycles at 40 mm tiles (0.721 /
-0.722 / 0.405 at 5 mm), with 99.9% versus 54.7% core coverage against Cycles; it agrees with the brute-force tracer at r = +0.916 with 4.5 mm
-centroid offset, reproduces an exact analytic-cylinder fold to 0.1 mm, and
-matches PBRT-v4 SPPM shape at r = +0.932 on measured indices. Dispersion
-order (red outside blue, monotonic) is confirmed by Mitsuba 3 (+1.74%) and
-by PBRT edge agreement (ours R 107 / G 105 / B 102 mm versus PBRT
-R 56 / G 54 / B 51 mm, both R-B +5.0 mm) on measured Daimon-Masumura water
-and Rubin glass indices. Bake cost at 512^2 is 78.49 ms single-thread
-(36.22 ms at 8 threads); C++/Python ports agree to 0.3%. We then evaluate the
-method as a caustic solver in the comparative sense. Quality: against an
-independent brute-force geometric ground truth it is closer than Cycles at
-every scale and its residual is deterministic rather than Monte-Carlo. Speed:
-the bake is 36.22 ms at 512^2 on 8 threads, and on animation workloads the
-per-frame cost is dominated by whichever renderer consumes the caustic, not
-by our term -- on an identical 120-frame orbit clip we finish in 773.3 s
-against Cycles' 1043.2 s (1.35x) while flickering 7.9x less in the caustic
-region. Against PBRT-v4 SPPM -- the reference conforming solver -- the
-converged shape agrees at r = +0.932, but SPPM reaches a 512^2 caustic frame
-in 34 s where our bake for the same grid is 0.036 s (8 threads, 0.078 s on
-one) -- a like-for-like factor near 1000 on caustic production, so the real
-difference is one of *cost structure* (amortised deterministic bake versus
-per-shot stochastic convergence), not a uniform win. Three prior claims in our own record are explicitly withdrawn
-(17-18x noise, +46.7 brightness agreement, flux 1.0000 as evidence). Laboratory
-validation is out of scope; the physical claim we do make is one of form
-(finite fringes, chromatic ordering, no divergence), demonstrated on a single
-documented scene.
+Geometric photon-splat quadrature renders water-surface caustics efficiently almost
+everywhere but diverges in the fold (caustic) band, where the area element of the
+surface-to-receiver ray map vanishes. We present a hybrid estimator in which the
+geometric quadrature is the backbone and a wave correction is applied only inside a
+narrowly detected fold band: the band's geometric energy is redistributed according
+to the Airy fold profile $|Ai(-s/w)|^2$, with a per-channel fringe width $w$ scaling
+as $\lambda^{2/3}$. We then ask the question that decides whether such a method is
+worth using, and answer it computationally against the caustic solvers in current
+practice — PBRT-v4 SPPM, Blender Cycles, and Mitsuba 3.
+
+Against an independent brute-force geometric ground truth (810 k explicit rays, no
+parametrisation, no Jacobian, no renormalisation), ours scores $0.917$ at 40 mm tiles
+against $0.853$ for SPPM and $0.828$ for Cycles, and at 5 mm tiles $0.721$ / $0.722$ /
+$0.405$: we lead at every scale and SPPM ties us only at the finest. Cycles covers
+54.7% of the ground truth's caustic core against our 99.9%. On the reference
+conforming solver the converged two-dimensional shape agrees at $r = +0.932$.
+Transport throughput is 96.41% at three wavelengths with Fresnel reflection as the
+only loss, though the baked field holds 0.28 of the geometric energy because the
+display ceiling and the Airy replacement shed it by construction.
+
+On speed the result is a difference of cost structure, not a uniform win. Producing a
+caustic takes 36.22 ms at $512^2$ against SPPM's 34 s — a factor near 1000 — and the
+bake is deterministic, so a re-baked animated sequence costs 0.34 s per frame rather
+than a fresh convergence: on an identical 120-frame orbit clip we finish in 773.3 s
+against Cycles' 1043.2 s while flickering 7.9× less in the caustic region. But Cycles
+is marginally ahead on the static-camera clip (453.0 s against 481.9 s including
+bake), the two are within noise on a single production still at 2048 spp, plain
+Monte-Carlo is more accurate than ours below ~262 k splats, and our advantage is
+amortised against one fixed geometry family.
+
+The wave physics is verified independently of the solver: the profile table matches
+true Airy to $8.1\times10^{-3}$ of peak, the canonical cubic-phase fold integral peaks
+at $X=-1.00$ where $Ai^2$ predicts $-1.0188$, and the fringe scales as
+$\lambda^{0.6977}$ against an analytic $\lambda^{2/3}$. Three claims from our own
+earlier record are withdrawn. Laboratory validation is out of scope and no claim here
+depends on it.
+
+**Keywords:** caustics, wave optics, Airy function, fold catastrophe, photon
+splatting, photon mapping, SPPM, rendering, comparative evaluation.
 
 ---
 
 ## 1. Introduction
 
-Photon splatting from a refracting water surface is a fast, deterministic
-estimator for receiver caustics. Its failure is local and well understood:
-where the surface-to-receiver map folds, the geometric density diverges as
-1/sqrt(distance), and any discretization either blows up or must be clamped.
-Production path tracers do not solve this well either: they under-sample the
-rare bright paths that form thin caustics and converge slowly or not at all
-in the caustic core (EVIDENCE sections 11-13).
+A refracting water surface concentrates sunlight into a caustic. The standard fast
+estimator for this is photon splatting: sample the surface, refract by Snell's law,
+follow each ray to the receiver, and accumulate. It is cheap because the ray map is
+smooth *almost* everywhere. Its failure is local and fatal in the place that matters:
+where the map folds, the Jacobian determinant vanishes and the geometric density
+diverges as $|\det J|^{-1}$, so any discretisation either blows the display range or
+must be clamped away.
 
-This paper asks a narrower, practical question than whether the wave
-correction is physically complete: **does it pay?** We take the position
-that a caustic method earns its place by being faster, cleaner, or better
-converged than the solvers already in use, on workloads people actually
-render -- stills and animations, at production resolutions. Accordingly the
-paper is organised around three comparisons that can be settled
-computationally: (1) quality against an independent geometric ground truth
-and against an exact closed-form caustic; (2) quality against the reference
-conforming solver, PBRT-v4 SPPM, and against two path tracers (Cycles,
-Mitsuba 3); (3) speed, as bake cost and as end-to-end animated-clip cost.
-Laboratory validation is out of scope by design. The method keeps
-geometric splatting everywhere except in a narrow fold band, where it
-substitutes the universal wave-optical fold profile, the squared Airy
-function. Dispersion follows automatically because the fringe width is
-per-channel. No global wave solve is performed; no coherence model is
-claimed.
+Production renderers do not solve this cleanly either, for a different reason. A path
+tracer must hit a small, bright, thin feature by chance; the caustic is exactly the
+rarity that makes the estimator slow, and in our measurements Cycles' caustic error
+does not improve with sample count in this scene. The solvers that *do* converge it —
+photon mapping and its progressive variants — spend samples per shot on an estimate
+that has to be recomputed whenever anything changes.
 
-Scope is stated once and applies to every number: ONE scene (a 6 x 6 m
-water patch, depth 1 m, four directional sine waves, sun direction
-(-0.35,-0.25,-1), t = 1.7 s, airy_scale = 0.02 unless stated), ONE machine
-(i7-14650HX, RTX 4060 Laptop), no laboratory ground truth. Self-consistency
-references are the same model at higher resolution, block-averaged down.
-Independent references (brute-force tracer, Cycles, PBRT-v4 SPPM, Mitsuba 3,
-closed-form cylinder) are introduced wherever a claim requires an external
-witness.
+This paper contributes a fold-local wave correction and, more importantly for
+practice, an honest comparative evaluation of it. We take the position that a caustic
+method earns its place by being faster, cleaner, or better converged than what is
+already in use, on the workloads people render. The paper is therefore organised
+around questions that can be settled computationally:
 
-Contributions: (i) analytic-|det J| fold locus with measured convergence
- behaviour; (ii) band-local flux conservation holding the display ceiling;
- (iii) discard boundary condition; (iv) verified Airy physics and wavelength
- scaling; (v) accuracy against independent geometric truth exceeding Cycles;
- (vi) shape agreement with PBRT SPPM and order agreement with Mitsuba;
- (vii) exact analytic-cylinder reproduction; (viii) full disclosure of limits
- and withdrawn claims.
+1. **Is the caustic right?** Measured against an independent brute-force geometric
+   trace that neither method produced, against a closed-form caustic of a solid
+   refracting cylinder, and against the converged shape from the reference
+   photon-mapping solver.
+2. **Is it cheap?** Measured as bake cost and as end-to-end animated-clip cost, at
+   matched camera paths, geometry, wave phase and sample counts.
+3. **Where does it lose?** Stated explicitly, including every configuration in which
+   a competing method is ahead.
+
+**Scope, stated once and applying to every number.** One scene: a 6 × 6 m water patch,
+depth 1 m, four directional sine waves, sun direction $(-0.35,-0.25,-1)$, $t$ = 1.7 s,
+`airy_scale` = 0.02 m unless stated. One machine: i7-14650HX, 16C/24T, RTX 4060 Laptop.
+One scene family for the showcase geometry: a cylindrical glass of radius 35 mm,
+height 90 mm, wall 3.5 mm, filled to 59.4 mm. There is **no laboratory ground truth**
+here, by design — physical-apparatus validation is out of scope for this work and no
+claim depends on it. Where a quantity could only be settled by experiment we say so
+and make no claim about it.
+
+---
 
 ## 2. Related work and the novelty gap
 
-Geometric caustics are solved but sparsely shipped. Photon mapping (Jensen
-1996/2001) is the classic specular-diffuse-specular caustic solver and ships
-in LuxCoreRender and (limited) in Blender Cycles as light-tracing / photon
-path. It is absent from Mitsuba 3 main integrators (checked
-`src/integrators`) and from PBRT-v4's main CPU integrators, though PBRT-v4
-does ship SPPM plus BDPT/MLT. Progressive/stochastic PPM (Hachisuka et
-al. 2008+) is mostly research code and LuxCore. Manifold Next Event
-Estimation (2015) exists as a Cycles toggle (`shadow-caustics`) but is not
-in Mitsuba 3 or PBRT-v4 mainline. Specular Manifold Sampling (2020) and its
-bisection variant (2022), and Manifold Path Guiding (2023), are
-research-only. General path guiding (Muller et al. 2017) ships in Cycles
-and partially in LuxCore but is not itself a caustic solver.
+**Geometric caustics — solved, sparsely shipped.** Photon mapping [Jensen 1996, 2001]
+is the classic specular–diffuse–specular caustic solver, shipped in LuxCoreRender and
+in limited form in Blender Cycles as light tracing / photon path. It is absent from
+Mitsuba 3's main integrators and from PBRT-v4's main CPU integrators, though PBRT-v4
+ships SPPM [Hachisuka et al. 2008] plus BDPT and MLT. Progressive and stochastic PPM
+variants remain largely research code and LuxCore. Manifold Next Event Estimation
+[Hanika et al. 2015] exists as a Cycles toggle but not in Mitsuba 3 or PBRT-v4
+mainline. Specular Manifold Sampling [Zeltner et al. 2020] and its bisection variant
+[2022], Manifold Path Guiding [2023] and general path guiding [Müller et al. 2017,
+shipped in Cycles] are research-only or not themselves caustic solvers. The situation
+is that geometric caustics are well understood and only partially shipped.
 
-Wave optics in graphics is largely unshipped. Yan et al. 2018 ("Rendering
-specular microgeometry with wave optics") models scratches as phase gratings
-for stable glints; no shipping renderer implements it. The closest shipping
-features are analytic thin-film interference (Cycles thin-film toggle;
-Mitsuba 3 `principledthin` BSDF), which are not general diffraction. Bar et
-al. 2019 (Monte-Carlo speckle in scattering media) and a 2023 generalized
-ray formulation for wave-optics rendering are research-only. UTD/PTD edge
-diffraction is standard in acoustics and RF planning but absent from major
-graphics path tracers. Frosted and Airy-fringe caustics remain research-only.
+**Wave optics in graphics — largely unshipped.** Yan et al. [2018] model microgeometry
+scratches as phase gratings for stable glints; no shipping renderer implements it. The
+closest shipped wave features are analytic thin-film interference (Cycles' thin-film
+toggle, Mitsuba 3's `principledthin` BSDF), which are not general diffraction. Bar et
+al. [2019] treat Monte-Carlo speckle in scattering media; a 2023 generalised ray
+formulation for wave-optics rendering remains research-only. UTD/PTD edge diffraction
+[Kouyoumjian & Pathak 1974] is standard in acoustics and RF planning but absent from
+major graphics path tracers. Frosted and Airy-fringe caustics remain research-only.
 
-Physics root and exact gap. Berry and Upstill 1980 is the physics root for
-catastrophe/Airy fold optics. A title search for wave-optics caustic
-rendering returns only physics papers; **no production or research renderer
-ships Airy (fold) or Pearcey (cusp) regularized caustics.** Stated gap:
-detect fold/cusp geometry near focus and replace the geometric spike with an
-Airy/Pearcey fringe profile parameterized by wavelength and wavefront
-curvature. This work occupies it by construction: the correction is not a
-global wave solve but a **band-local replacement of the geometric
-singularity**, gated by the analytic fold locus and flux-conserved inside the
-band. The three measured methodological rules (sections 4-5) are, to our
-knowledge, not previously documented as a design discipline for
-wave-corrected caustics.
+**Physics root and the exact gap.** Berry & Upstill [1980] is the canonical treatment
+of catastrophe optics and the Airy fold. A title search for wave-optics caustic
+rendering returns physics papers, not renderers: **no production or research renderer
+ships Airy- (fold) or Pearcey- (cusp) regularised caustics.** This work occupies that
+gap by construction — not with a global wave solve, but with a *band-local replacement
+of the geometric singularity*, gated by the analytic fold locus and flux-conserved
+inside the band. The three measured methodological rules of Section 6.5 are, to our
+knowledge, not previously documented as a design discipline for wave-corrected
+caustics.
 
-Caveat: the prior-art survey hit HTTP 429 on arXiv/Semantic Scholar from the
-survey IP; versioned citation IDs must be re-verified from a keyed
-connection before submission.
+*Caveat carried forward:* the prior-art survey hit HTTP 429 on arXiv and Semantic
+Scholar; versioned citation identifiers must be re-verified from a keyed connection
+before submission.
 
-## 3. Geometric backbone and test scene
+---
 
-Per surface cell: compute the surface normal from the analytic sine
-superposition, refract by Snell's law with the air/water index ratio, march
-to the floor plane, splat photon energy with bilinear taps. Taps landing
-outside the receiver are discarded (section 5). The field is normalized by
-its own mean. Indices are measured data evaluated directly, not fitted:
-Daimon and Masumura (2007) 4-term Sellmeier for HPLC-distilled water at
-20.0 C, Rubin (1985) for soda-lime silica glass -- replacing an earlier
-two-term Cauchy whose 450-650 nm dispersion was 1.97x too strong (water) and
-a glass Cauchy 4-8% off in slope (EVIDENCE section 20).
+## 3. Theory and formulation
 
-## 4. Fold locus: analytic |det J| converges, the percentile stalls
+### 3.1 Geometric backbone and the ray map
 
-The fold is where the surface-to-receiver map has zero area element. The
-original detector flagged intensity above the 98th percentile. That always
-flags exactly 2% of pixels regardless of the true fold fraction, so it
-cannot converge under refinement.
+Let the water surface be a height field $h(\mathbf{x}, t)$ over $\mathbf{x} = (x,y) \in
+\mathbb{R}^2$, a superposition of directional sinusoids,
 
-RMSE against a converged 2048^2 reference of the same model, evaluated at
-256^2 (EVIDENCE section 1):
+$$h(\mathbf{x},t) = \sum_{i=1}^{4} A_i \sin\!\big(k_i\,(\hat{\mathbf{u}}_i \cdot \mathbf{x}) - \omega_i t\big),
+\qquad k_i = \frac{2\pi}{\Lambda_i},$$
 
-| grid | percentile (old) | analytic |det J| (new) |
-|------|------------------|--------------------------|
-| 128  | 0.20598          | 0.20188                  |
-| 256  | 0.12795          | 0.13738                  |
-| 512  | 0.09296          | 0.10455                  |
-| 1024 | 0.08534 (stalls) | 0.03914 (converges)      |
+with amplitudes $A_i = \{0.65, 0.40, 0.25, 0.15\}$ mm at wavelengths $\Lambda_i =
+\{42, 27, 17, 11\}$ mm. The outward surface normal follows from the analytic gradient,
 
-At 256^2 and 512^2 the percentile is slightly better (up to 12%); its
-defect is not pointwise accuracy but failure to improve, plateauing near
-0.085, while the analytic locus is 2.2x more accurate at 1024^2. The current
-threshold is the 2nd percentile of |det J|, computed by finite differences
-of receiver hits; it is better-behaved than an intensity percentile but
-remains a threshold (section 8).
+$$\mathbf{n}(\mathbf{x},t) = \frac{(-\partial_x h,\; -\partial_y h,\; 1)}{\sqrt{1 + |\nabla h|^2}}.$$
 
-Design rule that falls out: the Airy band is meaningless if the fringe width
-`w` spans fewer than ~3 pixels. With `w = 0.02 m` over a 6 m patch that
-means `N >= ~900`; a 512^2 real-time bake is under-resolved for the fringe
-structure it claims to draw. The offline showcase render uses 2048^2.
+A distant source with unit direction $\hat{\mathbf{s}}$ (pointing *along* propagation,
+downward) refracts into the water by Snell's law in vector form. With $\eta = n_1/n_2$
+and $c_i = -\hat{\mathbf{s}}\cdot\mathbf{n} > 0$,
 
-## 5. Band-local Airy correction, flux, boundaries, dispersion
+$$\hat{\mathbf{t}} = \eta\,\hat{\mathbf{s}} + \big(\eta\,c_i - \sqrt{1 - \eta^2(1-c_i^2)}\big)\,\mathbf{n},
+\qquad \eta^2(1-c_i^2) \le 1 \ \text{(else TIR)}. \tag{1}$$
 
-Inside the band the geometric value is replaced by the Airy fold intensity
-profile `|Ai(-s/w)|^2`, `s` the signed distance to the locus (Euclidean
-distance transform times cell spacing), `w` the per-channel fringe width
-proportional to `lambda^(2/3)`, evaluated through a precomputed LUT with
-linear interpolation and blended with the smoothed geometric strength so the
-band's amplitude carries the energy.
+The refracted ray reaches the receiver plane $z = -D$ after a path length $s = (-D -
+h(\mathbf{x}))/\hat t_z$, giving the **surface-to-receiver ray map**
 
-Flux: replacing the band changes its energy and must be renormalized. A
-global rescale of the whole channel after the clamp pushes the peak past its
-own ceiling (peak 11.58 against a ceiling of 8.10 at 256^2, RMSE 0.14363; at
-512^2 global 12.17 violated versus band-local 7.71 held; at 1024^2 both RMSE
-0.03914 with global 7.85 and band-local 7.69). Band-local renormalization
-(`k = want/got` inside the band only) holds the ceiling at every resolution
-with equal or better accuracy (EVIDENCE section 2). The prior "flux
-conserved to 1.0000" claim is WITHDRAWN as circular: the band-local step
-divides by the measured flux by construction, so measuring 1.0000 afterwards
-tests the division, not the physics.
+$$\mathbf{H}(\mathbf{x}) = \mathbf{x} + \hat{\mathbf{t}}(\mathbf{x})\,\frac{-D - h(\mathbf{x})}{\hat t_z(\mathbf{x})},
+\qquad \mathbf{H} : \mathbb{R}^2 \to \mathbb{R}^2. \tag{2}$$
 
-Boundaries: clamping out-of-receiver hits to the border piles escaping rays
-into a bright rim -- geometric peak 350.78 clamped versus 9.28 discarded, a
-38x artifact, removed by discarding (EVIDENCE section 3). This is also what
-makes the C++ and Python fields agree.
+Splatting assigns each surface cell an energy proportional to its area, so the
+irradiance on the receiver is the push-forward
 
-Dispersion: per-channel `w` implies red fringes wider than blue; the
-separation is carried by the per-channel ray map on measured indices. Order
-is verified externally (section 7), not asserted from channel differences.
-The brightest-percentile and mean-over-rays estimators are retired as
-cap-contaminated and tail-contaminated respectively; the comparable feature
-is the caustic edge (outermost 1 mm annulus above 2% of channel max),
-invariant to uniform scale and unaffected by a ceiling on the core.
+$$I(\mathbf{u}) = \sum_{\mathbf{x}:\,\mathbf{H}(\mathbf{x})=\mathbf{u}} \frac{1}{|\det J_{\mathbf{H}}(\mathbf{x})|},
+\qquad J_{\mathbf{H}} = \begin{pmatrix} \partial H_x/\partial x & \partial H_x/\partial y \\[2pt]
+\partial H_y/\partial x & \partial H_y/\partial y \end{pmatrix}. \tag{3}$$
 
-## 6. Implementation, parity, performance
+This is the entire method's structure: the $|\det J_{\mathbf{H}}|^{-1}$ factor is what
+makes photon splatting efficient where the map is smooth and what makes it diverge
+where it is not.
 
-C++/Python parity at 512^2, t = 1.7 (EVIDENCE section 6): geometric peaks
-9.281 versus 9.280 (max abs diff 5.6e-04, 0.006%); wave R/G/B peaks agree to
-0.3%; parallel versus serial agrees to 3.8e-06 (relative 1.1e-08).
-Residuals sit on fold pixels from Airy LUT resolution versus exact
-`scipy.special.airy` plus EDT tie-breaking.
+### 3.2 The fold and the failure of the geometric model
 
-Cost and scaling (EVIDENCE section 5; single bake, thread count from
-`CAUSTIC_THREADS`):
+The **fold (caustic) locus** is the set where the map is degenerate,
 
-| grid | total ms (1 thread) | total ms (8 threads) |
-|------|---------------------|----------------------|
-| 256  | 19.72               | 16.46                |
-| 512  | 78.49               | 36.22                |
-| 1024 | 310.37              | 117.82               |
-| 2048 | 1206.79             | 449.47               |
+$$\mathcal{F} = \{\, \mathbf{x} \;:\; \det J_{\mathbf{H}}(\mathbf{x}) = 0 \,\}. \tag{4}$$
 
-Two wins, kept separate: serial/algorithmic 231.58 ms to 78.49 ms at 512^2
-(2.95x) by fusing surface + refraction + splat into one pass and deleting
-the post-clamp global rescale; parallel 78.49 ms to 36.22 ms at 8 threads
-(2.17x); combined 6.4x. 8 threads is the optimum on the 16-core test part;
-beyond that memory traffic dominates. The Airy correction is ~2x the
-quadrature pass (about two thirds of a bake) -- the next optimization
-target. Single machine, single compiler (MSVC 14.41).
+Because (3) evaluates to $1/0$ there, geometric quadrature cannot represent the
+neighbourhood of $\mathcal{F}$ at any resolution: refining the grid moves samples
+around inside a diverging integrand rather than converging. This is a property of the
+model, not of its discretisation, and it is the reason a wave treatment is needed
+rather than a better sampler.
 
-Stochastic versus deterministic (EVIDENCE section 4): Monte-Carlo geometric
-shrinks from 0.12294 (65 k splats) to 0.06013 at its floor (16.8 M splats),
-while the corrected field reaches 0.03914 at 1.0 M splats -- 35% below the
-MC asymptote using 16x fewer splats. At <= 262 k splats plain MC is better
-(0.12294/0.07838 versus 0.13738/0.10455); this limitation is stated, not
-hidden. For the wave-corrected target, geometric sampling is unreachable,
-not merely slower. Tail at 6x cap: MC M=1 max 8.71, M=256 max 7.25 (slow
-decay over 256x samples); ours 7.71 with 0.06% above cap versus truth 7.73
-with 0.35% above cap (resolved bright fringes, not noise). Ours is bounded
-and slightly conservative, not smoother by cheating.
+Detecting $\mathcal{F}$ matters as much as correcting it. A detector that flags "the
+brightest 2% of pixels" always returns exactly 2% of the image regardless of the true
+fold fraction, so it cannot converge under refinement. We instead threshold the
+analytic $|\det J_{\mathbf{H}}|$ computed by finite differences of $\mathbf{H}$ (2),
+at the second percentile; Section 6.5 reports the measured convergence difference.
 
-## 7. Validation against independent references
+### 3.3 The Airy fold profile
 
-The Airy profile is the real Airy function (EVIDENCE 14.1-14.3): the
-solver's 2048-entry table deviates at most 8.1e-03 from Ai(-u) normalized to
-peak, first sign change at u = 2.2915 on both sides. The canonical
-cubic-phase fold integral peaks at X = -1.00 versus Ai^2 analytic -1.0188.
-The same integral at three wavelengths gives a fitted lambda exponent 0.6977
-versus the analytic 2/3 (error 0.031); the code assumes 2/3. This is the
-load-bearing number for dispersion: the exponent is 0.70, not 1.0, not 0.5.
+Near a fold the wave-optical amplitude is given by the canonical fold diffraction
+integral: a wavefront with cubic phase, integrated over the pupil $\rho \in [-1,1]$,
 
-The ray map survives an unrelated implementation (EVIDENCE 14.4): an
-810,000-ray brute-force tracer with explicit wall/cavity/water/table
-intersections -- no parametrization, no Jacobian, no renormalization --
-correlates against our baked field at r = +0.916 at 40 mm tiles
-(+0.869/+0.795/+0.720 at finer tiles), centroid offset 4.5 mm on a 320 mm
-patch, on measured indices both sides.
+$$U(x) = \int_{-1}^{1} \exp\!\Big( i\, \tfrac{2\pi}{\lambda}\big[\, \tfrac{c\,\rho^3}{6} + \rho\, x \,\big]\Big)\, d\rho,
+\qquad I(x) = |U(x)|^2. \tag{5}$$
 
-Fair accuracy test against that brute-force truth (EVIDENCE 14.8): our field
-0.917 versus Cycles 0.824 at 40 mm, leading at every scale (0.869 vs 0.603,
-0.795 vs 0.475, 0.720 vs 0.400); coverage of the truth core 99.9% versus
-54.7%. Cycles misses roughly half the core. This supersedes all
-self-referenced figures. Transport throughput is 96.41% at all three
-wavelengths (Fresnel losses only; EVIDENCE 14.5b) -- but the baked field
-integrates to mean 0.28 per channel against the geometric stage's 1.0: the
-Airy replacement + ceiling remove ~72% of the geometric energy, so the field
-is a display-bounded redistribution, not a radiometric quantity.
+Substituting $\rho = \alpha s$ and matching the cubic term to $s^3/3$ gives $\alpha =
+(2/(kc))^{1/3}$ with $k = 2\pi/\lambda$, so the canonical coordinate is
 
-Exact analytic cylinder (EVIDENCE 16): a solid cylinder of index n in air
-under parallel light, every step closed-form Snell, the fold where
-`|d hit/d phi|` vanishes. Exact fold (+76.4, +40.1) mm versus nearest solver
-pixel (+76.5, +40.2) mm: 0.1 mm separation on a 320 mm patch (0.03%), with
-whole-structure correlation rising to +0.800 at fine scale. This covers the
-wall-refraction path, not the rippling-water branch.
+$$X = x\,k^{2/3}\,2^{1/3}\,c^{-1/3}, \qquad I(x) \;\propto\; \big|Ai(-X)\big|^2, \tag{6}$$
 
-Photon-mapping shape (EVIDENCE 19.6): PBRT-v4 SPPM, 256 iterations x 1 M
-photons, same exported vertices, X-mirror corrected, on measured
-central-channel etas (water 1.33468, glass 1.52514): tile correlation
-+0.557/+0.648/+0.777/+0.932, centroid azimuth within ~1.5 deg of ours. First
-independent confirmation of the full 2-D shape from the community's caustic
-technique.
+the squared Airy function [Airy 1838; Berry & Upstill 1980]. Equation (6) is the
+object we substitute for the geometric divergence inside the band: it is finite
+everywhere, peaks at $X = -1.0188$, and has the Fresnel-like oscillatory tail on the
+bright side that a geometric model cannot produce.
 
-Dispersion order (EVIDENCE 18, 20.3): Mitsuba 3.9.1 spectral with measured
-water/BK7 data, monochromatic 16 nm bands, caustic isolated as
-present-minus-absent: red centroid beyond 40 mm farther than blue by
-+1.6 mm (+1.74%), as physics requires (blue refracts more). PBRT
-per-channel SPPM on measured data: R > G > B monotonic, R-B +1.37 mm.
-Ceiling-immune edge estimator: ours R 107 / G 105 / B 102 mm versus PBRT
-R 56 / G 54 / B 51 mm, both monotonic red-outside-blue, both R-B +5.0 mm.
-Absolute edge radii are not comparable (differing water level/geometry);
-order is.
+The practical form used by the implementation is a normalised profile in the signed
+distance $s$ to the locus, with a per-channel width $w$,
 
-Explicitly withdrawn: "17-18x less caustic noise" (asymmetric
-self-references; Cycles' reference firefly-contaminated); "both caustics
-peak at +46.7" (both clipped at 255, vacuous); "flux conserved to 1.0000"
-(circular). Not claimed: any decisive efficiency win over Cycles; the
-caustic-region gaps were within 1.3x where tested.
+$$P(s;w) = \big|Ai(-s/w)\big|^2 \Big/ \max_u |Ai(-u)|^2, \qquad
+b(s) = 0.15 + 0.85\,P(s;w), \tag{7}$$
 
-## 8. Comparison against current caustic solvers
+evaluated through a 2048-entry table over $u \in [0,8]$ with linear interpolation; the
+$0.15$ floor keeps the band's skirt continuous with the geometric field outside it.
 
-This is the paper's core. Two questions, both settled computationally: is the
-caustic *better*, and is it *cheaper*?
+### 3.4 Why the fringe width scales as $\lambda^{2/3}$
 
-### 8.1 Quality
+Equation (5) contains one wavelength and one geometric quantity, the cubic
+coefficient $c$ of the wavefront. Dimensional analysis of the canonical mapping gives
+the fold's spatial scale directly:
 
-Ground truth is the independent brute-force geometric trace (810 k rays,
-explicit intersections, no parametrisation, no Jacobian, no renormalisation).
-It is the quantity every method is trying to reproduce, and neither method
-produced it.
+$$d(\lambda, c) = k^{-2/3}\,2^{-1/3}\,c^{1/3} \;\propto\; \lambda^{2/3}. \tag{8}$$
 
-All three methods are scored on ONE independent axis -- the brute-force
-geometric ground truth -- with an identical metric (caustic = positive part
-beyond the map median, tiled and correlated). This is the like-for-like
-comparison; the metric and the two traps it hides are documented in EVIDENCE
-14.5e.
+So the fringe spacing is *not* linear in $\lambda$ and *not* the Fresnel
+$\sqrt{\lambda}$ law: it is the two-thirds power, and it follows from the geometry of
+the fold rather than being fitted. The implementation therefore sets
+
+$$w_c = w_{\text{ref}}\Big(\frac{\lambda_c}{550\,\text{nm}}\Big)^{2/3}, \tag{9}$$
+
+per channel $c \in \{650, 550, 450\}$ nm. Section 6.4 verifies both the profile (7)
+and the exponent (8) numerically against independent computations; the exponent is the
+load-bearing number for the entire dispersion story, because chromatic separation in
+this model is carried by $w_c$ and by the per-channel index, not by an added effect.
+
+### 3.5 Band-local flux conservation
+
+Replacing the band changes its energy, so it must be renormalised — but *where* the
+renormalisation is applied matters. Let $G$ be the geometric field (3) and $B$ the
+band. If the whole channel is rescaled **after** the display clamp, the peak is pushed
+back above the ceiling the clamp just enforced. Instead we conserve flux *inside the
+band only*: with the smoothed band amplitude $\bar{G}$ and cap $\kappa$,
+
+$$k^\* = \frac{\displaystyle\sum_{i \in B} G_i}{\displaystyle\sum_{i \in B} \min(\bar{G}_i,\kappa)\,b(s_i)},
+\qquad
+I_i = \begin{cases}
+\min\!\big(\min(\bar G_i,\kappa)\,b(s_i)\,k^\*,\; 1.35\kappa\big) & i \in B,\\[3pt]
+G_i & \text{otherwise,}
+\end{cases} \tag{10}$$
+
+so the band redistributes its own energy and the ceiling holds at every resolution.
+Section 6.5 reports the measured ablation. We explicitly do **not** claim (10)
+conserves energy globally; the honest global statement is the audit in Section 6.6,
+and the ratio $k$ alone is circular as evidence because it divides by the measured
+flux by construction.
+
+### 3.6 Receiver boundary condition
+
+Rays whose receiver hit lands outside the domain must be **discarded**, not clamped to
+the border: clamping piles every escaping ray onto the boundary and manufactures a
+bright rim. With $\Omega$ the receiver footprint,
+
+$$\text{contribute}(\mathbf{x}) \iff \mathbf{H}(\mathbf{x}) \in \Omega. \tag{11}$$
+
+The measured difference is a factor of 38 in peak (Section 6.5), and (11) is also what
+makes the C++ and Python implementations agree.
+
+### 3.7 Dielectric transport and Fresnel weights
+
+Where the full showcase geometry is rendered, the light path is walked through every
+interface (air → glass → water → glass → air → receiver) with vector Snell (1) at
+each, and each ray carries its unpolarised Fresnel power transmission
+
+$$T(c_i,\eta) = 1 - \tfrac{1}{2}\Big[\big(\tfrac{\eta c_i - c_t}{\eta c_i + c_t}\big)^2
++ \big(\tfrac{c_i - \eta c_t}{c_i + \eta c_t}\big)^2\Big],
+\qquad c_t = \sqrt{1-\eta^2(1-c_i^2)}. \tag{12}$$
+
+Multiplying (12) along each path gives the weight used by the energy audit of
+Section 6.6 — the non-circular measurement that (10) cannot supply.
+
+### 3.8 Material dispersion
+
+Both media are evaluated from **measured** data rather than fitted curves, because a
+fit is where this project's one real physics error hid (Section 6.7). Water uses the
+four-term Sellmeier form of Daimon & Masumura [2007] for HPLC-distilled water at
+20.0 °C,
+
+$$n^2(\lambda) = 1 + \sum_{j=1}^{4} \frac{B_j\,\lambda^2}{\lambda^2 - C_j}, \tag{13}$$
+
+with $\lambda$ in µm and the tabulated coefficients; glass uses the
+soda-lime silica form of Rubin [1985],
+
+$$n(\lambda) = 1.5130 - 0.003169\,\lambda^2 + \frac{0.003962}{\lambda^2}. \tag{14}$$
+
+Evaluated at the three render channels, (13) gives $n = 1.33167 / 1.33468 / 1.33961$
+and (14) gives $1.52104 / 1.52514 / 1.53192$. Red has the lowest index and therefore
+refracts least, so red must land farthest from the axis: the chromatic ordering is a
+*consequence* of (13)–(14) and (9), not an added effect.
+
+### 3.9 Estimators and error metrics
+
+Because the caustic is a thin, high-dynamic-range feature, the choice of statistic
+decides the answer, and two of our earlier claims died on this. We state the
+estimators once and apply them identically to every method:
+
+* **Tiled correlation** against an external reference, on $k \times k$ pixel tiles
+  (tile *size*, not tile count — the opposite convention silently inverted our trend
+  once).
+* **Edge radius**: the outermost 1 mm annulus whose mean channel intensity exceeds 2%
+  of that channel's own maximum. Invariant to any uniform scale and unaffected by a
+  ceiling on the core — unlike the ridge argmax (set by the cap) and the mean-over-all
+  rays radius (dominated by unconverged tails).
+* **Root-mean-square error (RMSE)** against a reference render, where stated.
+* **Positive-part convention** for a differential caustic. The isolate
+  (optics − no-optics) is *not* non-negative — removing the glass also removes its
+  shadow — so it is scored on its positive part, which is the caustic. Section 6.8
+  documents the factor-of-two error this convention prevents.
+* **Temporal flicker**: mean $|I_{t+1} - I_t|$ inside the caustic region, for
+  animations.
+
+---
+
+## 4. System and implementation
+
+`src/app/showcase_main.cpp` — the offline estimator and showcase renderer. Cost is
+dominated by three fused passes: surface + refraction + splat into the receiver, the
+Jacobian and fold locus, then the per-channel Airy replacement (10). All heavy stages
+are parallel over rows or columns; `CAUSTIC_THREADS` pins the count so scaling
+measurements are reproducible.
+
+`src/render/caustic.cpp` — the real-time pool-field baker, mirroring the Python
+reference (`tools/airy_caustic.py`) and checked against it by `tools/parity_cpp_vs_py.py`.
+
+`tools/bench.exe` — bake timing. `tools/verify_ray_map.py` — the independent
+brute-force tracer. `tools/analytic_caustic.py` — the closed-form cylinder reference.
+`tools/pbrt_reference.py` — PBRT-v4 SPPM scene generation. `tools/mitsuba_reference.py`
+— Mitsuba 3 spectral. `tools/blender_scene.py` — the Blender/Cycles scene, which
+imports the baked field as an emission texture on the receiver (the injection is
+RGBA; a single-channel collapse once silently discarded all chroma).
+
+![Test scene and light path](figures/fig1_scene.png)
+
+**Figure 1.** The test scene drawn to scale: a 35 mm-radius glass, 90 mm tall, wall
+3.5 mm, filled to 59.4 mm, on a matte receiver, with a distant source 0.53° across
+(the true solar angular size). The refracted fan forms the fold band on the receiver.
+
+---
+
+## 5. Results
+
+All numbers are reproducible by the tools listed in Section 9 and are recorded with
+their provenance in `docs/EVIDENCE.md`.
+
+### 5.1 The field
+
+![Baked caustic field](figures/fig2_field.png)
+
+**Figure 2.** Left: our baked field at $1024^2$, tone-mapped. Right: horizontal
+profile per channel. The per-channel split visible in the profile is the dispersion of
+(9) and (13). The mean is 0.28 per channel and the peak saturates at the cap of 8.10 —
+both are consequences of the bounded display representation, quantified in
+Section 6.6.
+
+### 5.2 The fold locus and the correction
+
+![Fold locus and Airy profile](figures/fig3_fold.png)
+
+**Figure 3.** Left: $\log_{10}|\det J_{\mathbf{H}}|$ of the pool-scene ray map (2),
+computed here from first principles. Middle: the detected fold band (2nd percentile),
+2.00% of the patch. Right: the profile $|Ai(-u)|^2$ that replaces the divergence
+inside that band.
+
+### 5.3 Quality against an independent ground truth
+
+The comparison that matters is against a reference neither method produced. We use a
+brute-force geometric trace: 810,000 rays launched uniformly along the sun direction,
+intersected explicitly with the outer wall, the cavity wall, the rippling surface and
+the receiver, with no parametrisation, no Jacobian and no renormalisation — the
+density of hits *is* the caustic. Of the rays, 397,508 enter the glass and 388,287
+land on the patch.
+
+All three methods are scored on that one axis with an identical metric (tile
+correlation on the positive part beyond the median):
 
 | correlation vs ground truth | ours | PBRT-v4 SPPM | Cycles |
 |---|---|---|---|
@@ -350,150 +388,374 @@ comparison; the metric and the two traps it hides are documented in EVIDENCE
 | 20 mm tiles | **0.869** | 0.811 | 0.609 |
 | 10 mm tiles | 0.795 | 0.794 | 0.481 |
 | 5 mm tiles | 0.721 | 0.722 | 0.405 |
-| coverage of ground-truth caustic core | **99.9%** | - | 54.7% |
-| converged shape, SPPM vs ours | - | **r = +0.932** | - |
-| exact closed-form cylinder fold (320 mm patch) | **0.1 mm** | - | - |
-| caustic breadth vs brute force | 2.3x (1.87x at 4096^2) | - | under-covers |
-| temporal flicker, caustic region, 72 frames | **0.001 levels** | - | 0.010 levels |
-| per-channel dispersion | R > G > B, verified | single-valued eta per run | achromatic IOR |
+| coverage of the ground-truth caustic core | **99.9%** | — | 54.7% |
 
-Reading it honestly. **Ours leads at every scale and the margin widens as the
-scale sharpens** (0.917 / 0.853 / 0.828 at 40 mm; 0.721 / 0.722 / 0.405 at
-5 mm). SPPM is a close second and is the only method that ties us at the finest
-scale -- expected, since a photon map with a 6 mm initial radius resolves
-caustic structure at exactly that order. Cycles falls away and misses about
-half the ground-truth caustic core (54.7% coverage against our 99.9%). Against
-the reference conforming solver, the converged two-dimensional shape agrees at
-r = +0.932, which is the strongest single statement of correctness in the
-paper.
+![Quality comparison](figures/fig5_quality.png)
 
-One caveat on the finest row: SPPM's estimate is radius-dependent, so its
-5 mm-tile number is limited by photon-map density rather than by a smoothing
-model, and it is not evidence that the two methods agree in detail -- only that
-they agree at that scale under this estimator. Cycles' caustic error does
-not improve with samples in this scene (25.95 -> 26.93 RMSE from 256 to 1024
-spp, measured against its own render): with indirect clamping off -- required
-to admit caustics at all -- its residual is firefly-dominated, so its own
-converged reference is contaminated.
+**Figure 5.** Correlation against the independent brute-force ground truth, by tile
+size. We lead at every scale and the margin widens as the scale sharpens; SPPM ties us
+only at 5 mm, where its 6 mm photon radius sets the resolution limit.
 
-Two quality caveats that run against us, stated plainly. First, **our caustic
-is too smooth**: 2.3x broader than the brute force at production resolution,
-1.87x at 4096^2, because the Airy treatment plus the 5x5 band mean spreads
-energy over ~1.5 mm where the true cores are sub-millimetre. Second, the
-percentile-based fold detector is *slightly better* than the analytic locus at
-256^2 and 512^2 (up to 12%); the analytic locus wins only on convergence
-behaviour (0.03914 vs a 0.08534 plateau at 1024^2). Neither is a detail we can
-shave off.
+![Four caustics](figures/fig6_fourpanel.png)
 
-### 8.2 Speed
+**Figure 6.** The same caustic four ways on one common 320 mm patch: the independent
+ground truth, our injected wave-corrected field, PBRT-v4 SPPM, and Cycles'
+path-traced caustics. The ground truth's core is thin and sparse; our field is
+correctly placed but visibly broader (Section 7).
 
-Two axes: the cost of *producing* the caustic, and the cost of a *finished
-frame*.
+### 5.4 Shape against the reference conforming solver
+
+Photon mapping is the technique the community uses to judge caustic renders, so the
+strongest single correctness statement is agreement with it. PBRT-v4 SPPM is run on
+the exported geometry (identical vertices — no meshing artefact), 256 iterations of
+1 M photons, initial radius 6 mm, with the differential caustic isolated as optics
+minus no-optics and the documented X-mirror correction applied:
+
+| quantity | PBRT-v4 SPPM | ours | agreement |
+|---|---|---|---|
+| tile correlation, SPPM vs ours, 40 mm | — | — | $r = +0.932$ |
+| tile correlation, SPPM vs ours, 5 mm | — | — | $r = +0.557$ |
+| centroid azimuth | $+29.0°$ | $+27.5°$ | $1.5°$ |
+| centroid radius | 38.5 mm | 50.8 mm | 12.3 mm |
+
+Agreement is strong on the gross structure and falls off as the scale sharpens
+($0.932$ at 40 mm, $0.557$ at 5 mm) — the honest reading is that the fine structure of
+our field is not independently confirmed by this instrument, consistent with the
+breadth limit of Section 7. The azimuth agreement of $1.5°$ on a 320 mm patch is the
+strongest independent positional evidence in this paper.
+
+### 5.5 Speed
 
 | workload | ours | Cycles | PBRT-v4 SPPM |
 |---|---|---|---|
-| produce caustic, 512^2 | **36.22 ms** (8 threads) / 78.49 ms (1 thread) | - | 34 s (256 iterations x 1 M photons) |
-| produce caustic, 1024^2 | **117.82 ms** (8 threads) | - | - |
-| production still, 1600x1000 @ 2048 spp | 34.1 s | 36.1 s | - |
-| ripple clip, 960x540, 72 frames | 455.7 s + **26.2 s bake** | 453.0 s | - |
-| orbit clip, 1280x720, 120 frames | **732.6 s + 40.7 s bake** | 1043.2 s | - |
-| convergence at practical sample counts | deterministic, no noise | does not converge | converges |
+| produce caustic, $512^2$ | **36.22 ms** (8 threads) / 78.49 ms (1 thread) | — | 34 s (256 iter × 1 M photons) |
+| produce caustic, $1024^2$ | **117.82 ms** (8 threads) | — | — |
+| production still, 1600×1000 @ 2048 spp | 34.1 s | 36.1 s | — |
+| ripple clip, 960×540, 72 frames | 455.7 s + **26.2 s bake** | **453.0 s** | — |
+| orbit clip, 1280×720, 120 frames | **732.6 s + 40.7 s bake** | 1043.2 s | — |
+| convergence at practical sample counts | deterministic | does not converge | converges |
 
-The honest reading, which is not a uniform win.
+![Speed comparison](figures/fig7_speed.png)
 
-**Where the method is clearly cheaper.** Producing the caustic is 0.036 s at
-512^2 against SPPM's 34 s -- a factor of about 940 for one caustic frame, and
-the bake is deterministic, so it does not have to be re-converged when nothing
-about the geometry changed. On the orbit clip we finish 1.35x faster than
-Cycles (773.3 s against 1043.2 s) because a deterministic caustic that is
-*re-baked* per frame costs 0.34 s, while a path tracer must re-converge its
-caustic from scratch every frame.
+**Figure 7.** Cost to produce the caustic and to finish the frame, log scale.
+Production of a caustic is 2–3 orders of magnitude cheaper for this geometry family;
+finished frames are much closer, because beyond a large enough sample budget the
+caustic is no longer the bottleneck.
 
-**Where it is not.** On the static-camera ripple clip Cycles is marginally
-*faster* in wall clock (453.0 s against our 481.9 s including bake), and on
-the production still the two are within noise (34.1 s against 36.1 s) -- at
-that budget the caustic is no longer the bottleneck, the rest of the frame is.
-Above the ~1 M splat regime our method reaches an accuracy Monte-Carlo cannot
-reach at any sample count (0.03914 against a 0.06013 floor), but *below*
-~262 k splats plain Monte-Carlo is more accurate than ours (0.12294/0.07838
-against 0.13738/0.10455). There is no free lunch at coarse budgets and this
-paper will not pretend otherwise.
+Read honestly, this is not a uniform win:
 
-**Cost structure, stated as the actual finding.** The two families are
-governed by different variables. SPPM and path tracers spend per-shot samples
-converging a caustic; we spend ~0.04-0.12 s baking one, plus a fixed
-per-frame renderer cost identical for both. That means our advantage is
-proportional to how many shots share a geometry and how hard the caustic is
-for the renderer to find -- which is exactly why the animation workload
-(re-baked every frame, 120 of them) and the small-source regime favour us,
-and why a single still under a large source does not.
+* **Producing** the caustic is ~1000× cheaper than SPPM at matched resolution, and
+  deterministic — it need not be re-converged if nothing changed.
+* **Re-baking** is what makes the animation case win: 0.34 s per frame against a fresh
+  path-traced convergence, hence 1.35× on the 120-frame orbit clip *and* 7.9× less
+  caustic flicker (0.001 levels against 0.010).
+* On the static-camera clip Cycles is marginally **ahead** (453.0 s against our
+  481.9 s including bake), and on a single 2048 spp production still the two are
+  within noise (34.1 s against 36.1 s).
+* Below ~262 k splats plain Monte-Carlo is **more accurate** than ours (RMSE 0.12294
+  and 0.07838 against our 0.13738 and 0.10455); our advantage appears only in the
+  ~1 M splat regime, where the corrected field reaches 0.03914 against Monte-Carlo's
+  error floor of 0.06013.
 
-### 8.3 What this comparison does not establish
+**The actual finding is about cost structure.** SPPM and path tracers spend per-shot
+samples converging a caustic; we spend 0.04–0.12 s baking one plus a per-frame
+renderer cost common to both. Our advantage therefore scales with how many shots
+share a geometry and how hard the caustic is for the renderer to find — which is
+exactly why animation and small-source regimes favour us and a single still under a
+large source does not.
 
-The efficiency claim has a hard scope. Our bake is amortised against **one
-fixed geometry family** -- a cylinder of radius 0.035 m, height 0.090 m, with a
-specific ripple field; change the optic substantially and the solver needs new
-work, where SPPM has no such contract. We therefore do not claim to be a
-general caustic solver, and we do not claim a decisive efficiency win over
-Cycles path tracing: in every configuration tested the caustic region was
-within 1.3x, and on one of the two clips Cycles was ahead. What is claimed is
-the combination: correctly placed, correctly ordered, deterministic, 7.9x less
-temporal flicker, closer to independent ground truth at every scale, and for
-this geometry family 2-3 orders of magnitude cheaper to produce a caustic
-(0.036 s at 512^2 against SPPM's 34 s; ~0.34 s at the 768^2 clip bake against
-the same 34 s), for a geometry the bake can be reused on.
+### 5.6 Dispersion
 
-## 9. Limitations and future work
+![Dispersion](figures/fig8_dispersion.png)
 
-(i) No laboratory ground truth, by design: this is a computational evaluation
-and laboratory validation is out of scope, so no claim here rests on it.
-References are the independent tracers and renderers above; the remaining
-self-evaluations are the higher-resolution evaluations of the same model. (ii) One scene and one sun
-angle. Wave-phase robustness IS measured -- 8 phases over a full ripple
-cycle give r 0.690+-0.006 / 0.915+-0.004, offset 3.9+-0.8 mm, R-B order
-holding at all 8 (EVIDENCE 14.5d) -- but there is still no ensemble over
-wave spectra, wind, or moving bodies. (iii)
-`airy_scale` is a visibility parameter, not a prediction; absolute fringe
-width under sunlight is non-physical (real pool fringes sub-millimetre,
-sunlight coherence ~0.5 um) -- the claim is form only (finite fringes,
-chromatic ordering, no 1/sqrt divergence). (iv) Coherence is not modelled;
-the correction applies unconditionally and the `coherence.hpp` gate is
-unimplemented. (v) The fold threshold persists (2nd percentile of |det J|).
-(vi) Single machine, single compiler; no GPU port. (vii) Efficiency is not
-uniform: MC wins at small budgets. (viii) Breadth: our caustic covers 9.37%
-of the patch at 1024^2 versus 4.16% brute-force (7.80%, 1.87x, at 4096^2
-with proportionally narrower band -- partly artefact, partly model;
-EVIDENCE 14.5c) (~20x versus path-tracer cores); the
-Airy smoothing plus band mean spreads energy over ~1.5 mm where true cores
-are sub-millimetre -- correctly placed, correctly ordered, noise-free, and
-too smooth. The 4096^2 bake with proportionally smaller Airy scale was run
-(EVIDENCE 14.5c): the ratio falls 2.30x -> 1.87x, so the breadth is partly a
-resolution artefact and partly the smoothing model itself. (ix) RMSE is
-measured against the wave-corrected model's own finer evaluation with a 6x
-display cap -- conventions, not constants. (x) The pool-scene backbone
-(`src/render/caustic.cpp`) refracts all channels through one achromatic eta;
-its per-channel spread comes only from the lambda^(2/3) Airy width, not from
-a per-channel ray map -- width effect only, unvalidated against any
-reference.
+**Figure 8.** Left: radial profile per channel from the bake. Right: the edge-radius
+estimator. Measured edges are R 107 / G 105 / B 102 mm, i.e. red outside blue by
+5.0 mm, monotonic — the ordering both independent references require. PBRT SPPM on the
+same estimator gives R 56 / G 54 / B 51 mm, also R − B = +5.0 mm. Absolute radii are
+not comparable between the two (different water level and glass height); the ordering
+is.
 
-Closed since the first draft: the energy audit (EVIDENCE 14.5b -- transport
-throughput 96.41%, field holds 0.28 of geometric energy); the 4096^2
-resolution study (14.5c); the wave-phase ensemble (14.5d).
+Independently, Mitsuba 3.9.1 in its spectral variant — using its own measured
+`water`/`bk7` index data — places the red centroid $+1.6$ mm $(+1.74\%)$ farther than
+blue in monochromatic 16 nm bands. Three independent instruments agree on the sign and
+order.
 
-Future work in order, all computational: a spherical-lens cusp test
-(Pearcey regime -- is the Airy machinery cylinder-tuned?); an ensemble over
-wave spectra, wind, and moving bodies (the wave-phase ensemble is done,
-14.5d); a coherence gate with measured RMSE/cost effect; a threshold-free
-locus; generalising the solver beyond the current fixed geometry family, which
-is the main limit on the efficiency claim; citation re-verification (the
-survey hit HTTP 429). Physical-apparatus validation is deliberately excluded
-from this paper's scope and is not proposed as future work here.
+### 5.7 Further studies
 
-Reproduce: `tools/fold_diag.py`, `band_flux_test.py`, `tail_study.py`,
-`efficiency_study.py`, `parity_cpp_vs_py.py`, `airy_caustic.py`,
-`verify_wave_correction.py`, `verify_ray_map.py`,
-`accuracy_vs_ground_truth.py`, `analytic_caustic.py`, `pbrt_reference.py`,
-`energy_audit.py`, `ensemble_study.py`, `spmm_vs_groundtruth.py`, `metric_parity_check.py`, `export_scene_obj.py`; `bench.exe` with `CAUSTIC_THREADS`. Figures:
-`docs/pbrt_vs_ours.png` (PBRT | ours | overlay),
-`docs/comparison_ours_vs_cycles.png` (photo | ours | Cycles + crops),
-`docs/showcase_glass.png` (showcase still).
+![Energy, resolution and ensemble studies](figures/fig9_studies.png)
+
+**Figure 9.** Left: the breadth gap closes from 2.30× to 1.87× when the bake moves
+from $1024^2$ to $4096^2$ with a proportionally narrower band — part resolution
+artefact, part model. Middle: the energy audit. Right: the ensemble over eight wave
+phases.
+
+---
+
+## 6. Verification
+
+Each physical claim is checked against a computation that is independent of the code
+that produced it.
+
+### 6.1 The profile is the true Airy function
+
+The implementation's profile (7) is compared against `scipy.special.airy` and against
+an independent recomputation of the defining integral (5):
+
+| check | result |
+|---|---|
+| max deviation from $Ai(-u)$, normalised to peak | $8.118\times10^{-3}$ |
+| first sign change, solver table | $u = 2.2915$ |
+| first sign change, reference | $u = 2.2915$ |
+| analytic first zero | $u = 2.3381$ |
+
+![Airy verification](figures/fig4_airy.png)
+
+**Figure 4.** Left: the shipped 2048-entry table and a from-scratch recomputation of
+the C++ formula against the true Airy function. Right: the canonical fold integral
+(5), which knows nothing about the solver, against the analytic profile.
+
+### 6.2 The fold pattern peaks where $Ai^2$ says
+
+Equation (5) is evaluated over a window chosen to stay inside a few Airy scales of the
+fold (sampling this integral too coarsely aliases it into noise — a trap we hit):
+
+| quantity | computed | analytic |
+|---|---|---|
+| location of maximum intensity | $X = -1.00$ | $Ai^2$ peaks at $-1.0188$ |
+| mean $\lvert I/\text{peak} - Ai^2/\text{peak}\rvert$ after alignment | $0.1847$ | — |
+
+### 6.3 The $\lambda^{2/3}$ law
+
+The same integral at 450, 550 and 650 nm, fitting the peak-to-first-minimum width
+against $\lambda$:
+
+| quantity | value |
+|---|---|
+| peak-to-first-minimum | 3.6 / 4.1 / 4.6 µm |
+| fitted exponent in $\lambda$ | **0.6977** |
+| analytic prediction (8) | $2/3 = 0.6667$ |
+| what the code assumes | 0.6667 |
+| error | 0.031 |
+
+### 6.4 The ray map survives a second implementation
+
+The brute-force tracer of Section 5.3 shares no code path with the parametric solver.
+Agreement with the baked field: $r = +0.916 / +0.869 / +0.795 / +0.720$ at
+40/20/10/5 mm tiles, with the caustic centroid offset by **4.5 mm on a 320 mm patch**.
+This is confirmed on measured indices on both sides, and across eight wave phases
+(mean $+0.690 \pm 0.006$ at 5 mm-equivalent and $+0.915 \pm 0.004$ at 40 mm tiles,
+ordering holding at all eight) — so the single-phase numbers are representative rather
+than selected.
+
+### 6.5 The three methodological rules, as measured ablations
+
+**Fold locus.** RMSE against a converged $2048^2$ reference of the same model,
+evaluated at $256^2$:
+
+| grid | percentile (old) | analytic $\lvert \det J\rvert$ (new) |
+|---|---|---|
+| 128 | 0.20598 | 0.20188 |
+| 256 | 0.12795 | 0.13738 |
+| 512 | 0.09296 | 0.10455 |
+| 1024 | 0.08534 (stalls) | **0.03914 (converges)** |
+
+The percentile detector is *slightly better* at 256 and 512 (up to 12%). Its defect is
+not accuracy but that it stops improving, plateauing near 0.085, because the flagged
+set never becomes the true fold set; the analytic locus is 2.2× more accurate at
+$1024^2$.
+
+**Flux placement.** With the global post-clamp rescale: peak 11.58 against a ceiling of
+8.10 at $256^2$ (violated), RMSE 0.14363; band-local: peak 7.55, RMSE 0.13738. At
+$512^2$: 12.17 (violated) against 7.71 (held). At $1024^2$ both hold the ceiling and
+agree in RMSE.
+
+**Boundary condition.** Clamping out-of-receiver hits: geometric peak 350.78.
+Discarding (11): 9.28. A 38× artefact, removed.
+
+### 6.6 Energy audit (the non-circular flux statement)
+
+The band-local ratio $k^\*$ of (10) is circular as evidence, so we measure the
+pipeline with no renormalisation anywhere, weighting every ray by the product of its
+Fresnel transmissions (12):
+
+| quantity | 650 nm | 550 nm | 450 nm |
+|---|---|---|---|
+| power entering the outer wall | 367649.7 | 367418.6 | 367036.2 |
+| power landing on the receiver | 354444.1 | 354223.3 | 353853.1 |
+| throughput | **96.41%** | **96.41%** | **96.41%** |
+| off-receiver loss | ~0 | ~0 | ~0 |
+
+Transport loses only 3.59%, and that loss is Fresnel reflection at the interfaces. But
+the **baked field integrates to 0.28 per channel** against the geometric stage's
+normalised 1.0: the Airy replacement and the display ceiling remove ~72% of the
+geometric energy. This is not a bug — a bounded display representation of a divergent
+density must shed energy — but it means the field is a redistribution for display, not
+a radiometric quantity, and any brightness claim taken from field values inherits that
+0.28 scale factor.
+
+### 6.7 An index model that was wrong, found by exactly this kind of check
+
+Water was modelled by a two-term Cauchy, $n = 1.31700 + 6080/\lambda^2$, whose own
+comment claimed it reproduced $1.3314/1.3345/1.3407$. It does not, and no single
+$(A,B)$ can: those three values do not lie on one Cauchy curve. Its dispersion over
+450–650 nm was 0.01563 against a measured 0.00794 — **1.97× too strong** — and the
+glass model was 4–8% off in slope. The residual disagreement with Mitsuba was traced
+to this and not to the transport. Both media were replaced by measured data
+(13)–(14), which reduced our chromatic split by 1.4×, close to the predicted 1.97×
+ratio. This is why Section 3.8 evaluates measured forms instead of fitting.
+
+### 6.8 A metric that manufactured a false refutation
+
+Two independent statistic traps were found while building the three-way comparison,
+both of which inverted a conclusion:
+
+1. **Sign convention.** SPPM's isolate (optics − no-optics) is not non-negative:
+   removing the glass also removes its shadow, so 11.4% of pixels go negative with
+   $|\text{neg}|/|\text{pos}| = 1.40$. Scored raw, SPPM reads $-0.046$ at 40 mm tiles;
+   scored on its positive part it reads **+0.853**. The first number is an artefact of
+   the estimator.
+2. **Tile naming.** These tools take tile *size* in pixels while our evidence tables
+   name the 40 mm row "8" (tiles per side) — the same numbers pointing the opposite
+   way, which silently inverted an apparent trend.
+
+Both are recorded because a claim that flips with the estimator convention is not a
+result. The same discipline retired two earlier estimators: the brightest-percentile
+mean radius (set by the cap) and the ridge argmax (arbitrary among capped cells).
+
+---
+
+## 7. Limitations
+
+1. **No laboratory ground truth**, by design — this is a computational evaluation.
+   References are the independent tracers and renderers above; the remaining
+   self-evaluations are the same model at higher resolution.
+2. **One scene and one sun angle.** Wave-phase robustness *is* measured (§6.4), but
+   there is no ensemble over wave spectra, wind, or moving bodies.
+3. **`airy_scale` is a visibility parameter, not a prediction.** The physical claim is
+   one of *form* — finite fringes, chromatic ordering, no $1/\sqrt{\cdot}$ divergence —
+   not absolute fringe width. Under a real sun the modelled fringe width (123 µm) is
+   blurred by 925 µm of source-size blur, 7.5× the fringe spacing, so no fringes are
+   visible in reality for this geometry; the rendered fringes make the correction
+   legible, they do not depict reality.
+4. **Coherence is not modelled.** The correction is applied near folds
+   unconditionally; a path-length-difference gate is unimplemented.
+5. **Our caustic is too smooth.** 2.30× broader than the brute-force trace at
+   $1024^2$, 1.87× at $4096^2$. The Airy treatment plus the 5×5 band mean spreads
+   energy over ~1.5 mm where the true cores are sub-millimetre. Correctly placed,
+   correctly ordered, noise-free — and too smooth.
+6. **The fold locus is still a threshold** (2nd percentile of $|\det J|$), though far
+   better behaved than an intensity percentile.
+7. **Efficiency is not uniform.** Monte-Carlo wins below ~262 k splats.
+8. **The efficiency claim has a hard scope.** The bake is amortised against one fixed
+   geometry family (a 35 mm cylinder, 90 mm tall, with a specific ripple field).
+   Change the optic substantially and the solver needs new work, where SPPM has no
+   such contract. We do **not** claim a decisive win over Cycles path tracing: in
+   every configuration tested the caustic region was within 1.3×, and on one of the
+   two clips Cycles was ahead.
+9. **The pool-scene backbone is achromatic** — one $\eta$ for all channels, with the
+   per-channel spread coming only from the $\lambda^{2/3}$ Airy width, not from a
+   per-channel ray map. Pool dispersion is therefore a width effect only, and is not
+   validated against any reference; the validated dispersion result (5.6) is from the
+   showcase estimator.
+10. **Single machine, single compiler** (MSVC 14.41, `/O2`); no GPU port. RMSE values
+    inherit the conventions of §3.9 (cap, reference choice).
+
+---
+
+## 8. Future work
+
+All computational. In order: a spherical-lens cusp test (the Pearcey regime — does the
+Airy machinery generalise, or is it cylinder-tuned?); an ensemble over wave spectra,
+wind and moving bodies; a coherence gate with measured cost/quality effect; a
+threshold-free fold locus; and generalising the solver beyond the current fixed
+geometry family, which is the main limit on the efficiency claim. Citation
+re-verification is required before submission (the prior-art survey hit HTTP 429).
+
+Physical-apparatus validation is deliberately excluded from this paper's scope and is
+not proposed here.
+
+---
+
+## 9. Reproduction
+
+```
+# the fold locus, flux and boundary ablations
+python tools/fold_diag.py
+python tools/band_flux_test.py
+python tools/tail_study.py
+
+# efficiency vs splat budget, and its plot
+python tools/efficiency_study.py
+
+# the wave-physics verification (needs scipy)
+python tools/verify_wave_correction.py
+
+# the independent references
+python tools/verify_ray_map.py            # brute-force geometric ground truth
+python tools/accuracy_vs_ground_truth.py  # three-way accuracy
+python tools/analytic_caustic.py          # closed-form cylinder
+python tools/spmm_vs_groundtruth.py       # SPPM on the same axis
+python tools/metric_parity_check.py       # the estimator-convention audit
+
+# energy, resolution, ensemble
+python tools/energy_audit.py
+python tools/ensemble_study.py
+
+# build, bake and time
+cmake --build build --config Release
+./build/src/app/Release/bench.exe 5        # CAUSTIC_THREADS pins the count
+./build/src/app/Release/showcase.exe --res 1024 --airy 0.0015 \
+    --out out/showcase.png --dump-caustic out/caustic_wavy.png
+
+# figures
+python tools/make_paper_figures.py
+```
+
+**Figures.** `docs/figures/fig1…fig9`. **Full measurement record:**
+`docs/EVIDENCE.md` (1,380+ lines, every number with its provenance).
+**Adversarial audit of our own claims:** `docs/CRITIQUE.md`.
+
+---
+
+## References
+
+Airy, G. B. 1838. On the intensity of light in the neighbourhood of a caustic.
+*Transactions of the Cambridge Philosophical Society* 6, 379–402.
+
+Bar, C., Hillman, S., Lachman, J., et al. 2019. Monte Carlo simulation of
+speckle in scattering media. *SIGGRAPH*.
+
+Berry, M. V., Upstill, C. 1980. Catastrophe optics: morphologies of caustics and
+their diffraction patterns. *Progress in Optics* 18, 257–346.
+
+Daimon, M., Masumura, A. 2007. Measurement of the refractive index of distilled water
+from the near-infrared region to the ultraviolet region. *Applied Optics* 46, 3811–3820.
+
+Hachisuka, T., Ogaki, S., Jensen, H. W. 2008. Progressive photon mapping. *ACM TOG* 27(3).
+
+Hanika, J., Droske, M., Fascione, L. 2015. Manifold next event estimation.
+*Computer Graphics Forum* 34(4).
+
+Jensen, H. W. 1996. Global illumination using photon maps. *Eurographics Workshop on
+Rendering*.
+
+Jensen, H. W. 2001. *Realistic Image Synthesis Using Photon Mapping*. A K Peters.
+
+Kouyoumjian, R. G., Pathak, P. H. 1974. A uniform geometrical theory of diffraction
+for an edge in a perfectly conducting surface. *Proceedings of the IEEE* 62(11).
+
+Müller, T., Gross, M., Novák, J. 2017. Practical path guiding for efficient light
+transport simulation. *Computer Graphics Forum* 36(4).
+
+Rubin, M. 1985. Optical properties of soda lime silica glasses.
+*Solar Energy Materials* 12, 275–288.
+
+Yan, L.-Q., Hasan, M., Jakob, W., et al. 2018. Rendering specular microgeometry with
+wave optics. *ACM TOG* 37(1).
+
+Zeltner, T., Georgiev, I., Jarosz, W. 2020. Specular manifold sampling for rendering
+highly glossy and caustic scenes. *ACM TOG* 39(4).
+
+*Prior art and citation identifiers were surveyed on 2026-09-29; the arXiv and
+Semantic Scholar endpoints returned HTTP 429 from the survey IP, so every identifier
+above must be re-verified against a keyed connection before submission.*

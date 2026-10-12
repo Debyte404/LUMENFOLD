@@ -732,9 +732,10 @@ compares it against `scipy.special.airy`:
 
 | check | result |
 |---|---|
-| max abs deviation from Ai(-u), normalised to peak | **8.1e-03** |
+| max abs deviation from Ai(-u), normalised to peak | **8.118e-03** (quoted elsewhere as 8.1e-03) |
 | first sign change, solver table | u = 2.2915 |
 | first sign change, reference | u = 2.2915 |
+| analytic first zero of Ai(-u) | u = 2.3381 |
 
 ### 14.2 The fold pattern really peaks where Ai^2 says
 
@@ -744,6 +745,7 @@ integrated over the pupil, which is the canonical fold, not our code:
 | quantity | computed | analytic |
 |---|---|---|
 | location of maximum intensity | X = **-1.00** | Ai^2 peaks at -1.0188 |
+| mean \|I/peak - Ai^2/peak\| after alignment | **0.1847** | - |
 
 ### 14.3 The lambda^(2/3) fringe scaling is right
 
@@ -1310,7 +1312,18 @@ corrected):
 
     PBRT centroid (+33.7, +18.6) mm, r 38.5, az +29.0 deg
     ours centroid (+45.1, +23.4) mm, r 50.8, az +27.5 deg
-    k=8 +0.557 / k=16 +0.648 / k=32 +0.777 / k=64 +0.932
+    tile correlation at 40 mm tiles (8x8 grid):   r = +0.932
+    tile correlation at  5 mm tiles (64x64 grid): r = +0.557
+
+Agreement is strong on gross structure and falls off as the scale sharpens
+(0.932 -> 0.557), so the fine structure of our field is NOT independently
+confirmed by this instrument -- consistent with the breadth limit of section
+14.7. Both scales re-derived by tools/metric_parity_check.py, which prints the
+tile convention explicitly: the 8x8 grid gives 40 mm tiles and the 64x64 grid
+gives 5 mm tiles on the 320 mm patch. (Note the collision with the older
+convention in section 19.2, where "k = 8" names EIGHT tiles per side - the same
+grid, a different label. Both readings agree once the tile SIZE is fixed:
+40 mm -> 0.93, 5 mm -> 0.55.)
 
 Agreement holds and sharpens at fine scale on measured indices. Scenes:
 out/pbrt/pbrt_shape_optics.pbrt + pbrt_shape_nooptics.pbrt (archived -- the

@@ -17,5 +17,7 @@ __pycache__/
 frames/
 *.png
 !docs/*.png
+# paper figures are deliverables (docs/PAPER.md references them)
+!docs/figures/*.png
 third_party/pbrt-v4/
 third_party/luxvenv/
