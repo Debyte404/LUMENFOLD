@@ -1187,6 +1187,41 @@ Two fixes were tried and were wrong, both worth recording:
     a 46 pt column. No font size fixes a word with no break opportunity: the
     column was widened and the cell shortened to "Manifold sampling".
 
+### 14.5j Two engines, and why the layout check had to run twice (2026-10-12)
+
+MiKTeX 25.12 was installed to D:\MiKTeX so the paper can be built with pdfLaTeX,
+the engine the EG class is written for: the template branches on \ifpdf, so under
+pdfLaTeX it takes its intended pdftex graphics path rather than the XeTeX
+workaround tectonic needs. The basic installer has none of the class's
+dependencies and will not resolve them non-interactively (it stops with
+"File `X.sty' not found" and produces no PDF), so
+`tools/pdftex_bringup.py` runs the engine, reads the missing package out of the
+log, installs it, and repeats. That converged; the traps are recorded in the
+venue-format-paper skill (`mpm` is deprecated, there is no `repositories set`
+command so the repository is passed per command as
+`miktex packages require --repository <url> <pkg>`, and `amsthm.sty` lives in the
+package named `amscls`).
+
+With both engines working, the same paper was built twice, and the second build
+found a defect the first did not:
+
+    tectonic   23 pages, 0 overfull boxes
+    pdfLaTeX   23 pages, 3 overfull warnings
+
+The three warnings are one box reported once per pass. The cause was an
+unbreakable `\verb` path in the middle of a justified paragraph, and once that
+was removed the remaining offender was the flux-conservation equation, which fits
+a 240 pt column under XeTeX metrics and is 10.4 pt too wide under pdfLaTeX's.
+Splitting its last equality onto its own line cleared it. Both engines now report
+**0 overfull boxes** on the same 23 pages.
+
+The lesson is not that one engine is better. It is that a layout check is only as
+good as the engine it ran under: a document can be pixel-clean in one and
+overflowing in another, so "the build passes" is not a layout statement until it
+has been checked with the engine the venue will use. `tools/build_paper_pdf.py`
+now takes `--engine tectonic|pdflatex` and reports the overfull count for
+whichever ran.
+
 ### 14.6 What the audit killed
 
 Three of our own claims do not survive and are withdrawn in CRITIQUE.md:

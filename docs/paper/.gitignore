@@ -5,6 +5,7 @@
 *.brf
 *.lbl
 *.log
+*.blg
 *.out
 *.xdv
 *.toc

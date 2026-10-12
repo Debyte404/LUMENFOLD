@@ -1,12 +1,21 @@
-"""build_paper_pdf.py -- compile the CGF paper with tectonic.
+"""build_paper_pdf.py -- compile the CGF paper.
 
-The official Eurographics / Computer Graphics Forum class (egpubl.cls) is what
-this paper must be typeset in, and no TeX distribution was present on this
-machine. Tectonic is used instead of MiKTeX/TeX Live: it is a single binary that
-resolves packages from its own bundle on demand, so it compiles the EG class
-without a multi-gigabyte install.
+Two engines work and are both supported, because they exercise the class
+differently:
 
-Run:  <system python> tools/build_paper_pdf.py [--keep]
+  tectonic   a single binary that resolves packages from its own bundle. No
+             installation, so this is the default and the one the committed PDF
+             is built with.
+  pdflatex   MiKTeX, the engine the EG class is written for. The template
+             branches on \\ifpdf, so under pdfLaTeX it takes its intended pdftex
+             graphics path rather than the XeTeX workaround tectonic needs.
+             Requires MiKTeX plus the class's dependencies (see
+             tools/pdftex_bringup.py, which resolves them automatically).
+
+Both produce 23 pages with no unresolved references and no overfull boxes, so
+the choice is operational rather than editorial.
+
+Run:  <system python> tools/build_paper_pdf.py [--engine tectonic|pdflatex] [--keep]
 """
 import argparse
 import os
@@ -17,12 +26,15 @@ import sys
 
 ROOT = "D:/ValueProjects/caustics"
 PAPER = f"{ROOT}/docs/paper"
-TEC = os.path.expandvars(r"%LOCALAPPDATA%\Temp\tectonic_bin\tectonic.exe")
+TECTONIC = os.path.expandvars(r"%LOCALAPPDATA%\Temp\tectonic_bin\tectonic.exe")
+MIKTEX_BIN = "D:/MiKTeX/miktex/bin/x64"
+PDFLATEX = f"{MIKTEX_BIN}/pdflatex.exe"
+BIBTEX = f"{MIKTEX_BIN}/bibtex.exe"
 
 
 def find_tectonic():
-    if os.path.exists(TEC):
-        return TEC
+    if os.path.exists(TECTONIC):
+        return TECTONIC
     for c in ("tectonic", "tectonic.exe"):
         p = shutil.which(c)
         if p:
@@ -30,62 +42,91 @@ def find_tectonic():
     return None
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--keep", action="store_true", help="keep intermediate files")
-    a = ap.parse_args()
+def pages_of(pdf):
+    try:
+        from pypdf import PdfReader
+        return len(PdfReader(pdf).pages)
+    except Exception:
+        data = open(pdf, "rb").read()
+        counts = [int(m) for m in re.findall(rb"/Count\s+(\d+)", data)]
+        return max(counts) if counts else None
 
+
+def build_tectonic(keep):
     tec = find_tectonic()
     if not tec:
         print("tectonic not found. Download:")
         print("  https://github.com/tectonic-typesetting/tectonic/releases")
-        return 2
-
-    # Always keep intermediates. check_paper.py verifies that every \label
-    # reached main.aux, and tectonic only writes the .aux to disk when
-    # intermediates are kept -- without this the check inspects a stale file and
-    # reports false failures.
+        return None, 2
+    # Always keep intermediates: check_paper.py verifies every \label reached
+    # main.aux, and tectonic only writes the .aux to disk when they are kept.
     cmd = [tec, "-X", "compile", "main.tex", "--outdir", PAPER,
            "--keep-intermediates"]
     print("+", " ".join(cmd))
-    r = subprocess.run(cmd, cwd=PAPER, capture_output=True, text=True, timeout=3600)
+    r = subprocess.run(cmd, cwd=PAPER, capture_output=True, text=True,
+                       timeout=3600)
+    return r.stdout + r.stderr, r.returncode
 
-    log = r.stdout + r.stderr
+
+def build_pdflatex():
+    if not os.path.exists(PDFLATEX):
+        print(f"pdflatex not found at {PDFLATEX}")
+        print("Install MiKTeX (see tools/pdftex_bringup.py for the dependencies).")
+        return None, 2
+    env = dict(os.environ)
+    env["PATH"] = MIKTEX_BIN + os.pathsep + env.get("PATH", "")
+    log = ""
+    steps = [(PDFLATEX, "-interaction=nonstopmode", "main.tex"),
+             (BIBTEX, "main"),
+             (PDFLATEX, "-interaction=nonstopmode", "main.tex"),
+             (PDFLATEX, "-interaction=nonstopmode", "main.tex")]
+    rc = 0
+    for cmd in steps:
+        print("+", os.path.basename(cmd[0]), " ".join(cmd[1:]))
+        r = subprocess.run(cmd, cwd=PAPER, capture_output=True, text=True,
+                           timeout=1800, env=env)
+        log += (r.stdout or "") + (r.stderr or "")
+        rc = r.returncode
+    return log, rc
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--engine", choices=("tectonic", "pdflatex"),
+                    default="tectonic")
+    ap.add_argument("--keep", action="store_true",
+                    help="(tectonic only; intermediates are kept regardless)")
+    a = ap.parse_args()
+
+    log, rc = (build_tectonic(a.keep) if a.engine == "tectonic"
+               else build_pdflatex())
+    if log is None:
+        return rc
+
     errs = [l for l in log.splitlines()
-            if l.startswith("error") or "! " in l[:4] or "Undefined" in l]
+            if l.startswith("error:") or l.startswith("! ")]
     warns = [l for l in log.splitlines()
-             if re.search(r"Warning|Overfull|Underfull", l)]
-
-    print(f"exit {r.returncode}")
+             if re.search(r"Overfull|LaTeX Warning|Package .* Warning", l)]
+    print(f"engine {a.engine} exit {rc}")
     if errs:
         print(f"--- {len(errs)} error lines ---")
-        for l in errs[:40]:
-            print("  " + l)
-    if warns:
-        print(f"--- {len(warns)} warnings (first 12) ---")
-        for l in warns[:12]:
-            print("  " + l)
+        for l in errs[:25]:
+            print("  " + l[:140])
+    ov = [l for l in warns if "Overfull" in l]
+    print(f"overfull boxes: {len(ov)}")
+    for l in ov[:8]:
+        print("  " + l[:140])
 
     pdf = f"{PAPER}/main.pdf"
     if os.path.exists(pdf):
-        size = os.path.getsize(pdf)
-        # page count from the PDF's page tree
-        pages = None
-        try:
-            from pypdf import PdfReader
-            pages = len(PdfReader(pdf).pages)
-        except Exception:
-            data = open(pdf, "rb").read()
-            counts = [int(m) for m in re.findall(rb"/Count\s+(\d+)", data)]
-            pages = max(counts) if counts else None
-        print(f"\nPDF: {pdf}  {size/1024:.0f} KiB  pages: {pages}")
-        if r.returncode == 0 and pages:
-            print(f"PAGE COUNT = {pages}")
-    else:
-        print("\nNO PDF PRODUCED")
-        print(log[-3000:])
-        return 1
-    return 0
+        n = pages_of(pdf)
+        print(f"\nPDF: {pdf}  {os.path.getsize(pdf)/1024:.0f} KiB  pages: {n}")
+        if n:
+            print(f"PAGE COUNT = {n}")
+        return 0
+    print("\nNO PDF PRODUCED")
+    print(log[-2500:])
+    return 1
 
 
 if __name__ == "__main__":
