@@ -297,8 +297,11 @@ caustic-region gaps were within 1.3x where tested.
 ## 8. Limitations and future work
 
 (i) No laboratory ground truth; references are finer self-evaluations
-except the independent tracers/renderers above. (ii) One scene, one time,
-one sun angle; no ensemble over spectra, wind, or bodies. (iii)
+except the independent tracers/renderers above. (ii) One scene and one sun
+angle. Wave-phase robustness IS measured -- 8 phases over a full ripple
+cycle give r 0.690+-0.006 / 0.915+-0.004, offset 3.9+-0.8 mm, R-B order
+holding at all 8 (EVIDENCE 14.5d) -- but there is still no ensemble over
+wave spectra, wind, or moving bodies. (iii)
 `airy_scale` is a visibility parameter, not a prediction; absolute fringe
 width under sunlight is non-physical (real pool fringes sub-millimetre,
 sunlight coherence ~0.5 um) -- the claim is form only (finite fringes,
@@ -312,8 +315,9 @@ with proportionally narrower band -- partly artefact, partly model;
 EVIDENCE 14.5c) (~20x versus path-tracer cores); the
 Airy smoothing plus band mean spreads energy over ~1.5 mm where true cores
 are sub-millimetre -- correctly placed, correctly ordered, noise-free, and
-too smooth. A 4096^2 bake with proportionally smaller Airy scale would test
-whether the breadth is a resolution artefact or a shape error. (ix) RMSE is
+too smooth. The 4096^2 bake with proportionally smaller Airy scale was run
+(EVIDENCE 14.5c): the ratio falls 2.30x -> 1.87x, so the breadth is partly a
+resolution artefact and partly the smoothing model itself. (ix) RMSE is
 measured against the wave-corrected model's own finer evaluation with a 6x
 display cap -- conventions, not constants. (x) The pool-scene backbone
 (`src/render/caustic.cpp`) refracts all channels through one achromatic eta;
@@ -321,11 +325,14 @@ its per-channel spread comes only from the lambda^(2/3) Airy width, not from
 a per-channel ray map -- width effect only, unvalidated against any
 reference.
 
-Future work in order: an energy audit (total flux leaving versus entering the
-glass, no renormalization -- the non-circular replacement for the withdrawn
-flux claim); the 4096^2 resolution study; a spherical-lens cusp test
-(Pearcey regime -- is the Airy machinery cylinder-tuned?); ensemble
-statistics; a coherence gate with measured RMSE/cost effect; a
+Closed since the first draft: the energy audit (EVIDENCE 14.5b -- transport
+throughput 96.41%, field holds 0.28 of geometric energy); the 4096^2
+resolution study (14.5c); the wave-phase ensemble (14.5d).
+
+Future work in order: a spherical-lens cusp test
+(Pearcey regime -- is the Airy machinery cylinder-tuned?); an ensemble over
+wave spectra, wind, and moving bodies (the wave-phase ensemble is done,
+14.5d); a coherence gate with measured RMSE/cost effect; a
 threshold-free locus; a laser/cylinder apparatus for fringe spacing and
 chromatic ordering; citation re-verification (the survey hit HTTP 429).
 
@@ -333,7 +340,7 @@ Reproduce: `tools/fold_diag.py`, `band_flux_test.py`, `tail_study.py`,
 `efficiency_study.py`, `parity_cpp_vs_py.py`, `airy_caustic.py`,
 `verify_wave_correction.py`, `verify_ray_map.py`,
 `accuracy_vs_ground_truth.py`, `analytic_caustic.py`, `pbrt_reference.py`,
-`export_scene_obj.py`; `bench.exe` with `CAUSTIC_THREADS`. Figures:
+`energy_audit.py`, `ensemble_study.py`, `export_scene_obj.py`; `bench.exe` with `CAUSTIC_THREADS`. Figures:
 `docs/pbrt_vs_ours.png` (PBRT | ours | overlay),
 `docs/comparison_ours_vs_cycles.png` (photo | ours | Cycles + crops),
 `docs/showcase_glass.png` (showcase still).
