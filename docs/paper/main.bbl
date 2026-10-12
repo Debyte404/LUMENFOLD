@@ -1,6 +1,24 @@
 \newcommand{\etalchar}[1]{$^{#1}$}
 \begin{thebibliography}{\uppercase{CHB{\etalchar{*}}12}}
 
+\bibitem[Air38]{airy1838}
+\textsc{Airy G.~B.}:
+\newblock On the intensity of light in the neighbourhood of a caustic.
+\newblock \emph{Transactions of the Cambridge Philosophical Society 6} (1838),
+  379--402.
+\newblock Conventional citation; pre-DOI literature.
+
+\bibitem[Arv94]{arvo1994}
+\textsc{Arvo J.}:
+\newblock The irradiance jacobian for partially occluded polyhedral sources.
+\newblock In \emph{Proceedings of SIGGRAPH '94} (1994), pp.~343--350.
+
+\bibitem[BU80]{berry1980}
+\textsc{Berry M.~V., Upstill C.}:
+\newblock {IV} catastrophe optics: Morphologies of caustics and their
+  diffraction patterns.
+\newblock In \emph{Progress in Optics}, vol.~18. 1980, pp.~257--346.
+
 \bibitem[CHB{\etalchar{*}}12]{cuypers2012}
 \textsc{Cuypers T., Haber T., Bekaert P., Oh S.~B., Raskar R.}:
 \newblock Reflectance model for diffraction.
@@ -24,6 +42,11 @@
 \newblock Manifold next event estimation.
 \newblock \emph{Computer Graphics Forum 34}, 4 (2015), 87--97.
 
+\bibitem[HJ09]{hachisuka2009}
+\textsc{Hachisuka T., Jensen H.~W.}:
+\newblock Stochastic progressive photon mapping.
+\newblock In \emph{ACM SIGGRAPH Asia 2009 Papers} (2009), pp.~1--8.
+
 \bibitem[HOJ08]{hachisuka2008}
 \textsc{Hachisuka T., Ogaki S., Jensen H.~W.}:
 \newblock Progressive photon mapping.
@@ -41,6 +64,22 @@
 \newblock Mitsuba 3 renderer, 2022.
 \newblock Conventional citation. Architecture described in Nimier-David et al.,
   \emph{Mitsuba 2}, ACM TOG 38(6), 2019, doi:10.1145/3355089.3356498.
+
+\bibitem[KP74]{kouyoumjian1974}
+\textsc{Kouyoumjian R.~G., Pathak P.~H.}:
+\newblock A uniform geometrical theory of diffraction for an edge in a
+  perfectly conducting surface.
+\newblock \emph{Proceedings of the IEEE 62}, 11 (1974), 1448--1461.
+
+\bibitem[MGN17]{muller2017}
+\textsc{M{\"u}ller T., Gross M., Nov{\'a}k J.}:
+\newblock Practical path guiding for efficient light-transport simulation.
+\newblock \emph{Computer Graphics Forum 36}, 4 (2017), 91--100.
+
+\bibitem[MH92]{mitchell1992}
+\textsc{Mitchell D.~P., Hanrahan P.}:
+\newblock Illumination from curved reflectors.
+\newblock \emph{ACM SIGGRAPH Computer Graphics 26}, 2 (1992), 283--291.
 
 \bibitem[MMRO13]{musbach2013}
 \textsc{Musbach A., Meyer G.~W., Reitich F., Oh S.~B.}:

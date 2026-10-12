@@ -1030,7 +1030,7 @@ normalisation, since "intensity" without one is the easiest way to publish a
 meaningless comparison. The EG guidelines require that no figure contain
 transparent pixels, so all alpha is flattened to opaque — see the trap below.
 
-**Two bugs in our own tooling, both the same class as 11.2 and 20.3:**
+**Three bugs in our own tooling, all the same class as 11.2 and 20.3:**
 * The first AI-tell scan reported **655 em dashes**, which would be one every
   23 words. It was counting the `%--------` comment rules that LaTeX sources
   are full of, not prose. Stripping comments first gives **29 em dashes in
@@ -1042,6 +1042,24 @@ transparent pixels, so all alpha is flattened to opaque — see the trap below.
   every offset after the substitution was silently corrupted and the engine
   refused to load files that were 52 KiB and superficially well-formed. The
   rewrite must be byte-length preserving (`0.25` -> `1.00`).
+* A prose-editing script needed to rewrite a few sentences whose source span
+  crossed a line break. Its fallback was to flatten every newline in the file to
+  a space before matching, and on a successful match it kept the flattened text.
+  That collapsed `sections/current.tex` to a single 8,239-character line. The
+  line began with a `%` comment rule, so **LaTeX treated the entire section as a
+  comment**: section 4 vanished from the PDF and all eight references into it
+  printed as `??`, while `tools/check_paper.py` reported clean, because the
+  labels were still present in the source. The paper had already been committed
+  in this state.
+
+  This is the most useful failure in the three, because of how it was caught and
+  how it was not. Every source-level check passed; what exposed it was reading
+  the *compiled* artefact and finding `??` in the rendered text, then noticing
+  that the eight unresolved labels all came from one file. The lesson is that a
+  check which inspects the inputs is not a check on the output. `check_paper.py`
+  now also asserts that every `\label` reaches `main.aux` and that no section
+  file has been flattened, so the same bug fails loudly instead of silently, and
+  it is why the source files are edited with single-line anchors only.
 
 **What the tell scan actually found**, for the record, since the manuscript was
 reviewed as reading machine-generated: 0 significance inflation, 0 AI
