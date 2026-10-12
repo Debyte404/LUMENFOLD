@@ -42,9 +42,9 @@ than clamped to the border, removing a measured 38x border artifact
 independently verified: the profile table matches the true Airy function to
 8.1e-03 of peak, the canonical fold integral peaks at X = -1.00 versus the
 analytic -1.0188, and the fitted wavelength exponent is 0.6977 versus the analytic 2/3.
-Against an independent brute-force geometric ground truth our field scores
-0.917 versus 0.824 for Cycles at 40 mm tiles with 99.9% versus 54.7% core
-coverage; it agrees with the brute-force tracer at r = +0.916 with 4.5 mm
+Against an independent brute-force geometric ground truth, ours scores 0.917
+against 0.853 for PBRT-v4 SPPM and 0.828 for Cycles at 40 mm tiles (0.721 /
+0.722 / 0.405 at 5 mm), with 99.9% versus 54.7% core coverage against Cycles; it agrees with the brute-force tracer at r = +0.916 with 4.5 mm
 centroid offset, reproduces an exact analytic-cylinder fold to 0.1 mm, and
 matches PBRT-v4 SPPM shape at r = +0.932 on measured indices. Dispersion
 order (red outside blue, monotonic) is confirmed by Mitsuba 3 (+1.74%) and
@@ -338,23 +338,39 @@ explicit intersections, no parametrisation, no Jacobian, no renormalisation).
 It is the quantity every method is trying to reproduce, and neither method
 produced it.
 
-| metric | ours | Cycles | PBRT-v4 SPPM |
-|---|---|---|---|
-| correlation vs brute force, 40 mm tiles | **0.917** | 0.824 | - |
-| correlation vs brute force, 5 mm tiles | **0.720** | 0.400 | - |
-| coverage of ground-truth caustic core | **99.9%** | 54.7% | - |
-| converged caustic shape vs ours | - | - | **r = +0.932** |
-| exact closed-form cylinder fold (320 mm patch) | **0.1 mm** | - | - |
-| caustic breadth vs brute force | 2.3x (1.87x at 4096^2) | 0.05x (under-covers) | - |
-| temporal flicker, caustic region, 72 frames | **0.001 levels** | 0.010 levels | - |
-| per-channel dispersion | R > G > B, verified | achromatic IOR | single-valued eta per run |
+All three methods are scored on ONE independent axis -- the brute-force
+geometric ground truth -- with an identical metric (caustic = positive part
+beyond the map median, tiled and correlated). This is the like-for-like
+comparison; the metric and the two traps it hides are documented in EVIDENCE
+14.5e.
 
-Reading it honestly. Our field is closer to the independent ground truth at
-every scale, and the margin widens as the scale sharpens (0.917 vs 0.824 at
-40 mm; 0.720 vs 0.400 at 5 mm) -- Cycles misses about half the ground-truth
-caustic core. Against the reference *conforming* solver (PBRT SPPM) the
-converged two-dimensional shape agrees at r = +0.932, which is the strongest
-independent statement of correctness in the paper. Cycles' caustic error does
+| correlation vs ground truth | ours | PBRT-v4 SPPM | Cycles |
+|---|---|---|---|
+| 40 mm tiles | **0.917** | 0.853 | 0.828 |
+| 20 mm tiles | **0.869** | 0.811 | 0.609 |
+| 10 mm tiles | 0.795 | 0.794 | 0.481 |
+| 5 mm tiles | 0.721 | 0.722 | 0.405 |
+| coverage of ground-truth caustic core | **99.9%** | - | 54.7% |
+| converged shape, SPPM vs ours | - | **r = +0.932** | - |
+| exact closed-form cylinder fold (320 mm patch) | **0.1 mm** | - | - |
+| caustic breadth vs brute force | 2.3x (1.87x at 4096^2) | - | under-covers |
+| temporal flicker, caustic region, 72 frames | **0.001 levels** | - | 0.010 levels |
+| per-channel dispersion | R > G > B, verified | single-valued eta per run | achromatic IOR |
+
+Reading it honestly. **Ours leads at every scale and the margin widens as the
+scale sharpens** (0.917 / 0.853 / 0.828 at 40 mm; 0.721 / 0.722 / 0.405 at
+5 mm). SPPM is a close second and is the only method that ties us at the finest
+scale -- expected, since a photon map with a 6 mm initial radius resolves
+caustic structure at exactly that order. Cycles falls away and misses about
+half the ground-truth caustic core (54.7% coverage against our 99.9%). Against
+the reference conforming solver, the converged two-dimensional shape agrees at
+r = +0.932, which is the strongest single statement of correctness in the
+paper.
+
+One caveat on the finest row: SPPM's estimate is radius-dependent, so its
+5 mm-tile number is limited by photon-map density rather than by a smoothing
+model, and it is not evidence that the two methods agree in detail -- only that
+they agree at that scale under this estimator. Cycles' caustic error does
 not improve with samples in this scene (25.95 -> 26.93 RMSE from 256 to 1024
 spp, measured against its own render): with indirect clamping off -- required
 to admit caustics at all -- its residual is firefly-dominated, so its own
@@ -477,7 +493,7 @@ Reproduce: `tools/fold_diag.py`, `band_flux_test.py`, `tail_study.py`,
 `efficiency_study.py`, `parity_cpp_vs_py.py`, `airy_caustic.py`,
 `verify_wave_correction.py`, `verify_ray_map.py`,
 `accuracy_vs_ground_truth.py`, `analytic_caustic.py`, `pbrt_reference.py`,
-`energy_audit.py`, `ensemble_study.py`, `export_scene_obj.py`; `bench.exe` with `CAUSTIC_THREADS`. Figures:
+`energy_audit.py`, `ensemble_study.py`, `spmm_vs_groundtruth.py`, `metric_parity_check.py`, `export_scene_obj.py`; `bench.exe` with `CAUSTIC_THREADS`. Figures:
 `docs/pbrt_vs_ours.png` (PBRT | ours | overlay),
 `docs/comparison_ours_vs_cycles.png` (photo | ours | Cycles + crops),
 `docs/showcase_glass.png` (showcase still).

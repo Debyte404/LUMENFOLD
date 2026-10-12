@@ -872,6 +872,46 @@ Agreement never collapses: the single-phase numbers are representative, not
 cherry-picked. (r@40mm reads 0.69 here vs 0.916 in 14.4 because this
 ensemble bakes at 512^2; resolution effect, documented in 14.5c.)
 
+### 14.5e Three-way ranking on one independent axis (2026-10-12)
+
+SPPM previously had only a comparison against *our* field (r = +0.932, section
+19.6), never a score on the independent axis. tools/spmm_vs_groundtruth.py
+puts all three methods on ONE axis -- the brute-force geometric ground truth --
+with an identical metric: caustic = positive part beyond the map median, tiled
+and correlated. (Ours and Cycles re-measured at 512^2 inside the same tool.)
+
+    tile      ours     SPPM   Cycles
+    40 mm    0.917    0.853    0.828
+    20 mm    0.869    0.811    0.609
+    10 mm    0.795    0.794    0.481
+     5 mm    0.721    0.722    0.405
+
+Ranking at the coarsest, most stable scale: **ours 0.917 > SPPM 0.853 >
+Cycles 0.828**; at the finest scale ours and SPPM are tied (0.721 / 0.722) and
+Cycles falls away (0.405). This is the like-for-like quality result, and it
+reconciles with section 19.6: SPPM scores highly on the same axis it
+correlates with us on.
+
+**The metric trap that produced a false 0.400** (recorded because it is the
+third instance of this class in the project -- see 11.2 and 20.3). Two
+independent errors, both caught by tools/metric_parity_check.py:
+
+1. **Sign convention.** SPPM's caustic is isolated as optics - no_optics. That
+   differential is NOT non-negative: removing the glass also removes its
+   shadow, so 11.4% of pixels go negative with |neg| / |pos| = 1.40. Scored
+   raw and mean-subtracted, the shadow inversion dominates and SPPM reads
+   **-0.046** at 40 mm; scored on the positive part -- the caustic -- it reads
+   **+0.853**. The first number is an artefact of the estimator, not a
+   statement about SPPM.
+2. **Tile naming.** In these tools the tile argument is tile SIZE IN PIXELS,
+   but EVIDENCE's tables name the 40 mm row "8" (eight tiles per side). Same
+   numbers, opposite direction, and it silently inverted the apparent
+   trend until caught.
+
+A claim that flips with the estimator convention is not a result. Both
+conventions are printed by the tool; the positive-part one is used because it
+isolates the caustic.
+
 ### 14.6 What the audit killed
 
 Three of our own claims do not survive and are withdrawn in CRITIQUE.md:
