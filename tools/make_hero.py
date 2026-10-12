@@ -11,6 +11,7 @@ Emits:
 """
 import io
 import os
+import re
 import subprocess
 import sys
 
@@ -33,9 +34,25 @@ BG = (16, 16, 18)
 
 
 def frames_for(name):
+    """The frame sequence, selected by a STRICT numeric pattern.
+
+    A bare `*.png` glob plus sort is wrong here: out/gif_src/spmm also holds a
+    leftover `_pal.png` (the palette scratch file from an earlier encode) and the
+    .pbrt and .exr scene files that sit beside them. `_` sorts before `f`, so the palette image became
+    frame 0 and every subsequent SPMM panel was shifted one frame ahead of the other
+    two -- which is exactly the "weird flicker" it looks like: a bright flash on the
+    first frame and a permanent one-frame desynchronisation after it.
+
+    ripple_gifs.py never had this bug because it hands ffmpeg the printf pattern
+    `f%04d.png`, which the scratch file cannot match. Same discipline here.
+    """
     d = os.path.join(SRC, name)
-    fs = sorted(f for f in os.listdir(d) if f.lower().endswith(".png"))
-    return [os.path.join(d, f) for f in fs]
+    out = []
+    for fn in os.listdir(d):
+        m = re.fullmatch(r"f(\d{4})\.png", fn)
+        if m:
+            out.append((int(m.group(1)), os.path.join(d, fn)))
+    return [p for _, p in sorted(out)]
 
 
 def label(im, text):
@@ -98,9 +115,17 @@ def main():
     n = min(len(frames_for(p[0])) for p in PANELS)
     print(f"frames per panel: {n}")
 
+    # The three sources are NOT the same resolution: ours and cycles render at
+    # 960x540, the SPPM frames at 640x360, and spmm/ also holds .pbrt and .exr
+    # siblings. Composing the still at native size therefore produced panels of
+    # 966, 966 and 646 px -- a visibly lopsided comparison. Match the SMALLEST
+    # source rather than upscaling it: enlarging the SPPM panel would make it
+    # blurrier than the other two and misrepresent what was compared.
+    PANEL_W = 640
+
     # ---- static: the frame one third into the cycle, mid-ripple
     pick = n // 3
-    still = row(pick)
+    still = row(pick, panel_w=PANEL_W)
     p_still = os.path.join(MEDIA, "hero_comparison.png")
     still.save(p_still, optimize=True)
     print(f"  {p_still}  ({still.size[0]}x{still.size[1]}, "
@@ -121,13 +146,18 @@ def main():
     out_gif = os.path.join(MEDIA, "hero_comparison.gif")
     # The filtergraph must name its INPUT: a bare `scale=...` has nothing attached
     # and ffmpeg rejects the graph. [0:v] first, then palettegen / paletteuse.
+    # Match the configuration tools/ripple_gifs.py already proved out: a smaller
+    # palette with a coarse Bayer dither and rectangle diffing. The bare
+    # `dither=bayer` used first diffuses far more, and diffing whole frames each
+    # time re-dithers regions that did not change -- both read as crawl.
     for label, args in (
         ("palettegen", [ff, "-y", "-loglevel", "error",
                         "-i", os.path.join(tmp, "h%04d.png"),
-                        "-vf", "palettegen=stats_mode=diff", pal]),
+                        "-vf", "palettegen=max_colors=128:stats_mode=diff", pal]),
         ("paletteuse", [ff, "-y", "-loglevel", "error",
                         "-i", os.path.join(tmp, "h%04d.png"), "-i", pal,
-                        "-lavfi", "[0:v][1:v]paletteuse=dither=bayer",
+                        "-lavfi", "[0:v][1:v]paletteuse=dither=bayer:bayer_scale=3:"
+                                  "diff_mode=rectangle",
                         "-loop", "0", out_gif]),
     ):
         r = subprocess.run(args, capture_output=True, text=True)

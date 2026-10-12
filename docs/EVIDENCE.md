@@ -1340,6 +1340,58 @@ mathematically available and computationally is not, at least not by the direct
 route. The conjecture that the cost might carry over does not hold; the paper now
 reports the measurement instead of the conjecture.
 
+### 14.5m The hero GIF's flicker: a glob that sorted a scratch file first (2026-10-12)
+
+The hero comparison GIF flickered. Measured on the shipped file: 10.789% exposure
+ripple and a flat-area temporal std of 12.1, against 0.07-0.48% and 0.17-0.22 for
+the three ripple GIFs. Two separate defects, both in `tools/make_hero.py`.
+
+**1. Frame selection grabbed a scratch file.** `frames_for()` did
+`sorted(f for f in os.listdir(d) if f.endswith('.png'))`. The directory
+`out/gif_src/spmm/` holds the PBRT scene files and EXRs beside the PNGs, plus a
+leftover `_pal.png` -- the 16x16 palette scratch file from an earlier encode. `_`
+is ASCII 95 and `f` is 102, so `_pal.png` sorted FIRST and became frame 0. Every
+subsequent SPMM panel was then one frame ahead of the other two. That is exactly
+what the artefact looked like: a bright flash on the first frame and a permanent
+desynchronisation after it.
+
+    frame 0 before:  ours 100.16  cycles 100.59  spmm 162.80
+    frame 0 after:   ours 157.75  cycles 156.18  spmm  96.04
+    every other frame, both before and after: 155.5 / 156.2 / 95.4
+
+`tools/ripple_gifs.py` never had this bug because it hands ffmpeg the printf
+pattern `f%04d.png`, which the scratch file cannot match. The fix is the same
+discipline: `re.fullmatch(r"f(\d{4})\.png", name)` and sort on the captured int.
+**A directory that other tools write into is not a directory you may glob loosely.**
+
+**2. The encode settings were not the proven ones.** ripple_gifs.py uses
+`palettegen=max_colors=128:stats_mode=diff` with
+`paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle`. The hero used a bare
+`dither=bayer` over whole frames, which diffuses far more and re-dithers regions
+that did not change. Matching the proven configuration took the crawl from 12.095
+to 0.064.
+
+**3. A third defect found while verifying:** the three sources are not the same
+resolution. ours and cycles render at 960x540, spmm at 640x360. Composing the still
+at native size produced panels of 966, 966 and 646 px -- visibly lopsided. The
+animated path escaped it only because it passes a uniform width. The still now
+matches the SMALLEST source at 640 rather than upscaling SPMM, which would have
+made it blurrier than the panels it is compared against.
+
+**Result:**
+
+    hero_comparison.gif   exposure 10.789% -> 0.123%   crawl 12.095 -> 0.064
+    hero_comparison.png   panels 966/966/646 -> 646/646/646   0.72 MB -> 0.41 MB
+    gif size              1.21 MB -> 0.88 MB
+
+**A false positive in the audit itself.** The first version of
+`tools/gif_flicker_audit.py` reported "PALETTE CHANGES BETWEEN FRAMES" for all four
+GIFs. PIL's `getpalette()` returns a 256-entry table and the unused trailing
+entries differ between frames; the colours actually in use (the first 128) are
+identical. The check now compares only the used range, and all four report a single
+shared palette. An instrument that flags a defect in correctly-encoded files is
+worth fixing before it sends you chasing a phantom.
+
 ### 14.6 What the audit killed
 
 Three of our own claims do not survive and are withdrawn in CRITIQUE.md:
