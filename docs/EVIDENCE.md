@@ -255,10 +255,11 @@ Two rules that fall straight out of this, and they pull in opposite directions:
 `showcase.exe` — an offline still on the geometry of the reference photograph,
 rendered by a small physically-based renderer written in `src/app/showcase_main.cpp`:
 
-* a genuine multi-layer dielectric: air | glass shell (n = 1.5095 + 4200/lambda^2,
-  3.5 mm wall) | water (Cauchy), walked with Fresnel at every interface, so the
+* a genuine multi-layer dielectric: air | glass shell (Rubin 1985 measured
+  soda-lime data, 3.5 mm wall) | water (Daimon & Masumura 2007 measured
+  Sellmeier), walked with Fresnel at every interface, so the
   background is refracted through the glass and the rim highlights are transport,
-  not paint
+  not paint (corrected 2026-10-11 from Cauchy fits; see section 20)
 * Beer-Lambert absorption in glass and water
 * the sun as a 1.2 deg disk, so penumbrae are real (6 shadow-ray samples)
 * a gradient environment for the reflected branches and ambient
@@ -369,8 +370,9 @@ scene in Blender 4.2 and injects the baked caustic:
 > from the environment and sun, not from the baked dispersion. Geometry, shadow
 > and light transport are unaffected.
 
-* glass shell (r 0.035 m, h 0.090 m, IOR 1.5) and water (IOR 1.333) as real
-  transmission materials, so the background is genuinely refracted;
+* glass shell (r 0.035 m, h 0.090 m, IOR 1.525) and water (IOR 1.335) as real
+  transmission materials (measured central-channel values; corrected 2026-10-11
+  from 1.5/1.333), so the background is genuinely refracted;
 * `AgX` view transform, sun with a physical angular size, gradient environment;
 * the caustic from `--dump-caustic` (16-bit PNG, linear, row 0 = +Y) injected as
   an Emission shader added on top of the receiver's Principled BSDF;
@@ -595,7 +597,8 @@ RMSE is against each method's own converged 4096-sample render.
 | 1024 | 2.06 | **0.50** | 1.63 | **0.30** | 4.1x |
 
 **5.5x and 5.4x less error in the caustic region**, 4-6x over the whole frame, at
-equal sample counts — and ours is not slower: 1.7-1.9 s against Cycles' 2.2-2.5 s
+equal sample counts (SELF-REFERENCED: each method vs its own 4096-spp render;
+see the 14.6 withdrawal -- the comparable figure is 14.8) — and ours is not slower: 1.7-1.9 s against Cycles' 2.2-2.5 s
 at this resolution, plus our one-time 0.27 s bake.
 
 **Why the earlier tests tied and this one does not: the sun's angular size.**
@@ -677,14 +680,21 @@ masks differ wildly — 0.2% of the frame for Cycles against 4.8% for ours — s
 those two RMSE numbers were not measuring the same pixels. Both are now scored
 over one shared region:
 
-| spp | shared mask | Cycles RMSE | ours RMSE | gain |
+| spp | shared mask | Cycles RMSE | ours RMSE | gain (WITHDRAWN, see 14.6) |
 |---|---|---|---|---|
 | 256 | 4.09% of frame | 25.95 | **1.50** | 17.3x |
 | 1024 | 4.09% of frame | 26.93 | **1.48** | 18.2x |
 
+> WITHDRAWN (2026-10-12): each method scored against its OWN 4096-sample
+> reference, and Cycles' reference is firefly-contaminated (clamping must be
+> off for caustics at all). The asymmetry flatters us by an unmeasured
+> amount. The comparable measurement is EVIDENCE 14.8 (independent
+> brute-force ground truth: 0.917 vs 0.824).
+
 At a tighter 2.14% mask the figures are 35.90/37.25 against 2.07/2.05, the same
-17-18x. Both converged references now agree on the caustic peak (+46.7 levels
-over median) and on the background median (208.3) — our injected caustic's
+17-18x. Both converged references read the same clipped peak (+46.7 levels over
+median) and background median (208.3) -- VACUOUS as a brightness agreement
+(both clipped at 255; see 14.6, CRITIQUE C2) — our injected caustic's
 *brightness* now matches the physically rendered one, which was left open in §12.
 
 Cycles' caustic region does not converge with samples (25.95 -> 26.93 from 256 to
@@ -1176,7 +1186,7 @@ After mirroring:
 | caustic centroid radius | 50.2 mm | 52.2 mm | 4 % |
 | azimuthal energy peak | +0..+30 deg bin | +0..+30 deg bin | same |
 | energy falloff | symmetric, second bin +30..+60 | same | same |
-| tile correlation at 40 mm | - | - | **r = +0.926** |
+| tile correlation at 40 mm | - | - | **r = +0.926 (legacy etas; +0.932 re-measured 2026-10-12 on measured central etas 1.33468/1.52514, see 19.6)** |
 
 Figure: `docs/pbrt_vs_ours.png` (PBRT | ours | overlay).
 
@@ -1194,6 +1204,22 @@ uses to judge caustic renders.
   this validates *shape*, not dispersion. Dispersion is §18's business.
 * The match is against `out/caustic_wavy.png`, the rippled-water field, so both
   sides share phase as well as geometry.
+
+### 19.6 Shape re-measured on measured indices (2026-10-12)
+
+The flagship r = 0.926 rested on single-valued legacy etas (1.52/1.333).
+Rebuilt both scenes at the measured central-channel values (water 1.33468,
+glass 1.52514; tools/pbrt_reference.py defaults now these) and re-ran SPPM
+(256 iterations x 1 M photons, differential optics-minus-nooptics, X-mirror
+corrected):
+
+    PBRT centroid (+33.7, +18.6) mm, r 38.5, az +29.0 deg
+    ours centroid (+45.1, +23.4) mm, r 50.8, az +27.5 deg
+    k=8 +0.557 / k=16 +0.648 / k=32 +0.777 / k=64 +0.932
+
+Agreement holds and sharpens at fine scale on measured indices. Scenes:
+out/pbrt/pbrt_shape_optics.pbrt + pbrt_shape_nooptics.pbrt (archived -- the
+auditor found the old conv-pair EXRs had no archived scenes).
 
 ### 19.5 PBRT-v4 scene-format traps, recorded so they cost nothing next time
 
@@ -1300,8 +1326,10 @@ intensity crosses a threshold taken relative to that channel's own maximum. It
 is invariant to any uniform scale, and a ceiling lifts the core but not the
 outer edge. Measured identically on both sides:
 
-    measured indices (Daimon & Masumura / Rubin)
-      our solver   edge  R 108.0  G 106.0  B 104.0 mm    R - B = +4.0 mm
+    measured indices (Daimon & Masumura / Rubin), edge = outermost 1 mm
+    annulus above 2%% of channel max, nb=160 (reconciled 2026-10-12; an
+    earlier binning read 108/106/104 and is superseded)
+      our solver   edge  R 107.0  G 105.0  B 102.0 mm    R - B = +5.0 mm
       PBRT SPPM    edge  R  56.0  G  54.0  B  51.0 mm    R - B = +5.0 mm
 
     legacy (mis-fitted) indices, our solver

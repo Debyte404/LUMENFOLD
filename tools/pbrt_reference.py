@@ -62,10 +62,10 @@ def main():
     ap.add_argument("--photons", type=int, default=500000)
     ap.add_argument("--radius", type=float, default=0.008)
     ap.add_argument("--hide-optics", action="store_true")
-    ap.add_argument("--eta-water", type=float, default=1.333,
-                    help="water index for this render (measured data per channel)")
-    ap.add_argument("--eta-glass", type=float, default=1.52,
-                    help="glass index for this render (measured data per channel)")
+    ap.add_argument("--eta-water", type=float, default=1.33468,
+                    help="water index for this render (measured central-channel value, Daimon & Masumura 2007)")
+    ap.add_argument("--eta-glass", type=float, default=1.52514,
+                    help="glass index for this render (measured central-channel value, Rubin 1985)")
     ap.add_argument("--out", default=f"{OUT}/pbrt_caustic.exr")
     args = ap.parse_args()
 

@@ -23,7 +23,7 @@
 //   * wood grain and the glass surface shading are procedural, not measured
 //   * no interreflection, no caustic re-focus by the glass rim
 //
-//   showcase [--n 1600] [--res 1024] [--airy 0.006] [--out out/showcase.png]
+//   showcase [--n 1600] [--res 1024] [--airy 0.0015] [--out out/showcase.png]
 #include <algorithm>
 #include <cmath>
 #include <cstdint>

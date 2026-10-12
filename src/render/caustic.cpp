@@ -6,8 +6,9 @@
 //  1. Fold locus = |det J| of the surface->floor ray map, not an intensity
 //     percentile. A percentile always flags the same 2% of pixels regardless of
 //     how much of the image is actually inside the fold band, so it is
-//     resolution-dependent: RMSE against a 2048^2 truth stalls at 0.093 while
-//     the analytic locus converges (0.202 -> 0.144 -> 0.105 -> 0.039).
+//     resolution-dependent: RMSE against a 2048^2 truth stalls at 0.08534 while
+//     the analytic locus converges (0.20188 -> 0.13738 -> 0.10455 -> 0.03914;
+//     see EVIDENCE section 1).
 //  2. Band-local flux conservation. Rescaling the whole channel AFTER the
 //     intensity clamp pushes the peak back above its own ceiling (11.58x vs a
 //     ceiling of 8.10x at 256^2); preserving the band's own energy holds the
@@ -35,6 +36,11 @@ namespace {
 constexpr float kPi = 3.14159265358979323846f;
 constexpr float kSize = 6.0f;
 constexpr float kDepth = 1.0f;
+// Achromatic backbone: the pool scene refracts all channels through one eta
+// (measured water at 550 nm is 1.33468; 1.333 is 0.0017 low -- geometrically
+// negligible). Its per-channel spread comes ONLY from the lambda^(2/3) Airy
+// width, not from a per-channel ray map: pool dispersion is a width effect,
+// unvalidated against any reference. See EVIDENCE section 8.
 constexpr float kEta = 1.0f / 1.333f;
 constexpr float kLamp[3] = {650e-9f, 550e-9f, 450e-9f};
 

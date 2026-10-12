@@ -7,7 +7,7 @@ Why Mitsuba rather than another attempt at Cycles or LuxCore:
     tuned for pretty pictures;
   * it runs in Python as a pip wheel, so there is no build to break;
   * render in the SPECTRAL variant and its dielectric BSDFs use MEASURED
-    refractive-index data (`bk7`, `water`) instead of our Cauchy fit — so the
+    refractive-index data (`bk7`, `water`) instead of our former Cauchy fits — so the
     dispersion ordering is checked against an independent material model, which
     is the one part of our result that has never been independently grounded;
   * it has a photon-mapping integrator, which is the technique our method
@@ -86,13 +86,13 @@ def build(args):
         d["glass"] = {
             "type": "obj",
             "filename": f"{GEO}/glass.obj",
-            # MEASURED soda-lime/BK7 data, not our Cauchy fit
+            # MEASURED soda-lime/BK7 data (our former Cauchy fits were replaced; see EVIDENCE 20)
             "bsdf": {"type": "dielectric", "int_ior": "bk7", "ext_ior": "air"},
         }
         d["water"] = {
             "type": "obj",
             "filename": f"{GEO}/water.obj",
-            # MEASURED water data, not our Cauchy fit
+            # MEASURED water data (our former Cauchy fits were replaced; see EVIDENCE 20)
             "bsdf": {"type": "dielectric", "int_ior": "water", "ext_ior": "air"},
         }
     return mi.load_dict(d)
