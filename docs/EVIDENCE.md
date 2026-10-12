@@ -914,6 +914,72 @@ A claim that flips with the estimator convention is not a result. Both
 conventions are printed by the tool; the positive-part one is used because it
 isolates the caustic.
 
+### 14.5f The three ripple GIFs (2026-10-12)
+
+docs/media/ripple_{ours,cycles,spmm}.gif — the same animating caustic, three
+ways, one camera, no exaggerated fringes. 72 frames each (one full wave cycle),
+640x360, infinite loop, produced by tools/ripple_gifs.py.
+
+Three decisions, each measured rather than chosen by eye:
+
+**1. Physical fringe width, not a visibility width.** The earlier clips used
+airy_scale = 1.5 mm, which is 12.2x the physical fringe width for this geometry
+(0.123 mm, tools/fringe_scale.py). tools/airy_honesty_sweep.py measured what
+narrowing the band costs:
+
+    airy_scale   band    per-channel spread   isolated
+    0.0015      24.0 px        0.0537          0.953%
+    0.0006       9.6 px        0.0568          1.071%
+    0.0003       4.8 px        0.0575          1.127%
+    0.000123     2.0 px        0.0599          1.158%  <- physical, used
+
+The chromatic variation barely moves (0.054 -> 0.060) as the band narrows,
+because the colour is carried by the measured index dispersion and the
+per-channel normalisation, not by the fringe decoration. So the exaggeration
+could be removed at almost no cost, and these GIFs use the physical width --
+the band is 2 px, below the >=3 px fringe-visibility rule, which is exactly
+right when the point is NOT to draw fringes.
+
+**2. One camera, verified identical.** The earlier ripple clip used dist 0.32
+at az 35 and cropped the fan; tools/frame_test2.py measured the caustic's
+margin with a differential mask (injection on minus off) and az 110 / elev 38 /
+dist 0.62 / lens 50 puts the whole fan in frame with 23-31% clearance on every
+side, viewed broadside rather than down the fan's length. PBRT needed a
+perspective camera to match the Blender one (it was top-down orthographic), so
+tools/pbrt_reference.py gained --persp. tools/cam_projection_check.py projects
+known world points through both camera models: the worst fractional
+disagreement is **0.0000** once the documented 19.2 X-mirror is applied.
+
+**3. Exposure calibrated on the subject.** PBRT writes linear HDR and Blender's
+frames are AgX-tonemapped, so a naive conversion left the SPMM clip 4.3x
+darker. The scale is solved by bisection so the SPMM table's p75 in the output
+equals the Blender frame's p75:
+
+    ours   p75 0.9059   median 194.0   blown 0.00%
+    cycles p75 -        median 196.0   blown 0.00%
+    spmm   p75 0.9059   median  49.0   blown 0.00%
+
+The medians differ (194 against 49) because **the PBRT scene is bare** -- a
+distant light and a diffuse table, with no environment or fill -- so its
+background is black, while the Blender frames carry the studio rig's gradient
+environment. The subject is exposure-matched; the background is not, and that
+is a scene difference, not an exposure error.
+
+Two traps, both recorded because they are the same class as 11.2 / 20.3:
+
+* **Per-frame normalisation.** The first conversion divided each frame by its
+  own maximum. On an animation that injects brightness flicker -- the very
+  artefact section 17 measures -- so the fix uses ONE scale for the whole clip.
+* **Estimator basis.** The second attempt matched whole-frame medians against
+  the inverse-sRGB of an AgX image. That is not scene radiance, and the frame is
+  46% black background, so the "median" was a background statistic; it produced
+  a scale of 15 when the correct value is 0.896, blowing 49% of the frame.
+
+Also recorded: the ffmpeg first on PATH on this machine is N-55702 (Aug 2013),
+which predates palettegen/paletteuse entirely and fails with "No such filter:
+palettegen". tools/ripple_gifs.py now probes for an ffmpeg that has the filter
+and falls back gracefully; the WinGet Gyan 7.1 full build works.
+
 ### 14.6 What the audit killed
 
 Three of our own claims do not survive and are withdrawn in CRITIQUE.md:

@@ -36,6 +36,28 @@ caustic flicker) — but it ties on a single still, loses to Cycles on the stati
 clip, and plain Monte-Carlo is more accurate below ~262 k splats. Our caustic is also
 **too smooth**: 2.30× broader than the brute-force trace at 1024² (1.87× at 4096²).
 
+## The three ripple GIFs
+
+The same animating caustic, three ways, for side-by-side viewing:
+
+| file | what it shows |
+|---|---|
+| `docs/media/ripple_ours.gif` | our wave-corrected field, re-baked at every frame's wave phase |
+| `docs/media/ripple_cycles.gif` | Blender Cycles tracing the caustics itself |
+| `docs/media/ripple_spmm.gif` | PBRT-v4 SPPM, the reference conforming solver |
+
+72 frames (one full wave cycle), 640×360, looping. One camera for all three —
+verified identical by projecting known world points through both camera models
+(worst disagreement 0.0000, `tools/cam_projection_check.py`) — zoomed out far
+enough that the whole fan is in frame with 23–31% clearance. The band uses the
+**physical** fringe width (0.123 mm), not the 12.2× visibility exaggeration the
+older clips used, so there are no decorative fringes: the colour you see is the
+measured index dispersion. The subject exposure is matched across all three
+(the PBRT scene is bare, so its background is black rather than lit — a scene
+difference, documented in `docs/EVIDENCE.md` §14.5f).
+
+Regenerate with `python tools/ripple_gifs.py`.
+
 ## What the method does
 
 1. **Geometric backbone.** Refract the surface by Snell's law and splat to the

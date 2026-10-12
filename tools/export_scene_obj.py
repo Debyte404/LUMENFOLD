@@ -9,8 +9,13 @@ Geometry is generated with the same parameters as tools/blender_scene.py:
 glass tube (outer 35 mm, wall 3.5 mm, height 90 mm), rippled water surface at
 z = 59.4 mm displaced by the same wave field, table 0.32 m square at z = 0.
 
-Run:  python tools/export_scene_obj.py
+Run:  python tools/export_scene_obj.py [--wave-t T] [--out-dir DIR]
+
+--wave-t displaces the water surface at that phase (t*(1+i), the same
+convention the solver, the tracer and the Blender scene use), and --out-dir
+lets an animation write a different geometry per frame.
 """
+import argparse
 import math
 import os
 
@@ -81,7 +86,13 @@ def disc(r, z, flip=False, seg=SEG):
 
 
 def main():
-    os.makedirs(OUT, exist_ok=True)
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--wave-t", type=float, default=0.0)
+    ap.add_argument("--out-dir", default=OUT)
+    args = ap.parse_args()
+    out = args.out_dir
+    t = args.wave_t
+    os.makedirs(out, exist_ok=True)
 
     glass = Obj()
     glass.add(*tube(R_OUT, BOT, H, outward=True))
@@ -94,13 +105,13 @@ def main():
     water = Obj()
     water.add(*tube(R_IN - 0.0001, BOT, WATER_TOP, outward=True))
     # rippled top surface, radial grid, same wave field as the renderer
-    v = [(0.0, 0.0, WATER_TOP + wave_h(0.0, 0.0))]
+    v = [(0.0, 0.0, WATER_TOP + wave_h(0.0, 0.0, t))]
     for i in range(1, NR + 1):
         rr = (R_IN - 0.0001) * i / NR
         for j in range(SEG):
             a = 2 * math.pi * j / SEG
             x, y = rr * math.cos(a), rr * math.sin(a)
-            v.append((x, y, WATER_TOP + wave_h(x, y)))
+            v.append((x, y, WATER_TOP + wave_h(x, y, t)))
     ring = lambda i, j: 1 + (i - 1) * SEG + (j % SEG) if i > 0 else 0
     f = []
     for j in range(SEG):
@@ -116,9 +127,9 @@ def main():
               [(0, 1, 2, 3)])
 
     for name, ob in (("glass", glass), ("water", water), ("table", table)):
-        nv, nf = ob.write(f"{OUT}/{name}.obj", name)
+        nv, nf = ob.write(f"{out}/{name}.obj", name)
         print(f"  {name}.obj  {nv} verts, {nf} faces")
-    print(f"written to {OUT}")
+    print(f"written to {out}  (wave-t {t:.4f})")
 
 
 if __name__ == "__main__":

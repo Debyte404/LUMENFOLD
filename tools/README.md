@@ -55,7 +55,7 @@ These share no code with the estimator, which is the point.
 | `caustic_vs_cycles.py`, `hard_caustic_ab.py` | Caustic-noise A/B, including the hard small-source regime. |
 | `caustic_field_validation.py` | The baked field vs Cycles' caustics-on-minus-off differential. |
 | `compare_to_reference.py` | Photograph statistics (mean, percentiles, warmth, detail) for a render. |
-| `export_scene_obj.py` | Export the scene geometry for Mitsuba and PBRT (identical vertices). |
+| `export_scene_obj.py` | Export the scene geometry for Mitsuba and PBRT (identical vertices); `--wave-t` for a per-phase animation. |
 | `airy_scale_sweep.py` | Choose `airy_scale` by measurement against a path-traced caustic. |
 | `test_addon.py` | Headless test of the Blender caustic-injector add-on. |
 
@@ -64,6 +64,11 @@ These share no code with the estimator, which is the point.
 | Tool | Purpose |
 |---|---|
 | `production_renders.py` | The deliverable stills and clips (`--combined-only`, `--cycles-clips`). |
+| `ripple_gifs.py` | The three ripple GIFs, one camera, physical Airy width (`--validate` for frame 0 only, `--encode-only`). |
+| `airy_honesty_sweep.py` | What narrowing the Airy band to the physical width costs (fringe colour vs aliasing). |
+| `frame_test2.py` | Chooses the GIF camera by measuring the caustic's margin with a differential mask. |
+| `cam_projection_check.py` | Proves the Blender and PBRT cameras agree, analytically, point by point. |
+| `fix_spmm_exposure.py`, `tune_spmm_scale.py` | Calibrate the SPMM clip's exposure to the Blender one. |
 | `make_paper_figures.py` | Regenerates all 9 figures in `docs/figures/` from real artefacts. |
 | `build_paper_html.py` | `docs/PAPER.md` → `docs/PAPER.html` (MathJax, figures inlined). |
 | `make_comparison_figure.py` | The photograph / ours / Cycles comparison figure. |

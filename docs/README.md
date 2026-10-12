@@ -19,7 +19,7 @@ documents carry dated scope notes.
 | Path | Contents |
 |---|---|
 | `figures/` | The paper's 9 figures, generated from real artefacts by `tools/make_paper_figures.py`. `figure_data.json` carries the numbers they plot. |
-| `media/` | Presentation media: the four clips (ripple, turntable, combined, and Cycles' counterparts), contact sheet, comparison figures, showcase stills. |
+| `media/` | Presentation media: the four clips (ripple, turntable, combined, and Cycles' counterparts), **`ripple_{ours,cycles,spmm}.gif`** — the same ripple animation three ways, one verified camera, physical fringe width, exposure-matched subject (EVIDENCE 14.5f) — contact sheet, comparison figures, showcase stills. |
 | `data/` | Machine-readable artefacts: the baked caustic field (`caustic_wave.npy`) and the efficiency study results. |
 
 ## Where the numbers come from
