@@ -1,4 +1,13 @@
-# How to verify this against reality
+# How this *would* be verified against reality (optional appendix)
+
+> SCOPE NOTE (2026-10-12): This document is **not part of the current work**.
+> The paper has been repositioned as a computational comparative evaluation of
+> wave-corrected caustics against existing caustic solvers (speed and quality),
+> and laboratory validation is explicitly out of scope: no claim in the paper
+> depends on a photograph. The protocol below is retained because it is the
+> correct way to settle the physical questions *if* someone chooses to run it,
+> and because the falsifiable predictions are the honest statement of what the
+> model commits to. Nothing here is cited as evidence in the paper.
 
 Every check in this project so far is simulation against simulation: Cycles,
 a brute-force tracer, and a closed-form analytic cylinder. Those establish that

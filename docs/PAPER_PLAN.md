@@ -1,16 +1,24 @@
-# Paper Plan — Band-Local Wave Correction for Fold Caustics
+# Paper Plan — Wave-Corrected Caustics: A Comparative Evaluation
 
-Status: plan / pre-submission. Grounded strictly in `docs/EVIDENCE.md`; every
-quantity cited below is either quoted verbatim from that file or explicitly
-marked **NEEDS MEASUREMENT**. No number in this document is inferred,
-extrapolated, or invented.
+Status: plan / pre-submission. **Scope revised 2026-10-12:** this is an
+evaluation paper (speed and quality of wave-corrected caustics against PBRT-v4
+SPPM, Cycles and Mitsuba 3), not a physical-validation paper. Laboratory
+apparatus validation is out of scope and is not proposed as future work; the
+apparatus protocol is retained only as an optional appendix in
+`docs/PHYSICAL_TEST.md`. The plan below predates sections 14-20 of EVIDENCE and
+is retained for its related-work survey and venue analysis; the claim inventory
+in section 2 has been updated where measurements have since landed.
+
+Grounding rule: every quantity cited below is either quoted verbatim from
+`docs/EVIDENCE.md` or explicitly marked **NEEDS MEASUREMENT**. No number in
+this document is inferred, extrapolated, or invented.
 
 ---
 
 ## 1. Working title and abstract
 
-**Working title:** *Band-Local Wave Correction for Fold Caustics: Replacing the
-Geometric Fold Singularity with the Airy Profile over a Photon-Splat Backbone.*
+**Working title:** *Wave-Corrected Caustics over Photon Splatting: A Comparative
+Evaluation against Photon Mapping and Path Tracing.*
 
 **Abstract.** Geometric photon-splat quadrature renders water-surface caustics
 efficiently almost everywhere but diverges in the fold (caustic) band, where the
@@ -267,7 +275,7 @@ border clamping and with discarding, and report the geometric peak for each.
 Expected reproduction of §3 (350.78 vs 9.28). Artifact: harness **[TO ADD]** so
 the ablation is script-citable, not merely described.
 
-### 5.3 Real-validation experiment (physical apparatus) — required
+### 5.3 Real-validation experiment (physical apparatus) — OUT OF SCOPE (2026-10-12)
 
 EVIDENCE §7.1 states there is **no experimental ground truth** and that real
 validation means fringe spacing against a laser and a known lens; §7.3 states the
@@ -390,12 +398,14 @@ Durations are planning estimates, not measurements.
 | S1 — Script the missing ablation | Build the F3 splat-boundary harness **[TO ADD]** | S0 | C3 is reproducible from a single named script |
 | S2 — Ensemble statistics | Multi-spectrum, multi-time, multi-sun-angle runs | S0 | Ensemble error statistics reported (currently **NEEDS MEASUREMENT**) |
 | S3 — Coherence gate + threshold-free locus | Implement `coherence.hpp` gate; scale-space/sign-change fold locus | S2 | Measured RMSE/cost effect of each |
-| S4 — Physical validation | Laser/cylindrical-lens caustic, photograph, image analysis; chromatic ordering | S1 (and ideally S2) | Measured fringe spacing and ordering versus prediction (currently **NEEDS MEASUREMENT**) |
+| S4 — ~~Physical validation~~ | **DESCoped (2026-10-12)**: laboratory apparatus validation is out of scope for this paper. Retained as an optional appendix protocol only. | — | — |
 | S5 — Performance refactor (optional) | GPU port or Airy-term optimization (currently ~two thirds of a bake) | S0 | New timing broken out by term |
 | S6 — Venue selection + writing | Choose venue from §6 based on S2–S4 outcomes | S2–S4 | Submission-ready manuscript |
 | S7 — Citation re-verification | Re-run prior-art survey from a keyed connection | S6 | All citations verified against versioned IDs |
 
-**Decision gate before S6:** if S4 (physical validation) cannot be run, the paper
-must be repositioned as a methodology-only contribution (EGSR/JCGT scope) and
-every physical claim downgraded to the form-claim of C9, with C10 and C12 left as
-explicit open problems.
+**Decision gate before S6 (RESOLVED 2026-10-12):** S4 was not run by design, so
+the paper IS the methodology/comparative contribution (EGSR/JCGT scope). C10
+(dispersion ordering) has since been verified against PBRT SPPM and Mitsuba on
+measured indices and is no longer an open problem; C12 (absolute fringe width)
+remains explicitly unclaimed, and every physical statement is bounded to the
+form claim of C9 -- finite fringes, chromatic ordering, no divergence.
