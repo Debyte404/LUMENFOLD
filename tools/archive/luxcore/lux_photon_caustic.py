@@ -8,7 +8,7 @@ PhotonGI is the reference implementation of it. An orthographic camera over the
 same 0.32 m square means the rendered image and our baked field are the same
 thing pixel for pixel, so they can be compared directly.
 
-Run:  third_party/luxvenv/Scripts/python.exe tools/lux_photon_caustic.py \
+Run:  third_party/luxvenv/Scripts/python.exe tools/archive/luxcore/lux_photon_caustic.py \
         --photons 1000000 --spp 64 --out out/lux_photon.png
 """
 import argparse

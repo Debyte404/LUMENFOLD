@@ -4,7 +4,7 @@ Checks, in one render: a triangle mesh, a smooth dielectric ("glass"), a small
 sun, a dark world, and PATHCPU + PhotonGI. Prints whatever LuxCore complains
 about so the scene format can be corrected before the real experiment.
 
-Run:  third_party/luxvenv/Scripts/python.exe tools/probe_lux2.py
+Run:  third_party/luxvenv/Scripts/python.exe tools/archive/luxcore/probe_lux2.py
 """
 import math
 import os

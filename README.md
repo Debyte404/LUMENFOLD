@@ -1,38 +1,116 @@
-# Caustics — wave-corrected caustics over a two-medium MuJoCo scene, rendered in Filament
-Status: early scaffold (2026-10-04). Decisions locked: upstream Filament 1a, Airy caustics 3a,
-MuJoCo role = issue #3452 (two-medium air/water physics).
+# Wave-corrected caustics over photon splatting
 
-## What this is
-A real-time demo + reusable modules:
-1. `src/physics/two_medium` — air/water interface with REAL buoyancy (submerged-volume
-   force applied at the center of buoyancy, so the restoring moment exists).
-   This fills the gap filed as google-deepmind/mujoco#3452, which was closed
-   unmerged: MuJoCo 3.14.0 (checked: no `nlayer`/`mj_envLayer` in headers) still
-   has one global density, no free surface, no Archimedes force, and a `gravcomp`
-   proxy whose torque cancels identically (hull can never self-right).
-2. `src/render/caustic` — analytic caustic texture with wave-corrected Airy
-   fringe profile (finite focus, no blown-out infinity), consumed by a custom
-   Filament material. Per prior viability study (Sebastian-Engine
-   docs/WAVE_VIABILITY.md): no shipping renderer does Airy/Pearcey-regularized
-   caustics — that is the novelty.
-3. `src/app` — Filament viewer stepping the MuJoCo scene (pool + floating bodies).
+A caustic estimator that replaces the geometric fold singularity with the wave-optical
+Airy profile inside a detected fold band, plus a measured comparison of it against the
+caustic solvers in current practice — **PBRT-v4 SPPM, Blender Cycles, and Mitsuba 3**.
 
-## Layout
-- `third_party/` — prebuilt drops (fetch via `tools/fetch_third_party.sh`):
-  mujoco-3.14.0-windows, filament-v1.77.2-windows. NOT committed (see .gitignore).
-- `models/` — MJCF scenes (`pool.xml`, bodies).
-- `tools/` — Python proofs: `repro_3452.py`, `two_medium_demo.py`, `airy_caustic.py`.
-- `src/physics`, `src/render`, `src/app` — C++ (MSVC 14.41, CMake 4.4).
-- `docs/` — DESIGN.md (architecture), WAVE_VIABILITY.md (prior study, copied).
+**The paper:** [`docs/PAPER.md`](docs/PAPER.md) · printable with typeset maths:
+[`docs/PAPER.html`](docs/PAPER.html) (open in a browser; Ctrl+P → PDF).
+Every number in it traces to a measurement in [`docs/EVIDENCE.md`](docs/EVIDENCE.md),
+including the ones that went against us — the adversarial audit of our own claims is
+[`docs/CRITIQUE.md`](docs/CRITIQUE.md).
 
-## Build (once third_party is in place)
+## Headline result
+
+Quality, scored on one independent axis (a brute-force geometric trace of 810 k
+explicit rays that neither method produced) with an identical metric:
+
+| correlation vs ground truth | ours | PBRT-v4 SPPM | Cycles |
+|---|---|---|---|
+| 40 mm tiles | **0.917** | 0.853 | 0.828 |
+| 5 mm tiles | 0.721 | 0.722 | 0.405 |
+| coverage of the ground-truth caustic core | **99.9%** | — | 54.7% |
+
+Speed, and it is *not* a uniform win:
+
+| workload | ours | Cycles | PBRT-v4 SPPM |
+|---|---|---|---|
+| produce a caustic, 512² | **36.22 ms** (8 threads) | — | 34 s |
+| production still, 1600×1000 @ 2048 spp | 34.1 s | 36.1 s | — |
+| orbit clip, 1280×720, 120 frames | **773.3 s** | 1043.2 s | — |
+| ripple clip, 960×540, 72 frames | 481.9 s | **453.0 s** | — |
+
+The method is 2–3 orders of magnitude cheaper at *producing* a caustic for this
+geometry family, and wins on animations that re-bake per frame (1.35×, with 7.9× less
+caustic flicker) — but it ties on a single still, loses to Cycles on the static-camera
+clip, and plain Monte-Carlo is more accurate below ~262 k splats. Our caustic is also
+**too smooth**: 2.30× broader than the brute-force trace at 1024² (1.87× at 4096²).
+
+## What the method does
+
+1. **Geometric backbone.** Refract the surface by Snell's law and splat to the
+   receiver, with the ray map `H(x)` and its Jacobian `det J`. Efficient wherever the
+   map is smooth, divergent where it folds.
+2. **Fold locus.** Detect `det J = 0` analytically (2nd percentile) instead of by
+   intensity percentile — the percentile detector always flags 2% of pixels and
+   therefore never converges.
+3. **Band-local Airy replacement.** Inside the band, redistribute the band's *own*
+   energy by `|Ai(-s/w)|²` with per-channel width `w ∝ λ^(2/3)`, so fringes stay finite
+   and chromatic ordering follows from the profile and the measured index laws rather
+   than being added as an effect.
+
+Verified independently of the solver: the profile equals true Airy to 8.118e-03 of
+peak, the canonical cubic-phase fold integral peaks at `X = −1.00` against the analytic
+`−1.0188`, the fringe exponent measures 0.6977 against an analytic `2/3`, and a
+closed-form cylinder caustic is reproduced to **0.1 mm**.
+
+## Repository map
+
+```
+src/render/caustic.*          pool-scene caustic field baker (1-D, real-time path)
+src/render/airy_lut.*         the 2048-entry Airy profile table (+ generator)
+src/app/showcase_main.cpp     the paper's offline estimator + showcase renderer
+src/app/bench_main.cpp        bake timing harness
+src/app/dump_main|parity_main parity / dump helpers
+src/physics/two_medium.*      ORIGIN of the scene: air/water buoyancy (see History)
+src/app/viewer_*.cpp          MuJoCo + Filament viewer from that earlier stage
+models/, blender_addon/       MJCF scene, Blender caustic injector
+tools/                        measurement + verification harnesses  -> tools/README.md
+docs/                         paper, evidence, audit, figures, media -> docs/README.md
+third_party/                  prebuilt drops, NOT committed (fetch script in tools/)
+out/                          working artefacts (gitignored); out/probes = superseded
+```
+
+## Build
+
+```bash
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release
-./build/src/app/Release/caustics_demo.exe
+```
 
-## Physics scope (honest)
-Static flat free surface at z=0, hydrostatics only: no waves/currents/sloshing
-(same out-of-scope list as #3452's Limits). Sphere + box + capsule analytic
-clipping (exact); concave meshes fall back to convex-hull approx, documented.
-MuJoCo's own drag (fluidshape) stays on; we add ONLY the missing Archimedes
-term + its moment, as external `xfrc_applied`.
+The measurement and verification harnesses are Python:
+
+```bash
+python tools/verify_ray_map.py            # the independent brute-force ground truth
+python tools/verify_wave_correction.py    # Airy profile, fold integral, λ^(2/3)  (needs scipy)
+python tools/accuracy_vs_ground_truth.py  # three-way accuracy against that truth
+python tools/spmm_vs_groundtruth.py       # SPPM scored on the same axis
+python tools/analytic_caustic.py          # closed-form cylinder reference
+python tools/energy_audit.py              # Fresnel-weighted energy bookkeeping
+python tools/ensemble_study.py            # robustness across 8 wave phases
+python tools/make_paper_figures.py        # regenerate docs/figures/
+```
+
+The full reproduction list, including the renderer-side harnesses (PBRT-v4 SPPM,
+Mitsuba 3, Blender/Cycles) is Section 9 of the paper.
+
+## Honest scope
+
+One scene, one machine, no laboratory ground truth — this is a **computational
+evaluation** and physical-apparatus validation is deliberately out of scope. The
+physical claim is one of *form* (finite fringes, chromatic ordering, no
+`1/√·` divergence), not absolute fringe width: for a glass this size the real fringes
+are 0.123 mm wide and a 0.53° sun blurs them away entirely, so the fringes rendered
+here are a legibility choice and cannot be photographed. The efficiency claim is
+amortised against **one fixed geometry family**; change the optic and the solver needs
+new work. Ten further limits are itemised in Section 7 of the paper, and three claims
+from our own earlier record are explicitly withdrawn there.
+
+## History
+
+This repo began as an air/water interaction demo: `src/physics/two_medium.*` implements
+the Archimedes force with a centre of buoyancy for MuJoCo (the gap filed as
+google-deepmind/mujoco#3452, closed unmerged), rendered through Filament. `models/pool.xml`
+and the `viewer_*` binaries are that stage, kept because the caustic work grew out of the
+same scene. The caustics estimator and the comparison against SPPM/Cycles/Mitsuba — the
+current work — live in `src/render/caustic.*` and `src/app/showcase_main.cpp`.

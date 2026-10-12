@@ -83,7 +83,7 @@ def main():
     fig = Image.new("RGB", (total_w, total_h), (16, 16, 18))
     fig.paste(row1, (0, 0))
     fig.paste(row2, (0, row1.height + 8))
-    path = f"{DOCS}/comparison_ours_vs_cycles.png"
+    path = f"{DOCS}/media/comparison_ours_vs_cycles.png"
     fig.save(path)
     print(f"wrote {path}  {fig.width}x{fig.height}")
 

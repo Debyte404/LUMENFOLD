@@ -13,7 +13,7 @@ python tools/band_flux_test.py     # flux-conservation variants
 python tools/tail_study.py         # blowout / tail behaviour
 python tools/efficiency_study.py   # stochastic vs deterministic, RMSE vs cost
 python tools/parity_cpp_vs_py.py   # C++ vs Python port agreement
-python tools/airy_caustic.py       # regenerates docs/caustic_compare.png
+python tools/airy_caustic.py       # regenerates docs/media/caustic_compare.png
 ./build/src/app/Release/bench.exe 5    # timing (set CAUSTIC_THREADS)
 ```
 
@@ -544,8 +544,8 @@ now states its spatial convention explicitly and reuses one `tiles()` helper.
 Option A of the plan was to benchmark against a real photon-map caustic cache
 (LuxCore's PhotonGI, the production implementation of the technique this work
 replaces). `pyluxcore` 2.11.2 installs and renders headlessly on this machine
-(`tools/probe_lux.py`, `probe_lux2.py`, `lux_photon_caustic.py`,
-`lux_debug_view.py`), and the scene parses with `GetObjectCount() = 3` and
+(`tools/archive/luxcore/probe_lux.py`, `probe_lux2.py`,
+`lux_photon_caustic.py`, `lux_debug_view.py`), and the scene parses with `GetObjectCount() = 3` and
 `GetLightCount() = 1`. But no caustic ever appeared, and the render was
 insensitive to the light's `radius` — consistent with the property being ignored
 and an implicit point source being used, which makes the caustic sub-pixel.
@@ -628,7 +628,7 @@ Production stills, 1600x1000 at 2048 spp with denoising, neither blowing out:
 | ours | 34.1 s | 174.3 | 0.00% |
 | Cycles | 36.1 s | 169.3 | 0.00% |
 
-`docs/comparison_ours_vs_cycles.png` puts the reference photograph, our render
+`docs/media/comparison_ours_vs_cycles.png` puts the reference photograph, our render
 and the competitor's side by side, with a zoomed caustic crop pair underneath so
 the noise difference is visible and not just tabulated.
 
@@ -985,9 +985,9 @@ procedural normal map on the table).
 | deliverable | spec | cost |
 |---|---|---|
 | `out/stills/angle{0..5}*.png` | 2048x1280, 1024 spp, six azimuths | 33-47 s each |
-| `docs/stills_contact_sheet.png` | all six, 3x2 | — |
-| `docs/turntable.mp4` | 960x540, 96 frames, 24 fps, 4 s | 638 s |
-| `docs/ripple.mp4` | 960x540, 72 frames, caustic RE-BAKED every frame | 26.2 s bake + 456 s render |
+| `docs/media/stills_contact_sheet.png` | all six, 3x2 | — |
+| `docs/media/turntable.mp4` | 960x540, 96 frames, 24 fps, 4 s | 638 s |
+| `docs/media/ripple.mp4` | 960x540, 72 frames, caustic RE-BAKED every frame | 26.2 s bake + 456 s render |
 
 The ripple clip is the one that matters as evidence: the water surface geometry
 and the baked caustic are driven by the same wave phase (`--wave-t` on both the
@@ -1086,7 +1086,7 @@ the "both caustics peak the same" claim in the audit.
 ### 16.1 Combined clip: orbit + animated caustic, pulled back, 720p
 
 The earlier clips were either static-camera animation or a static-caustic orbit,
-and the framing cropped the caustic at 0.34 m / 60 mm. `docs/combined.mp4` does
+and the framing cropped the caustic at 0.34 m / 60 mm. `docs/media/combined.mp4` does
 both at once and pulls back:
 
 | | value |
@@ -1285,7 +1285,7 @@ After mirroring:
 | energy falloff | symmetric, second bin +30..+60 | same | same |
 | tile correlation at 40 mm | - | - | **r = +0.926 (legacy etas; +0.932 re-measured 2026-10-12 on measured central etas 1.33468/1.52514, see 19.6)** |
 
-Figure: `docs/pbrt_vs_ours.png` (PBRT | ours | overlay).
+Figure: `docs/media/pbrt_vs_ours.png` (PBRT | ours | overlay).
 
 This is the first independent confirmation of the caustic's *shape* - not its
 dispersion, not its position on a single ray, but the whole two-dimensional
@@ -1460,7 +1460,7 @@ STALENESS NOTICE (2026-10-11, second pass): the re-measurement is complete and
 the numbers that matter are current -- solver/brute-force agreement r = 0.916,
 accuracy 0.917, edges ours R 107 / G 105 / B 102 vs SPPM R 56 / G 54 / B 51,
 spread 32.2%%, breadth 2.3x (EVIDENCE 14.4/14.5/14.7/14.8, CRITIQUE C4/C6/C8).
-What REMAINS stale is pixels, not numbers: docs/showcase_glass.png is
+What REMAINS stale is pixels, not numbers: docs/media/showcase_glass.png is
 re-rendered, but the six-angle stills, the contact sheet, the comparison
 figure, and all clips (ripple, turntable, combined, Cycles counterparts)
 predate the index fix and the Blender IOR correction (1.333->1.335 water,

@@ -4,7 +4,7 @@ LuxCore is the reference 'photon map caustic cache' implementation we want to
 test against (PhotonGI). Before building the real scene, this checks that a
 minimal scene renders and prints the API surface we need.
 
-Run:  third_party/luxvenv/Scripts/python.exe tools/probe_lux.py
+Run:  third_party/luxvenv/Scripts/python.exe tools/archive/luxcore/probe_lux.py
 """
 import glob
 import os

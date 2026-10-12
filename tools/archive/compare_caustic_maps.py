@@ -5,7 +5,7 @@ Per-pixel correlation is dominated by noise when the caustic is only a few
 pixels wide, so both maps are blurred to a coarse grid first and printed as
 ASCII, which is the only way to "look" at them in this environment.
 
-Run:  python tools/compare_caustic_maps.py
+Run:  python tools/archive/compare_caustic_maps.py
 """
 import numpy as np
 from PIL import Image

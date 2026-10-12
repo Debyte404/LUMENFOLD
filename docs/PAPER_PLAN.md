@@ -251,11 +251,11 @@ Legend: **[EXISTING]** = artifact already in the repo and cited in EVIDENCE.md;
 | F1 | Fold-locus convergence (RMSE vs grid, 128–1024) | C1 | `tools/fold_diag.py` **[EXISTING]** |
 | F2 | Flux / ceiling ablation table | C2 | `tools/band_flux_test.py` **[EXISTING]** |
 | F3 | Splat boundary ablation (clamp vs discard) | C3 | dedicated harness **[TO ADD]** (currently a path inside `src/render/caustic.cpp`; must be scripted to be citable) |
-| F4 | Efficiency: RMSE vs splat budget, MC vs corrected | C4, C5 | `tools/efficiency_study.py` → `docs/efficiency_study.json`, `docs/efficiency_plot.png` **[EXISTING]** |
+| F4 | Efficiency: RMSE vs splat budget, MC vs corrected | C4, C5 | `tools/efficiency_study.py` → `docs/data/efficiency_study.json`, `docs/media/efficiency_plot.png` **[EXISTING]** |
 | F5 | Tail behaviour (max / p99.9 / %>cap) at 6x cap | C6 | `tools/tail_study.py` **[EXISTING]** |
 | F6 | Serial fusion + thread scaling + combined speedup | C7 | `bench.exe` **[EXISTING]**, thread count via `CAUSTIC_THREADS` |
 | F7 | C++/Python parity table (peaks, max abs diff) | C11 | `tools/parity_cpp_vs_py.py` **[EXISTING]** |
-| F8 | Showcase render (visual) | method overview | `tools/airy_caustic.py` → `docs/caustic_compare.png` **[EXISTING]** |
+| F8 | Showcase render (visual) | method overview | `tools/airy_caustic.py` → `docs/media/caustic_compare.png` **[EXISTING]** |
 
 ### 5.2 Ablations for the three methodological fixes
 

@@ -189,7 +189,7 @@ def main():
     ap.add_argument("--t", type=float, default=1.7)
     ap.add_argument("--airy-scale", type=float, default=0.02)
     ap.add_argument("--max-samples", type=int, default=1024)
-    ap.add_argument("--out", default="docs/efficiency_study.json")
+    ap.add_argument("--out", default="docs/data/efficiency_study.json")
     a = ap.parse_args()
 
     print(f"== efficiency study: t={a.t} airy_scale={a.airy_scale} ==")
@@ -291,8 +291,8 @@ def main():
         ax[1].set_title("converged wave-corrected reference")
         ax[1].set_axis_off()
         fig.tight_layout()
-        fig.savefig("docs/efficiency_plot.png", dpi=100)
-        print("wrote docs/efficiency_plot.png")
+        fig.savefig("docs/media/efficiency_plot.png", dpi=100)
+        print("wrote docs/media/efficiency_plot.png")
     except ImportError:
         print("matplotlib unavailable: json only")
 

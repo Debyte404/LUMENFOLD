@@ -9,7 +9,7 @@ was invalid.
 This scores both methods over one shared region, defined from the converged
 render of each method averaged together, and reports it at several thresholds.
 
-Run:  python tools/showdown_common_mask.py
+Run:  python tools/archive/showdown_common_mask.py
 """
 import numpy as np
 from PIL import Image

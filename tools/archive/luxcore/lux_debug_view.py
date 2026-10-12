@@ -5,7 +5,7 @@ just geometry. Prints an ASCII silhouette map plus the table's edges, so the
 camera framing, the unit scale and the object placement can be checked directly
 instead of inferred from summary statistics.
 
-Run:  third_party/luxvenv/Scripts/python.exe tools/lux_debug_view.py
+Run:  third_party/luxvenv/Scripts/python.exe tools/archive/luxcore/lux_debug_view.py
 """
 import os
 import sys

@@ -12,7 +12,7 @@ Method (documented, honest approximations flagged):
 HONEST SCALE NOTE: physical fringe width at pool scale is sub-mm (invisible).
  w0 default 0.02 m exaggerates for visibility; --airy-scale sets it. The C++
  port keeps the same parameter.
-Outputs: docs/caustic_compare.png, docs/caustic_wave.npy (+ stats to stdout).
+Outputs: docs/media/caustic_compare.png, docs/data/caustic_wave.npy (+ stats).
 """
 import argparse
 import numpy as np
@@ -189,7 +189,7 @@ def main():
     print(f"wave peak R/G/B: {rgb[...,0].max():.2f} / {rgb[...,1].max():.2f} / {rgb[...,2].max():.2f}x")
     print(f"flux ratio wave/geometric: {rgb[...,1].sum()/geom.sum():.4f} (must be ~1)")
     print(f"pixels >6x: geom={(geom>6).sum()} wave={(rgb[...,1]>6).sum()}")
-    np.save("docs/caustic_wave.npy", rgb.astype(np.float32))
+    np.save("docs/data/caustic_wave.npy", rgb.astype(np.float32))
     if HAVE_MPL:
         fig, ax = plt.subplots(1, 2, figsize=(12, 5))
         ax[0].imshow(geom, cmap="hot", vmin=0, vmax=8)
@@ -199,8 +199,8 @@ def main():
         for x in ax:
             x.set_axis_off()
         fig.tight_layout()
-        fig.savefig("docs/caustic_compare.png", dpi=90)
-        print("wrote docs/caustic_compare.png + docs/caustic_wave.npy")
+        fig.savefig("docs/media/caustic_compare.png", dpi=90)
+        print("wrote docs/media/caustic_compare.png + docs/data/caustic_wave.npy")
     else:
         print("matplotlib missing: npy saved, no png")
 

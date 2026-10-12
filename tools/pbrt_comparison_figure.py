@@ -56,7 +56,7 @@ def main():
 
     strip = np.concatenate([p_pbrt, np.full((H, 6, 3), 60, np.uint8), p_ours,
                             np.full((H, 6, 3), 60, np.uint8), both], axis=1)
-    out = f"{ROOT}/docs/pbrt_vs_ours.png"
+    out = f"{ROOT}/docs/media/pbrt_vs_ours.png"
     Image.fromarray(strip).save(out)
     print(f"wrote {out}  ({strip.shape[1]}x{strip.shape[0]})")
     print("  left: PBRT-v4 SPPM photon-mapping reference (X-corrected)")

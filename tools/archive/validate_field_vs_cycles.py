@@ -15,7 +15,7 @@ positive part.
 The Pearson correlation is computed for all four orientations, so a convention
 mismatch is detected rather than assumed away.
 
-Run:  python tools/validate_field_vs_cycles.py
+Run:  python tools/archive/validate_field_vs_cycles.py
 """
 import os
 import subprocess
