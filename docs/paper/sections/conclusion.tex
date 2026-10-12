@@ -52,10 +52,13 @@ The paper's artefacts are produced by the following, from the repository root.
 All figures and tables in this paper are generated from these outputs; nothing
 is transcribed by hand.
 
-\begin{table}[h]
+\begin{table*}[t]
 \centering
 \small
-\begin{tabular}{@{}p{0.50\columnwidth}p{0.44\columnwidth}@{}}
+% Sized against \textwidth, not \columnwidth: the longest command is about
+% 170 pt in \small typewriter and a single column here is only 240 pt, so a
+% \columnwidth-relative split overflowed the command column into this one.
+\begin{tabular}{@{}p{0.38\textwidth}p{0.56\textwidth}@{}}
 \toprule
 Command & Produces \\
 \midrule
@@ -82,7 +85,7 @@ Command & Produces \\
 \texttt{tools/build\_paper\_pdf.py} & this document \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
 
 The three ripple animations referenced in the supplementary material are
 produced by \verb|tools/ripple_gifs.py|, which renders the same animating

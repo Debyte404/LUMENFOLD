@@ -97,7 +97,7 @@ comparison is cost against accuracy, and it has a regime in which our method is
 the worse choice. Table~\ref{tab:efficiency} reports RMSE against a converged
 wave-corrected reference at matched budgets, with the sample counts stated.
 
-\begin{table}[t]
+\begin{table*}[t]
 \centering
 \caption{RMSE against a converged wave-corrected reference
 ($2048^2$, block-averaged to $256^2$), at matched splat budgets. The plain
@@ -105,7 +105,7 @@ geometric Monte Carlo column is a real integrator's cost model with $M$ jittered
 samples per cell. Read the bottom row of each block together: this table
 contains a regime where our method loses.}
 \label{tab:efficiency}
-\small
+ootnotesize
 \begin{tabular}{@{}lrrr@{}}
 \toprule
 Estimator & Splats & RMSE & Note \\
@@ -121,7 +121,7 @@ MC geometric, $M{=}64$   & \num{4200000} & 0.06101 & \\
 MC geometric, $M{=}256$  & \num{16800000} & 0.06013 & error floor \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
 
 At small budgets (\num{262000} splats and
 below) plain geometric Monte Carlo is \emph{more accurate} than our method; at

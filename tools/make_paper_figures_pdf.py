@@ -199,6 +199,22 @@ def trace_ray(y0):
 # deleted rather than left uncalled.
 
 
+def decade_ticks(ax, which="x", values=None):
+    """Label only the intended ticks on a log axis.
+
+    Matplotlib labels the log MINOR ticks too, in scientific notation, so a
+    frequency panel came out reading "5, 6 x 10^0, 10, 20, 3 x 10^1, 40". The
+    minor ticks are ticks, not labels.
+    """
+    from matplotlib.ticker import NullFormatter, NullLocator
+    axis = ax.xaxis if which == "x" else ax.yaxis
+    axis.set_minor_locator(NullLocator())
+    axis.set_minor_formatter(NullFormatter())
+    if values is not None:
+        axis.set_major_locator(plt.FixedLocator(values))
+        axis.set_major_formatter(plt.FixedFormatter([f"{v:g}" for v in values]))
+
+
 # ------------------------------------------------------------------- figure 2
 def fig_fold_optics():
     """The ray map and its Jacobian: where the fold is and why it matters."""
@@ -271,13 +287,13 @@ def fig_quality():
     for k, (m, c, lab) in marks.items():
         ax.plot(tiles, q[k], marker=m, color=c, ms=3.2, label=lab)
     ax.set_xscale("log")
-    ax.set_xticks(tiles); ax.set_xticklabels([f"{t:.0f}" for t in tiles])
+    decade_ticks(ax, "x", tiles)
     ax.set_xlabel("tile size (mm)")
     ax.set_ylabel("Pearson $r$ vs independent trace")
     ax.set_ylim(0.35, 1.0)
-    ax.legend(loc="lower left")
-    ax.text(0.02, 0.05, "caustic = positive part;\nsame estimator for all",
-            transform=ax.transAxes, fontsize=6.5, va="bottom")
+    ax.legend(loc="lower right", frameon=False)
+    ax.text(0.03, 0.94, "caustic = positive part;\nsame estimator for all",
+            transform=ax.transAxes, fontsize=6.5, va="top", ha="left")
     save(fig, "fig5_quality", "quality vs trace")
 
 
@@ -318,6 +334,7 @@ def fig_cost():
     ax.bar(x, wave, 0.24, color="0.45", ec="black", lw=0.5, label="Airy term")
     ax.bar(x + 0.26, t8, 0.24, color="black", ec="black", lw=0.5, label="total, 8 threads")
     ax.set_yscale("log")
+    decade_ticks(ax, "y")
     ax.set_xticks(x); ax.set_xticklabels([f"${g}^2$" for g in grids])
     ax.set_xlabel("bake grid")
     ax.set_ylabel("time (ms), log scale")
@@ -365,6 +382,7 @@ def fig_efficiency():
     ax.annotate("we lose\nbelow here", xy=(262000, 0.07838), xytext=(4.2e4, 0.098),
                 fontsize=6.5, arrowprops=dict(arrowstyle="->", lw=0.5))
     ax.set_xscale("log")
+    decade_ticks(ax, "x")
     ax.set_xlabel("splats (log scale)")
     ax.set_ylabel("RMSE vs converged wave reference")
     ax.legend(frameon=False, loc="upper right")

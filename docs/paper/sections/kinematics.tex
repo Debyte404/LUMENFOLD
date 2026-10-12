@@ -18,14 +18,14 @@ and a matte receiver, lit by a distant source. The parameters are fixed for the
 whole paper and are listed in Table~\ref{tab:scene}; Figure~\ref{fig:scene}
 draws the arrangement to scale.
 
-\begin{table}[t]
+\begin{table*}[t]
 \centering
 \caption{Scene parameters. The material models are the measured forms of
 Section~\ref{sec:dispersion}, not fits. The source angular diameter is the true
 solar value, which sets a coherence scale far larger than the fringe spacing
 this paper is about --- see the remark in Section~\ref{sec:limits-coherence}.}
 \label{tab:scene}
-\small
+ootnotesize
 \begin{tabular}{@{}lll@{}}
 \toprule
 Quantity & Value & Note \\
@@ -41,7 +41,7 @@ Glass index               & \num{1.52104} / \num{1.52514} / \num{1.53192} & R/G/
 Channels                  & \SI{650}{} / \SI{550}{} / \SI{450}{\nano\meter} & R/G/B \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
 
 \begin{figure*}[t]
 \centering
@@ -429,9 +429,10 @@ ratio \eqref{eq:kstar} rather than a constant.}
 The implementation works in the signed distance $s$ to the detected fold and
 uses a peak-normalised profile,
 \begin{equation}
-P(s;w) \;=\; \big|\Ai(-s/w)\big|^2 \Big/ \max_u |\Ai(-u)|^2 ,
-\qquad
-b(s) \;=\; 0.15 + 0.85\,P(s;w) .
+\begin{aligned}
+P(s;w) \;&=\; \big|\Ai(-s/w)\big|^2 \Big/ \max_u |\Ai(-u)|^2 , \\[2pt]
+b(s) \;&=\; 0.15 + 0.85\,P(s;w) .
+\end{aligned}
 \label{eq:profile}
 \end{equation}
 The normaliser is the $0.286928$ of Table~\ref{tab:airyfacts}, and it is a
@@ -484,10 +485,12 @@ Where the full scene is rendered the light path is walked through every
 interface --- air, glass, water, glass, air, receiver --- with \eqref{eq:snell}
 at each, and each ray carries its unpolarised Fresnel power transmission
 \begin{equation}
-T(c_i,\eta) \;=\; 1 - \frac12\Bigg[
+\begin{aligned}
+T(c_i,\eta) \;&=\; 1 - \frac12\Bigg[
 \Big(\frac{\eta c_i - c_t}{\eta c_i + c_t}\Big)^{2}
-+ \Big(\frac{c_i - \eta c_t}{c_i + \eta c_t}\Big)^{2} \Bigg],
-\qquad c_t = \sqrt{1 - \eta^2(1-c_i^2)} .
++ \Big(\frac{c_i - \eta c_t}{c_i + \eta c_t}\Big)^{2} \Bigg], \\[2pt]
+c_t \;&=\; \sqrt{1 - \eta^2(1-c_i^2)} .
+\end{aligned}
 \label{eq:fresnel}
 \end{equation}
 Multiplying \eqref{eq:fresnel} along each path gives the weight used by the

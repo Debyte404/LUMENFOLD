@@ -152,7 +152,13 @@ of rays.
 which is the strongest claim available within that model.}
 \label{tab:families}
 \small
-\begin{tabular}{@{}p{0.20\linewidth}p{0.20\linewidth}p{0.22\linewidth}p{0.24\linewidth}@{}}
+% Column widths sum to 0.80\linewidth, not 0.86: with four columns the inter-column
+% \tabcolsep padding adds 36 pt, and 0.86*240 + 36 = 242 pt against a 240 pt
+% measure, which pushed the last column past the margin. The first column is
+% wider than the rest because a family name is a single unbreakable word:
+% "Manifold/vertex connection" has no break opportunity and overflowed a 46 pt
+% column, which no font size fixes.
+\begin{tabular}{@{}p{0.24\linewidth}p{0.17\linewidth}p{0.18\linewidth}p{0.21\linewidth}@{}}
 \toprule
 Family & Away from $\fold$ & On $\fold$ & Repair \\
 \midrule
@@ -171,7 +177,7 @@ exact in limit, cheap for direct &
 weight $\propto |\detJ|^{-1}$ unbounded &
 variance only \\
 \addlinespace
-Manifold/vertex connection \cite{hanika2015,zeltner2020} &
+Manifold sampling \cite{hanika2015,zeltner2020} &
 excellent, well conditioned &
 solves at the degeneracy &
 none; targets a different failure \\

@@ -1149,6 +1149,44 @@ includes exists.
 Net: 22 pages, 0 unresolved references, 18 named scripts all present, 10 vector
 figures all with alpha flattened to opaque and no `/SMask`.
 
+### 14.5i Layout defects, and why they went unseen (2026-10-12)
+
+The page had 14 overfull boxes totalling 295 pt of text past the margin, the
+worst 62.8 pt, which is a line running into the neighbouring column. Three were
+long equations that cannot fit a 240 pt measure:
+
+    ourway      flux-conservation chain   62.81 pt too wide
+    kinematics  Fresnel transmission      34.65 pt
+    kinematics  band profile              28.80 pt
+
+and four were tables wider than a single column. The equations are now broken
+across lines with split/aligned, and the two widest tables became full-width
+floats. Overfull boxes: **14 -> 0**.
+
+Why they went unseen is the part worth recording. Tectonic does not write a
+main.log, so the usual `grep Overfull main.log` returns nothing and the document
+looks clean. The warnings are in the compiler's stdout, and every one of them is
+prefixed
+
+    warning: sections/<file>:<line>:
+
+so a regex anchored at the start of the line matches none of them either. A
+detector written against the expected format rather than the actual one reported
+a clean layout for three builds. tools/check_layout.py and
+tools/find_overfull.py now read the real format and report both magnitude and
+source line.
+
+Two fixes were tried and were wrong, both worth recording:
+
+  * setting the wide tables to footnotesize made the overflow WORSE (4.35 ->
+    31.89 pt). Their columns are `l`, which cannot wrap, so the natural width is
+    whatever the widest cell demands and type size barely moves it. A wide
+    comparison table in a two-column layout wants to span both columns;
+  * narrowing the four-column table to 0.80\linewidth still overflowed by
+    6.15 pt, because "Manifold/vertex connection" is a single unbreakable word in
+    a 46 pt column. No font size fixes a word with no break opportunity: the
+    column was widened and the cell shortened to "Manifold sampling".
+
 ### 14.6 What the audit killed
 
 Three of our own claims do not survive and are withdrawn in CRITIQUE.md:
