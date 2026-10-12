@@ -855,6 +855,23 @@ mean spread energy the true sub-mm cores do not have). The honest
 characterisation -- correctly placed, correctly ordered, noise-free, too
 smooth -- survives at higher resolution, narrowed but not eliminated.
 
+### 14.5d Ensemble: validation holds across wave phases (2026-10-12)
+
+PAPER_PLAN S2 listed ensemble statistics as NEEDS MEASUREMENT: every number
+was at one wave phase. tools/ensemble_study.py runs 8 phases over a full
+ripple cycle (512^2 bake + 700^2 brute-force trace + correlation + edges
+each; identical t*(1+i) phase convention both sides):
+
+    r@40mm  +0.690 +- 0.006  [0.680..0.700]
+    r@5mm   +0.915 +- 0.004  [0.910..0.923]
+    edge R  107.9 +- 0.3 mm, edge B 104.8 +- 0.7 mm
+    offset  3.9 +- 0.8 mm  [2.3..5.0]
+    R-B split +3.1 +- 0.8 mm [2.0..5.0], order holds ALL 8 phases
+
+Agreement never collapses: the single-phase numbers are representative, not
+cherry-picked. (r@40mm reads 0.69 here vs 0.916 in 14.4 because this
+ensemble bakes at 512^2; resolution effect, documented in 14.5c.)
+
 ### 14.6 What the audit killed
 
 Three of our own claims do not survive and are withdrawn in CRITIQUE.md:
