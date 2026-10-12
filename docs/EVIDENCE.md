@@ -1222,6 +1222,64 @@ has been checked with the engine the venue will use. `tools/build_paper_pdf.py`
 now takes `--engine tectonic|pdflatex` and reports the overfull count for
 whichever ran.
 
+### 14.5k The paper had no title, and every check missed it (2026-10-12)
+
+Author details were filled in from the author's own statement and each was
+verified rather than copied:
+
+    name   Ankit Chetri
+    ORCID  0009-0004-2672-3503
+           - MOD-11-2 check digit recomputed: valid
+           - resolves through pub.orcid.org/v3.0 to "Ankit Chetri"
+    handle debyte
+
+The GitHub handle is given in the author footnote. The caustics repository is NOT
+among the two public repositories on that account (tsxlink, d3Stream), so the
+paper makes no code-availability claim. Claiming availability at a URL that does
+not serve it would be a false statement in a submission.
+
+**The defect.** Rendering page 1 and reading it back showed the paper had been
+compiling for many builds with **no title and no author block at all**. The class
+typesets the title block only when \maketitle is called, and it was never called:
+the page went straight from the running head to "Abstract". Asking for the page-1
+text and comparing it with the official template's own compiled sample is what
+exposed it -- the template renders its title, ours did not.
+
+This is the most serious defect found in the whole exercise and it survived every
+check built so far:
+
+    page count          23, plausible
+    dangling references 0
+    citations           22, all matched
+    overfull boxes       0
+    text collisions      0
+    scripts named       18, all present
+
+None of them looked for the title. A document can be internally perfect and
+missing its own first line. `check_paper.py` now asserts that \maketitle is
+called and that the title's words appear on page 1 of the compiled PDF, and that
+check has been verified to fire by deleting \maketitle and rebuilding.
+
+**Two regex traps, both the same mistake as the overfull detector.** The class's
+own template puts a `%` comment and a newline between a command's optional short
+form and its argument:
+
+    \title[short]%
+          {full}
+
+so `\title\[...\]?\{` and `\author\[...\]?\{` never match. The first made the
+check skip silently; the second made the deterministic `\maketitle` test skip
+while the heuristic page-1 test happened to fire. Both now use `[%\s]*` between
+the optional argument and the brace. This is the fourth time in this project that
+a detector written against the expected format found nothing in the actual one.
+
+**A third trap, in the class itself.** `\orcid{#1}` is defined as
+`\href{...}{\includegraphics{orcid}}`, so the class needs `orcid.pdf` present. It
+was never copied from the template, and a missing graphic here produces NO error
+and NO output: the placeholder ORCID rendered as nothing at all, which is why the
+placeholder survived until the real iD was added and `orcid.pdf` was copied
+alongside it.
+
 ### 14.6 What the audit killed
 
 Three of our own claims do not survive and are withdrawn in CRITIQUE.md:

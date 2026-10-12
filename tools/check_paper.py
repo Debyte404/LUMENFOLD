@@ -81,6 +81,41 @@ def main():
         problems.append(
             f"{len(absent)} scripts named in the paper do not exist: {absent}")
 
+    # ---- 4d. the title and author actually reached page 1 ----------------
+    # \maketitle is not automatic: the class typesets the title block only when it
+    # is called. Omitting it compiles cleanly, keeps every reference valid and
+    # produces a full-length PDF whose first page has no title at all -- which is
+    # how it survived every other check in this file, including the layout and
+    # page-count ones. So the title is checked against the rendered page.
+    try:
+        import pymupdf
+        pdf = f"{PAPER}/main.pdf"
+        if os.path.exists(pdf):
+            page1 = pymupdf.open(pdf)[0].get_text()
+            m = re.search(r"\\title(?:\[[^\]]*\])?[%\s]*\{(.*?)\}", text, re.S)
+            if m:
+                raw = re.sub(r"\\\\|\[|\]|\{|\}", " ", m.group(1))
+                tw = {w.lower() for w in re.findall(r"[A-Za-z][A-Za-z-]{4,}", raw)}
+                pw = {w.lower() for w in re.findall(r"[A-Za-z][A-Za-z-]{4,}", page1)}
+                missing = sorted(tw - pw)
+                # Word SETS, not a contiguous probe: the rendered title carries
+                # commas and line breaks between the words, so a substring test
+                # fails on a correct page. A tolerance of two words absorbs
+                # hyphenation and ligature differences.
+                if tw and len(missing) > 2:
+                    problems.append(
+                        f"the title is missing from page 1 of the PDF ({len(missing)} "
+                        f"of {len(tw)} title words absent: {missing[:6]}); "
+                        f"is \\maketitle called?")
+            # Same separator trap as \title: the class's template wraps, so the
+            # brace does not follow the optional short form directly.
+            au = re.search(r"\\author(?:\[[^\]]*\])?[%\s]*\{", text)
+            if au and "\\maketitle" not in text:
+                problems.append("\\maketitle is never called: the title page has "
+                                "no title and no author block")
+    except ImportError:
+        print("note: pymupdf absent, skipping the title-page check")
+
     print(f"sources checked      : {len(SRC)}")
     print(f"labels defined       : {len(labels)}")
     print(f"reference targets    : {len(refs)}")
