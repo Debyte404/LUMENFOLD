@@ -138,13 +138,13 @@ def main():
     # wall thickness, called out to the right
     ax.annotate("", xy=(R_OUT, H_GLASS * 1.06), xytext=(-R_OUT, H_GLASS * 1.06),
                 arrowprops=dict(arrowstyle="<->", lw=0.5, color="black"))
-    ax.text(0.0, H_GLASS * 1.06 + 0.004, r"$\varnothing\,70$ mm  outer",
+    ax.text(0.0, H_GLASS * 1.06 + 0.006, r"$\varnothing\,70$ mm",
             ha="center", va="bottom", fontsize=6.5)
 
     ax.annotate("", xy=(-R_OUT, 0.072), xytext=(-R_IN, 0.072),
                 arrowprops=dict(arrowstyle="-", lw=0.5, color="black"))
-    ax.annotate("wall 3.5", xy=(0.020, 0.030), xytext=(-0.052, 0.096),
-                fontsize=6.5, ha="left",
+    ax.annotate("wall 3.5", xy=(-(R_OUT + R_IN) / 2, 0.012),
+                xytext=(-0.104, 0.040), fontsize=6.5, ha="left",
                 arrowprops=dict(arrowstyle="->", lw=0.45, color="black"))
 
     # ---- material labels, each with a leader to its own region
@@ -157,7 +157,7 @@ def main():
     ax.annotate("", xy=(-(R_OUT + R_IN) / 2, 0.058),
                 xytext=(-R_OUT - 0.026, 0.034),
                 arrowprops=dict(arrowstyle="->", lw=0.45, color="black"))
-    ax.text(R_OUT + 0.032, H_GLASS - 0.012, "receiver-side\nrefraction", ha="center",
+    ax.text(R_OUT + 0.030, H_GLASS - 0.004, "focused\nband", ha="center",
             va="center", fontsize=6.5)
     ax.annotate("", xy=(0.016, 0.004), xytext=(R_OUT + 0.030, H_GLASS - 0.026),
                 arrowprops=dict(arrowstyle="->", lw=0.45, color="black"))
