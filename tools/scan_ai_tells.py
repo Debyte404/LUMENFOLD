@@ -11,7 +11,12 @@ import glob
 import io
 import re
 
-SECTIONS = "D:/ValueProjects/caustics/docs/paper/sections"
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+SECTIONS = _ROOT + "/docs/paper/sections"
 
 
 def prose(path):

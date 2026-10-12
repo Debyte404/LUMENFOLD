@@ -23,12 +23,17 @@ import os
 import sys
 
 import matplotlib
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Rectangle, FancyArrow
 
-ROOT = "D:/ValueProjects/caustics"
+ROOT = _ROOT
 OUT = f"{ROOT}/out"
 FIG = f"{ROOT}/docs/paper/figures"
 os.makedirs(FIG, exist_ok=True)

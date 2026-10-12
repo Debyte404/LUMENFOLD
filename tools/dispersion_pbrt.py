@@ -31,7 +31,12 @@ Run:  <luxvenv>/Scripts/python tools/dispersion_pbrt.py
 """
 import numpy as np
 
-OUT = "D:/ValueProjects/caustics/out/pbrt"
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+OUT = _ROOT + "/out/pbrt"
 HALF = 160.0          # ortho camera frames a 0.32 m patch: +-160 mm
 R0 = 25.0             # fan region
 

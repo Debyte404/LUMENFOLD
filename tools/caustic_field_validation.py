@@ -23,7 +23,12 @@ Run:  python tools/caustic_field_validation.py
 import numpy as np
 from PIL import Image
 
-OUT = "D:/ValueProjects/caustics/out"
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+OUT = _ROOT + "/out"
 
 
 def srgb_to_linear(a):

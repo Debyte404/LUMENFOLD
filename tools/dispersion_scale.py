@@ -16,7 +16,12 @@ import sys
 
 import numpy as np
 
-sys.path.insert(0, "D:/ValueProjects/caustics/tools")
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+sys.path.insert(0, _ROOT + "/tools")
 import fold_diag as fd  # noqa: E402
 
 N, T = 1024, 1.7

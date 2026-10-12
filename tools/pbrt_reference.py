@@ -18,7 +18,12 @@ import os
 import struct
 import subprocess
 
-ROOT = "D:/ValueProjects/caustics"
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+ROOT = _ROOT
 GEO = f"{ROOT}/out/mitsuba"
 OUT = f"{ROOT}/out/pbrt"
 PBRT = f"{ROOT}/third_party/pbrt-v4/build/Release/pbrt.exe"

@@ -15,7 +15,12 @@ import sys
 
 import pdfplumber
 
-PDF = "D:/ValueProjects/caustics/docs/paper/main.pdf"
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+PDF = _ROOT + "/docs/paper/main.pdf"
 MIN_IOU = 0.30          # overlap area / smaller box area
 
 

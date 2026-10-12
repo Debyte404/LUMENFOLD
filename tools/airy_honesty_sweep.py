@@ -21,7 +21,12 @@ import zlib
 
 import numpy as np
 
-ROOT = "D:/ValueProjects/caustics"
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+ROOT = _ROOT
 EXE = f"{ROOT}/build/src/app/Release/showcase.exe"
 OUT = f"{ROOT}/out"
 RES = 1024

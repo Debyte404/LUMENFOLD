@@ -28,10 +28,15 @@ import sys
 import numpy as np
 from PIL import Image
 
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import verify_ray_map as V
 
-ROOT = "D:/ValueProjects/caustics"
+ROOT = _ROOT
 OUT = f"{ROOT}/out"
 PATCH_MM = 320.0
 

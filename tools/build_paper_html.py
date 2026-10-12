@@ -15,7 +15,12 @@ import re
 
 from markdown_it import MarkdownIt
 
-ROOT = "D:/ValueProjects/caustics"
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+ROOT = _ROOT
 SRC = f"{ROOT}/docs/PAPER.md"
 DST = f"{ROOT}/docs/PAPER.html"
 FIGDIR = f"{ROOT}/docs/figures"

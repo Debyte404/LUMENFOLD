@@ -29,11 +29,16 @@ import sys
 import numpy as np
 from PIL import Image
 
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import verify_ray_map as V
 
-OUT = "D:/ValueProjects/caustics/out"
+OUT = _ROOT + "/out"
 
 
 def srgb_to_linear(a):

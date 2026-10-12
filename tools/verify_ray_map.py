@@ -19,7 +19,12 @@ Run:  python tools/verify_ray_map.py
 import numpy as np
 from PIL import Image
 
-OUT = "D:/ValueProjects/caustics/out"
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+OUT = _ROOT + "/out"
 R_OUT, R_IN, H_GLASS = 0.035, 0.0315, 0.090
 WATER = 0.0594
 EXT = 0.16

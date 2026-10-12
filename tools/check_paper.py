@@ -20,7 +20,12 @@ import os
 import re
 import sys
 
-ROOT = "D:/ValueProjects/caustics"
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+ROOT = _ROOT
 PAPER = f"{ROOT}/docs/paper"
 REPO = ROOT
 SRC = [f"{PAPER}/main.tex"] + sorted(glob.glob(f"{PAPER}/sections/*.tex"))

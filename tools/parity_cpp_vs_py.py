@@ -8,7 +8,12 @@ import sys
 
 import numpy as np
 
-sys.path.insert(0, "D:/ValueProjects/caustics/tools")
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+sys.path.insert(0, _ROOT + "/tools")
 import fold_diag as fd          # noqa: E402
 import band_flux_test as bft    # noqa: E402
 
@@ -20,7 +25,7 @@ det = fd.jacobian_det(Hx, Hy, N)
 fold = np.abs(det) < np.percentile(np.abs(det), 2.0)
 pyrgb = bft.correct_bandlocal(g, SCALE, fold)
 
-base = "D:/ValueProjects/caustics/out"
+base = _ROOT + "/out"
 cpp = np.fromfile(f"{base}/w_s.bin", dtype=np.float32, count=N * N * 3).reshape(N, N, 3)
 cppg = np.fromfile(f"{base}/g_s.bin", dtype=np.float32, count=N * N).reshape(N, N)
 

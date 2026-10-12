@@ -26,7 +26,12 @@ import os
 import numpy as np
 import mitsuba as mi
 
-ROOT = "D:/ValueProjects/caustics"
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+ROOT = _ROOT
 GEO = f"{ROOT}/out/mitsuba"
 SUN = np.array([0.80, 0.42, -0.43])
 SUN = SUN / np.linalg.norm(SUN)

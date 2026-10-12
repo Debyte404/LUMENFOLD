@@ -17,6 +17,11 @@ import sys
 import zlib
 
 import matplotlib
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,7 +31,7 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import verify_ray_map as V
 
-ROOT = "D:/ValueProjects/caustics"
+ROOT = _ROOT
 OUT = f"{ROOT}/out"
 FIG = f"{ROOT}/docs/figures"
 os.makedirs(FIG, exist_ok=True)

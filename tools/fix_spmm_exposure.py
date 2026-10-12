@@ -25,7 +25,12 @@ import sys
 import numpy as np
 from PIL import Image
 
-ROOT = "D:/ValueProjects/caustics"
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+ROOT = _ROOT
 SRC = f"{ROOT}/out/gif_src"
 PBRT_DIR = f"{SRC}/spmm"
 REF = f"{SRC}/ours/f0000.png"

@@ -19,6 +19,11 @@ import subprocess
 import sys
 import time
 
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
 PY = sys.executable
 STEPS = [
     ("tools/make_paper_figures_pdf.py", "figures 2, 4-10"),
@@ -26,7 +31,7 @@ STEPS = [
     ("tools/fix_fig3_airy.py",          "figure 3 (Airy)"),
 ]
 
-ROOT = "D:/ValueProjects/caustics"
+ROOT = _ROOT
 
 
 def main():

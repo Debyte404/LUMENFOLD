@@ -17,7 +17,12 @@ import zlib
 
 import numpy as np
 
-OUT = "D:/ValueProjects/caustics/out"
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+OUT = _ROOT + "/out"
 R_GLASS = 0.035
 SUN = np.array([0.80, 0.42, -0.43])
 SUN = SUN / np.linalg.norm(SUN)

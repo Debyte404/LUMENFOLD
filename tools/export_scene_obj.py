@@ -19,7 +19,12 @@ import argparse
 import math
 import os
 
-OUT = "D:/ValueProjects/caustics/out/mitsuba"
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+OUT = _ROOT + "/out/mitsuba"
 R_OUT, R_IN, H, BOT = 0.035, 0.0315, 0.090, 0.0035
 WATER_TOP = 0.0594
 EXT = 0.16

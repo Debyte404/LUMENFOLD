@@ -22,10 +22,15 @@ import zlib
 import numpy as np
 from PIL import Image
 
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import verify_ray_map as V
 
-ROOT = "D:/ValueProjects/caustics"
+ROOT = _ROOT
 EXE = f"{ROOT}/build/src/app/Release/showcase.exe"
 OUT = f"{ROOT}/out"
 NPH = 8

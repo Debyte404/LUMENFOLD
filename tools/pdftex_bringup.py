@@ -12,8 +12,13 @@ import re
 import subprocess
 import sys
 
-PAPER = "D:/ValueProjects/caustics/docs/paper"
-LOG = "D:/ValueProjects/caustics/out/pdftex_try.log"
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+PAPER = _ROOT + "/docs/paper"
+LOG = _ROOT + "/out/pdftex_try.log"
 MKTEX = "D:/MiKTeX/miktex/bin/x64"
 PDFLATEX = MKTEX + "/pdflatex.exe"        # Windows cannot resolve the bare name
 MIKTEX = MKTEX + "/miktex.exe"

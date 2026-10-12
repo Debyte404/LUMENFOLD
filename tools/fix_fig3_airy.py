@@ -19,7 +19,12 @@ import sys
 import numpy as np
 from scipy.special import airy
 
-FIG = "D:/ValueProjects/caustics/docs/paper/figures"
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+FIG = _ROOT + "/docs/paper/figures"
 
 
 def main():

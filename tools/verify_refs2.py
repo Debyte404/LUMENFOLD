@@ -13,6 +13,11 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
 QUERIES = [
     ("airy1838",        "On the intensity of light in the neighbourhood of a caustic"),
     ("berry1980",       "Catastrophe optics morphologies of caustics and their diffraction patterns"),
@@ -81,7 +86,7 @@ def main():
         }
         time.sleep(3)
 
-    p = "D:/ValueProjects/caustics/out/research/refs_verified2.json"
+    p = _ROOT + "/out/research/refs_verified2.json"
     json.dump(out, open(p, "w", encoding="utf-8"), indent=1)
     print(f"\n{len(out)}/{len(QUERIES)} resolved -> {p}")
 

@@ -1,5 +1,10 @@
 import numpy as np
-d = np.load('D:/ValueProjects/caustics/src/render/airy_lut.npz')
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+d = np.load(_ROOT + '/src/render/airy_lut.npz')
 u, Ai, mx = d['u'], d['Ai'], float(d['mx'])
 vals = (Ai / mx).astype(np.float32)
 L = []
@@ -14,5 +19,5 @@ L.append('static constexpr float kAiryLUT[kAiryN] = {')
 rows = ['  ' + ', '.join('%.7ff' % v for v in vals[i:i + 8]) for i in range(0, len(vals), 8)]
 L.append(',\n'.join(rows))
 L.append('};')
-open('D:/ValueProjects/caustics/src/render/airy_lut.hpp', 'w').write('\n'.join(L) + '\n')
+open(_ROOT + '/src/render/airy_lut.hpp', 'w').write('\n'.join(L) + '\n')
 print('header written, peak', mx)

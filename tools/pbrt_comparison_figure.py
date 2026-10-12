@@ -11,7 +11,12 @@ import sys
 import numpy as np
 from PIL import Image
 
-ROOT = "D:/ValueProjects/caustics"
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+ROOT = _ROOT
 sys.path.insert(0, f"{ROOT}/third_party/luxvenv/Lib/site-packages")
 import mitsuba as mi  # noqa: E402
 

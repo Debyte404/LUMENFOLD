@@ -22,6 +22,11 @@ import os
 
 import numpy as np
 
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import verify_ray_map as V
 
@@ -154,7 +159,7 @@ def audit(n_side=900, lam_nm=550.0):
     }
 
 
-def field_energy(path="D:/ValueProjects/caustics/out/caustic_wavy.png"):
+def field_energy(path=_ROOT + "/out/caustic_wavy.png"):
     """Integrate the baked field. Its geometric stage normalises to mean 1.0,
     so any deficit below 1.0 is energy the Airy replacement + ceiling removed."""
     import struct

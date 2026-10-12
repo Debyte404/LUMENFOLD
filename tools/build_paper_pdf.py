@@ -24,7 +24,12 @@ import shutil
 import subprocess
 import sys
 
-ROOT = "D:/ValueProjects/caustics"
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+ROOT = _ROOT
 PAPER = f"{ROOT}/docs/paper"
 TECTONIC = os.path.expandvars(r"%LOCALAPPDATA%\Temp\tectonic_bin\tectonic.exe")
 MIKTEX_BIN = "D:/MiKTeX/miktex/bin/x64"

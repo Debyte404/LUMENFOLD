@@ -38,6 +38,11 @@ import os
 import sys
 
 import matplotlib
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -46,7 +51,7 @@ from matplotlib.patches import Rectangle
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fig1_geometry as G
 
-ROOT = "D:/ValueProjects/caustics"
+ROOT = _ROOT
 FIG = f"{ROOT}/docs/paper/figures"
 MM = 1.0 / 25.4
 FULL = 174 * MM

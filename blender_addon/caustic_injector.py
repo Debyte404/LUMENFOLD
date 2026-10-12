@@ -21,6 +21,11 @@ import time
 
 import bpy
 
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
 bl_info = {
     "name": "Wave Caustic Injector",
     "author": "caustics project",
@@ -32,7 +37,7 @@ bl_info = {
     "category": "Render",
 }
 
-DEFAULT_SOLVER = "D:/ValueProjects/caustics/build/src/app/Release/showcase.exe"
+DEFAULT_SOLVER = _ROOT + "/build/src/app/Release/showcase.exe"
 TMP_DIR = os.path.join(os.path.expanduser("~"), "AppData", "Local", "Temp",
                        "blender_caustic")
 

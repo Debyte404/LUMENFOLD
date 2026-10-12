@@ -17,8 +17,13 @@ import sys
 
 import bpy
 
-ADDON = "D:/ValueProjects/caustics/blender_addon/caustic_injector.py"
-OUT = "D:/ValueProjects/caustics/out"
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+ADDON = _ROOT + "/blender_addon/caustic_injector.py"
+OUT = _ROOT + "/out"
 FAILS = []
 
 

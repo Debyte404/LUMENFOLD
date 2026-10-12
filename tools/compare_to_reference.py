@@ -15,8 +15,13 @@ import os
 import numpy as np
 from PIL import Image
 
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
 DEFAULT_REF = "D:/hermes/hermes-agent/images/clip_20261007_093608_3.png"
-DEFAULT_RENDER = "D:/ValueProjects/caustics/out/showcase.png"
+DEFAULT_RENDER = _ROOT + "/out/showcase.png"
 
 # what we consider "close enough" on each statistic
 TOL = {

@@ -13,8 +13,13 @@ Run:  python tools/make_comparison_figure.py
 """
 from PIL import Image, ImageDraw
 
-OUT = "D:/ValueProjects/caustics/out"
-DOCS = "D:/ValueProjects/caustics/docs"
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+OUT = _ROOT + "/out"
+DOCS = _ROOT + "/docs"
 REF = "D:/hermes/hermes-agent/images/clip_20261007_180753_5.png"
 W = 720                      # panel width
 LABEL = 26

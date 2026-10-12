@@ -28,7 +28,12 @@ import zlib
 import numpy as np
 from PIL import Image
 
-ROOT = "D:/ValueProjects/caustics"
+
+# Repo root, derived rather than hardcoded: this file lives one level down.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+ROOT = _ROOT
 OUT = f"{ROOT}/out"
 EXE = f"{ROOT}/build/src/app/Release/showcase.exe"
 R = 0.035
