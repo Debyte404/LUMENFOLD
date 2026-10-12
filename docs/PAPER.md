@@ -258,7 +258,11 @@ Fair accuracy test against that brute-force truth (EVIDENCE 14.8): our field
 0.917 versus Cycles 0.824 at 40 mm, leading at every scale (0.869 vs 0.603,
 0.795 vs 0.475, 0.720 vs 0.400); coverage of the truth core 99.9% versus
 54.7%. Cycles misses roughly half the core. This supersedes all
-self-referenced figures.
+self-referenced figures. Transport throughput is 96.41% at all three
+wavelengths (Fresnel losses only; EVIDENCE 14.5b) -- but the baked field
+integrates to mean 0.28 per channel against the geometric stage's 1.0: the
+Airy replacement + ceiling remove ~72% of the geometric energy, so the field
+is a display-bounded redistribution, not a radiometric quantity.
 
 Exact analytic cylinder (EVIDENCE 16): a solid cylinder of index n in air
 under parallel light, every step closed-form Snell, the fold where
@@ -303,7 +307,9 @@ the correction applies unconditionally and the `coherence.hpp` gate is
 unimplemented. (v) The fold threshold persists (2nd percentile of |det J|).
 (vi) Single machine, single compiler; no GPU port. (vii) Efficiency is not
 uniform: MC wins at small budgets. (viii) Breadth: our caustic covers 9.37%
-of the patch versus 4.16% brute-force (~20x versus path-tracer cores); the
+of the patch at 1024^2 versus 4.16% brute-force (7.80%, 1.87x, at 4096^2
+with proportionally narrower band -- partly artefact, partly model;
+EVIDENCE 14.5c) (~20x versus path-tracer cores); the
 Airy smoothing plus band mean spreads energy over ~1.5 mm where true cores
 are sub-millimetre -- correctly placed, correctly ordered, noise-free, and
 too smooth. A 4096^2 bake with proportionally smaller Airy scale would test

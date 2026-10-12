@@ -818,6 +818,43 @@ Red has the lowest index, so it refracts least and lands farthest from the glass
 blue has the highest and lands closest. **R > G > B, as required -- now on
 measured indices and a ceiling-immune estimator.**
 
+### 14.5b Energy audit: the non-circular C5 replacement (2026-10-12)
+
+The headline flux ratio 1.0000 is circular (the band step divides by measured
+flux by construction). The non-circular question -- does energy survive the
+pipeline with no renormalisation anywhere -- is answered by
+tools/energy_audit.py, a Fresnel-weighted brute-force trace:
+
+    650 nm  power in 367649.7  out 354444.1  throughput 96.41%
+    550 nm  power in 367418.6  out 354223.3  throughput 96.41%
+    450 nm  power in 367036.2  out 353853.1  throughput 96.41%
+
+Transport throughput is 96.41% at all three wavelengths; losses are Fresnel
+reflection only, off-patch loss ~0. The geometric transport conserves energy
+honestly. BUT the baked field integrates to mean 0.28 per channel (R 0.280 /
+G 0.275 / B 0.277, max 8.10 all channels) against the geometric stage's
+normalised 1.0: the Airy replacement + display ceiling REMOVE ~72% of the
+geometric energy. That is not a bug -- a bounded display representation of a
+divergent density must shed energy -- but it means the field is a
+redistribution for display, not a radiometric quantity. Any brightness claim
+from field values inherits this 0.28 scale factor.
+
+### 14.5c Resolution study: breadth is artefact AND model (2026-10-12)
+
+CRITIQUE falsifier 4 asked whether a 4096^2 bake with proportionally smaller
+Airy scale (0.000375, keeping ~3.6 px per fringe) closes the breadth gap.
+Baked (out/caustic_4096.png, 97 MB) and scored identically:
+
+    1024^2: brute 4.16%  ours 9.56%  ratio 2.30x
+    4096^2: brute 4.16%  ours 7.80%  ratio 1.87x
+
+The gap closes by roughly one third and a residual 1.87x stands: breadth is
+PARTLY a resolution artefact (finer grid + narrower band concentrate the
+field) and PARTLY the smoothing model itself (Airy treatment + 5x5 band
+mean spread energy the true sub-mm cores do not have). The honest
+characterisation -- correctly placed, correctly ordered, noise-free, too
+smooth -- survives at higher resolution, narrowed but not eliminated.
+
 ### 14.6 What the audit killed
 
 Three of our own claims do not survive and are withdrawn in CRITIQUE.md:
@@ -832,9 +869,10 @@ Three of our own claims do not survive and are withdrawn in CRITIQUE.md:
 
 ### 14.7 The limit that remains
 
-Our caustic covers 9.37% of the patch (re-measured with measured indices;
-previously 8.95% under the legacy Cauchy), the brute-force trace 4.16%, Cycles 0.20%.
-We are **2.3x broader than an independent geometric trace** and ~20x broader than
+Our caustic covers 9.37% of the patch at 1024^2 (re-measured with measured
+indices; previously 8.95% under the legacy Cauchy), the brute-force trace
+4.16%, Cycles 0.20%. We are **2.3x broader than an independent geometric trace**
+at production resolution and ~20x broader than
 a path tracer. Both peaks are clipped, so height tells us nothing. The Airy
 treatment plus the 5x5 band mean spreads energy over ~1.5 mm where the true
 bright cores are sub-millimetre. The caustic is correctly placed, correctly

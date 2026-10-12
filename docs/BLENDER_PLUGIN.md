@@ -91,7 +91,9 @@ open experiment, not a claim.
 
 * **Accuracy at the fold.** Geometric caustics diverge where `det J → 0`
   (100×+ spikes, clamped to a 350× artefact before the fix); the wave-corrected
-  field stays bounded (peak 7.7×, cap 8.10) with flux conserved to 1.0000.
+  field stays bounded (peak 7.7×, cap 8.10) with band-local flux handling
+  (the headline 1.0000 ratio is circular -- the band step divides by measured
+  flux by construction; see CRITIQUE C5).
 * **Dispersion for free.** Per-channel ray maps give real chromatic splitting
   (31% of the field mean in the wavy model), where geometric splatting needs
   separate runs.

@@ -100,14 +100,18 @@ Source: EVIDENCE §1 (design rule).
 EVIDENCE §7.3 states the honest physics claim is about FORM (finite Airy
 fringes, chromatic ordering, no 1/sqrt divergence), not absolute fringe width.
 
-### C10 — Chromatic dispersion ordering is correct. `[NEEDS NEW EXPERIMENT]`
-Chromatic ordering is asserted as part of the form claim (C9), but EVIDENCE
-contains only per-channel peak parity, not a measured chromatic-ordering result.
-The per-channel peaks in §6 (R 4.754, G 4.762, B 4.774 for C++, vs 4.731/4.749/
-4.772 for Python) are a port-agreement check, not a dispersion validation.
-Whether the emitted fringe ordering and spacing match the `lambda^(2/3)`
-prediction must be measured. Quantities to be measured: observed fringe spacing
-per channel and their ordering — **NEEDS MEASUREMENT**.
+### C10 — Chromatic dispersion ordering is correct. `[SUPPORTED BY CURRENT DATA]`
+Ordering is now VERIFIED three ways on measured indices (Daimon & Masumura
+water, Rubin glass): Mitsuba 3 spectral with measured BK7/water data gives red
+farther than blue by +1.6 mm (+1.74%%, EVIDENCE 18); PBRT-v4 SPPM per-channel
+renders give monotonic R > G > B, R-B +1.37 mm; the ceiling-immune edge
+estimator gives ours R 107 / G 105 / B 102 mm vs SPPM R 56 / G 54 / B 51 mm,
+both R-B +5.0 mm (EVIDENCE 20.3). The brightest-percentile estimator previously
+quoted is RETIRED (reads flat on measured indices -- capped-core artefact).
+What REMAINS open is fringe SPACING per channel vs the lambda^(2/3) prediction
+as photographed quantities -- absolute fringe width under sunlight is
+non-physical (C12), so a spacing measurement needs the laser/cylinder
+apparatus (S4).
 
 ### C11 — C++ and Python ports agree; parallel and serial agree. `[SUPPORTED BY CURRENT DATA]`
 512^2, t = 1.7, airy_scale = 1.0: geometric peaks 9.281 vs 9.280 (max abs diff

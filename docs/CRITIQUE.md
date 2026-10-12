@@ -247,15 +247,17 @@ not fixed yet.
    focal line, would test whether the Airy machinery generalises or is tuned to
    this case.
 4. **A resolution study**: bake at 4096² with a proportionally smaller Airy scale
-   and check whether the 2.1x breadth against the brute force closes. If it does
+   and check whether the 2.3x breadth against the brute force closes (re-measured
+   2026-10-11 on measured indices; was 2.1x under the legacy Cauchy). If it does
    not, the breadth is not a resolution artefact and the smoothing model is
    simply wrong in shape.
 
-> NOTICE (2026-10-11): C9 (dispersion/chromatic separation) stands in ORDER but
-> its published MAGNITUDES are stale. The index model was a fitted Cauchy with
-> 1.97x too much dispersion; it is now measured data, so our split is 1.4x
-> smaller than the figures in this document. Order (red outside blue, monotonic)
-> is verified against PBRT SPPM and Mitsuba. An intermediate reading of "sign
-> inverted" was an estimator artefact, not physics - the ridge argmax is set by
-> the flux ceiling and the mean-over-rays radius by unconverged tails; only a
-> threshold-crossing edge is comparable. See docs/EVIDENCE.md section 20.
+> NOTICE (2026-10-11, corrected 2026-10-12): C8 (dispersion/chromatic
+> separation -- C9 is efficiency, misnumbered in the original notice) stands in
+> ORDER with current magnitudes: edges ours R 107 / G 105 / B 102 mm vs PBRT
+> SPPM R 56 / G 54 / B 51 mm, both R-B +5.0 mm (EVIDENCE 20.3, reconciled).
+> The 1.4x-smaller remark below referred to the legacy Cauchy split and is
+> superseded. An intermediate reading of "sign inverted" was an estimator
+> artefact, not physics - the ridge argmax is set by the flux ceiling and the
+> mean-over-rays radius by unconverged tails; only a threshold-crossing edge
+> is comparable. See docs/EVIDENCE.md section 20.
