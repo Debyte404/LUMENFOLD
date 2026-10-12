@@ -117,18 +117,27 @@ rather than asserting a value.
       Mitsuba~3 on measured dispersive materials, with the estimator
       conventions stated and the losses reported
       (Sections~\ref{sec:results}, \ref{sec:verify}).
-\item Two withdrawn claims from our own earlier drafts, each traced to a
-      measurable estimator artefact, documented so the failure mode is
-      reproducible (Sections~\ref{sec:verify-index}, \ref{sec:verify-metric}).
+\item A test of the next stratum rather than a conjecture about it. The cusp case
+      is built and measured: its Pearcey function is validated against a closed
+      form, it inherits neither the fold's divergence exponent nor its cost, and
+      we report both halves because they point opposite ways
+      (Section~\ref{sec:verify-cusp}).
+\item Three claims from our own earlier drafts that are withdrawn or corrected,
+      each traced to a measurable estimator artefact, documented so the failure
+      mode is reproducible (Sections~\ref{sec:verify-index},
+      \ref{sec:verify-metric}).
 \end{itemize}
 
 \subsection{What this paper does not claim}
 \label{sec:notclaimed}
 
-The correction applies to folds. It has no content for higher-order caustics ---
-cusp points, swallowtails, or the Pearcey and umbilic normal forms that govern
-them --- and we do not have a tested implementation for those cases
-(Section~\ref{sec:limitations}). We also do not validate against a physical
+The correction applies to folds. A cusp requires a Pearcey function in place of
+the Airy one; we build that case and measure it
+(Section~\ref{sec:verify-cusp}), and the construction carries over while the cost
+does not --- which is a narrower claim than we would like and a more useful one
+than leaving it open. Swallowtails and the umbilic normal forms are untested, and
+we make no claim about them (Section~\ref{sec:limitations}). We also do not
+validate against a physical
 apparatus. The comparison in this paper is entirely computational, against
 solvers and against an independent trace, and the quantities compared are
 therefore properties of those solvers and that scene. A laboratory measurement

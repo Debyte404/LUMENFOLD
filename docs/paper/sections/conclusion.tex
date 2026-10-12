@@ -30,13 +30,16 @@ cost and that the geometric estimator has an error floor it cannot cross at any
 budget, because it converges to a different model. That is a claim about
 reachability, not about speed.
 
-Two of our own earlier results are withdrawn here, both killed by estimators
-rather than by physics: a dispersion model that was fitted rather than measured
-and carried twice the true dispersion (Section~\ref{sec:verify-index}), and a
-correlation score that was an artefact of a sign convention and a tile-naming
-inversion (Section~\ref{sec:verify-metric}). Both are reported in the form that
-makes them reproducible, because we think the failure mode is more likely to be
-repeated than the method.
+Three of our own earlier results are withdrawn or corrected here, each killed by
+an estimator rather than by physics: a dispersion model that was fitted rather
+than measured and carried twice the true dispersion
+(Section~\ref{sec:verify-index}); a correlation score that was an artefact of a
+sign convention and a tile-naming inversion (Section~\ref{sec:verify-metric});
+and a flux-conservation figure that was circular, because the band-local step
+divides by the measured flux by construction
+(Remark~\ref{rem:circular}). All are reported in the form that makes them
+reproducible, because we think the failure mode is more likely to be repeated
+than the method.
 
 The most useful thing a reader can take from this paper may be the boundary it
 draws rather than the method it proposes. Geometric caustic rendering is exact,
@@ -44,6 +47,13 @@ cheap and well understood off the fold, and no sampler, denoiser or solver
 budget changes what happens on it. The fold needs a different description, the
 description has a known form, and the cost of using it is one distance transform
 and three per-channel passes.
+
+The cusp result is about the same boundary, one stratum further out. That
+description has a known form as well --- the mathematical part of the extension
+is not the obstacle --- and what we could not do is pay for it, by four orders of
+magnitude. So the expectation a reader should carry away is that the mathematics
+travels further than the cost does, and that the cost is the thing to measure
+before assuming it.
 
 \section{Reproduction}
 \label{sec:repro}
