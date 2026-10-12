@@ -1,8 +1,20 @@
-# Band-Local Wave Correction for Fold Caustics: Replacing the Geometric Fold Singularity with the Airy Profile over a Photon-Splat Backbone
+# Wave-Corrected Caustics over Photon Splatting: A Comparative Evaluation
+against Photon Mapping and Path Tracing
 
 Status: manuscript draft, grounded strictly in `docs/EVIDENCE.md`. Every
 quantity below is quoted verbatim from that file or explicitly marked
 **NEEDS CITATION / RE-MEASUREMENT**. No number is inferred or invented.
+
+**Scope of this paper.** This is an evaluation paper, not a physical-
+validation paper. We ask one question: does replacing the geometric fold
+singularity with the wave-optical Airy profile, over a photon-splat
+backbone, buy measurable gains in *speed* or *quality* against the caustic
+solvers in current use (PBRT-v4 SPPM, Blender Cycles, Mitsuba 3)? All
+comparisons are computational, against those renderers and against
+independent geometric references computed in this project. **Laboratory
+validation with physical apparatus is explicitly out of scope** and no
+claim in this paper depends on it. Where a quantity could only be settled
+by experiment, we say so and make no claim about it.
 
 ---
 
@@ -39,12 +51,23 @@ order (red outside blue, monotonic) is confirmed by Mitsuba 3 (+1.74%) and
 by PBRT edge agreement (ours R 107 / G 105 / B 102 mm versus PBRT
 R 56 / G 54 / B 51 mm, both R-B +5.0 mm) on measured Daimon-Masumura water
 and Rubin glass indices. Bake cost at 512^2 is 78.49 ms single-thread
-(36.22 ms at 8 threads); C++/Python ports agree to 0.3%. The contribution is
-a fold-local wave correction whose physical claim is one of form (finite
-fringes, chromatic ordering, no divergence), demonstrated on a single
-documented scene and pending laboratory validation. Three prior claims are
-explicitly withdrawn (17-18x noise, +46.7 brightness agreement, flux 1.0000
-as evidence).
+(36.22 ms at 8 threads); C++/Python ports agree to 0.3%. We then evaluate the
+method as a caustic solver in the comparative sense. Quality: against an
+independent brute-force geometric ground truth it is closer than Cycles at
+every scale and its residual is deterministic rather than Monte-Carlo. Speed:
+the bake is 36.22 ms at 512^2 on 8 threads, and on animation workloads the
+per-frame cost is dominated by whichever renderer consumes the caustic, not
+by our term -- on an identical 120-frame orbit clip we finish in 773.3 s
+against Cycles' 1043.2 s (1.35x) while flickering 7.9x less in the caustic
+region. Against PBRT-v4 SPPM -- the reference conforming solver -- the
+converged shape agrees at r = +0.932, but SPPM reaches a 512^2 caustic frame
+in 34 s where our bake is 0.31 s, so the comparison is one of *cost structure*
+(amortised deterministic bake versus per-shot stochastic convergence), not a
+uniform win. Three prior claims in our own record are explicitly withdrawn
+(17-18x noise, +46.7 brightness agreement, flux 1.0000 as evidence). Laboratory
+validation is out of scope; the physical claim we do make is one of form
+(finite fringes, chromatic ordering, no divergence), demonstrated on a single
+documented scene.
 
 ---
 
@@ -58,9 +81,17 @@ Production path tracers do not solve this well either: they under-sample the
 rare bright paths that form thin caustics and converge slowly or not at all
 in the caustic core (EVIDENCE sections 11-13).
 
-This paper takes a module-scale, reproducible position: a small,
-self-contained correction with shipped reference code, measured ablations,
-and independent verification of each physical claim. The method keeps
+This paper asks a narrower, practical question than whether the wave
+correction is physically complete: **does it pay?** We take the position
+that a caustic method earns its place by being faster, cleaner, or better
+converged than the solvers already in use, on workloads people actually
+render -- stills and animations, at production resolutions. Accordingly the
+paper is organised around three comparisons that can be settled
+computationally: (1) quality against an independent geometric ground truth
+and against an exact closed-form caustic; (2) quality against the reference
+conforming solver, PBRT-v4 SPPM, and against two path tracers (Cycles,
+Mitsuba 3); (3) speed, as bake cost and as end-to-end animated-clip cost.
+Laboratory validation is out of scope by design. The method keeps
 geometric splatting everywhere except in a narrow fold band, where it
 substitutes the universal wave-optical fold profile, the squared Airy
 function. Dispersion follows automatically because the fringe width is
@@ -294,10 +325,111 @@ peak at +46.7" (both clipped at 255, vacuous); "flux conserved to 1.0000"
 (circular). Not claimed: any decisive efficiency win over Cycles; the
 caustic-region gaps were within 1.3x where tested.
 
-## 8. Limitations and future work
+## 8. Comparison against current caustic solvers
 
-(i) No laboratory ground truth; references are finer self-evaluations
-except the independent tracers/renderers above. (ii) One scene and one sun
+This is the paper's core. Two questions, both settled computationally: is the
+caustic *better*, and is it *cheaper*?
+
+### 8.1 Quality
+
+Ground truth is the independent brute-force geometric trace (810 k rays,
+explicit intersections, no parametrisation, no Jacobian, no renormalisation).
+It is the quantity every method is trying to reproduce, and neither method
+produced it.
+
+| metric | ours | Cycles | PBRT-v4 SPPM |
+|---|---|---|---|
+| correlation vs brute force, 40 mm tiles | **0.917** | 0.824 | - |
+| correlation vs brute force, 5 mm tiles | **0.720** | 0.400 | - |
+| coverage of ground-truth caustic core | **99.9%** | 54.7% | - |
+| converged caustic shape vs ours | - | - | **r = +0.932** |
+| exact closed-form cylinder fold (320 mm patch) | **0.1 mm** | - | - |
+| caustic breadth vs brute force | 2.3x (1.87x at 4096^2) | 0.05x (under-covers) | - |
+| temporal flicker, caustic region, 72 frames | **0.001 levels** | 0.010 levels | - |
+| per-channel dispersion | R > G > B, verified | achromatic IOR | single-valued eta per run |
+
+Reading it honestly. Our field is closer to the independent ground truth at
+every scale, and the margin widens as the scale sharpens (0.917 vs 0.824 at
+40 mm; 0.720 vs 0.400 at 5 mm) -- Cycles misses about half the ground-truth
+caustic core. Against the reference *conforming* solver (PBRT SPPM) the
+converged two-dimensional shape agrees at r = +0.932, which is the strongest
+independent statement of correctness in the paper. Cycles' caustic error does
+not improve with samples in this scene (25.95 -> 26.93 RMSE from 256 to 1024
+spp, measured against its own render): with indirect clamping off -- required
+to admit caustics at all -- its residual is firefly-dominated, so its own
+converged reference is contaminated.
+
+Two quality caveats that run against us, stated plainly. First, **our caustic
+is too smooth**: 2.3x broader than the brute force at production resolution,
+1.87x at 4096^2, because the Airy treatment plus the 5x5 band mean spreads
+energy over ~1.5 mm where the true cores are sub-millimetre. Second, the
+percentile-based fold detector is *slightly better* than the analytic locus at
+256^2 and 512^2 (up to 12%); the analytic locus wins only on convergence
+behaviour (0.03914 vs a 0.08534 plateau at 1024^2). Neither is a detail we can
+shave off.
+
+### 8.2 Speed
+
+Two axes: the cost of *producing* the caustic, and the cost of a *finished
+frame*.
+
+| workload | ours | Cycles | PBRT-v4 SPPM |
+|---|---|---|---|
+| produce caustic, 512^2 | **36.22 ms** (8 threads) / 78.49 ms (1 thread) | - | 34 s (256 iterations x 1 M photons) |
+| produce caustic, 1024^2 | **117.82 ms** (8 threads) | - | - |
+| production still, 1600x1000 @ 2048 spp | 34.1 s | 36.1 s | - |
+| ripple clip, 960x540, 72 frames | 455.7 s + **26.2 s bake** | 453.0 s | - |
+| orbit clip, 1280x720, 120 frames | **732.6 s + 40.7 s bake** | 1043.2 s | - |
+| convergence at practical sample counts | deterministic, no noise | does not converge | converges |
+
+The honest reading, which is not a uniform win.
+
+**Where the method is clearly cheaper.** Producing the caustic is 0.036 s at
+512^2 against SPPM's 34 s -- a factor of about 940 for one caustic frame, and
+the bake is deterministic, so it does not have to be re-converged when nothing
+about the geometry changed. On the orbit clip we finish 1.35x faster than
+Cycles (773.3 s against 1043.2 s) because a deterministic caustic that is
+*re-baked* per frame costs 0.34 s, while a path tracer must re-converge its
+caustic from scratch every frame.
+
+**Where it is not.** On the static-camera ripple clip Cycles is marginally
+*faster* in wall clock (453.0 s against our 481.9 s including bake), and on
+the production still the two are within noise (34.1 s against 36.1 s) -- at
+that budget the caustic is no longer the bottleneck, the rest of the frame is.
+Above the ~1 M splat regime our method reaches an accuracy Monte-Carlo cannot
+reach at any sample count (0.03914 against a 0.06013 floor), but *below*
+~262 k splats plain Monte-Carlo is more accurate than ours (0.12294/0.07838
+against 0.13738/0.10455). There is no free lunch at coarse budgets and this
+paper will not pretend otherwise.
+
+**Cost structure, stated as the actual finding.** The two families are
+governed by different variables. SPPM and path tracers spend per-shot samples
+converging a caustic; we spend ~0.04-0.12 s baking one, plus a fixed
+per-frame renderer cost identical for both. That means our advantage is
+proportional to how many shots share a geometry and how hard the caustic is
+for the renderer to find -- which is exactly why the animation workload
+(re-baked every frame, 120 of them) and the small-source regime favour us,
+and why a single still under a large source does not.
+
+### 8.3 What this comparison does not establish
+
+The efficiency claim has a hard scope. Our bake is amortised against **one
+fixed geometry family** -- a cylinder of radius 0.035 m, height 0.090 m, with a
+specific ripple field; change the optic substantially and the solver needs new
+work, where SPPM has no such contract. We therefore do not claim to be a
+general caustic solver, and we do not claim a decisive efficiency win over
+Cycles path tracing: in every configuration tested the caustic region was
+within 1.3x, and on one of the two clips Cycles was ahead. What is claimed is
+the combination: correctly placed, correctly ordered, deterministic, 7.9x less
+temporal flicker, closer to independent ground truth at every scale, and for
+this geometry family 1-3 orders of magnitude cheaper to produce per frame.
+
+## 9. Limitations and future work
+
+(i) No laboratory ground truth, by design: this is a computational evaluation
+and laboratory validation is out of scope, so no claim here rests on it.
+References are the independent tracers and renderers above; the remaining
+self-evaluations are the higher-resolution evaluations of the same model. (ii) One scene and one sun
 angle. Wave-phase robustness IS measured -- 8 phases over a full ripple
 cycle give r 0.690+-0.006 / 0.915+-0.004, offset 3.9+-0.8 mm, R-B order
 holding at all 8 (EVIDENCE 14.5d) -- but there is still no ensemble over
@@ -329,12 +461,14 @@ Closed since the first draft: the energy audit (EVIDENCE 14.5b -- transport
 throughput 96.41%, field holds 0.28 of geometric energy); the 4096^2
 resolution study (14.5c); the wave-phase ensemble (14.5d).
 
-Future work in order: a spherical-lens cusp test
+Future work in order, all computational: a spherical-lens cusp test
 (Pearcey regime -- is the Airy machinery cylinder-tuned?); an ensemble over
 wave spectra, wind, and moving bodies (the wave-phase ensemble is done,
-14.5d); a coherence gate with measured RMSE/cost effect; a
-threshold-free locus; a laser/cylinder apparatus for fringe spacing and
-chromatic ordering; citation re-verification (the survey hit HTTP 429).
+14.5d); a coherence gate with measured RMSE/cost effect; a threshold-free
+locus; generalising the solver beyond the current fixed geometry family, which
+is the main limit on the efficiency claim; citation re-verification (the
+survey hit HTTP 429). Physical-apparatus validation is deliberately excluded
+from this paper's scope and is not proposed as future work here.
 
 Reproduce: `tools/fold_diag.py`, `band_flux_test.py`, `tail_study.py`,
 `efficiency_study.py`, `parity_cpp_vs_py.py`, `airy_caustic.py`,
