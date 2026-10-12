@@ -15,10 +15,13 @@ __pycache__/
 *.obj
 # renders / frames
 frames/
+# Renders are gitignored by default -- they are large and regenerable -- but the
+# images under docs/ ARE deliverables: the README and the documentation embed them
+# and the paper references them. The earlier rules negated only docs/*.png and
+# docs/figures/*.png, which left docs/media/*.png ignored, so an embedded figure
+# silently failed to publish and showed as a broken image on the remote.
 *.png
-!docs/*.png
-# paper figures are deliverables (docs/PAPER.md references them)
-!docs/figures/*.png
+!docs/**
 third_party/pbrt-v4/
 third_party/luxvenv/
 
