@@ -1,0 +1,251 @@
+%=======================================================================
+% refs.bib -- bibliography for the wave-corrected caustics paper.
+%
+% Every entry below whose identifier is a DOI was verified against the
+% Crossref REST API by tools/verify_refs.py and tools/verify_refs2.py on
+% 2026-10-12; the author list, container, volume and page range are taken from
+% the returned metadata, not from memory. Entries without a DOI are marked
+% "conventional" -- they are either pre-DOI literature or books and theses that
+% Crossref does not index, and they are cited in their standard library form.
+%
+% The verification pass corrected three errors that were present in an earlier
+% draft of this work:
+%   * "Progressive photon mapping" (Hachisuka, Ogaki, Jensen 2008) is a
+%     DIFFERENT paper from "Stochastic progressive photon mapping" (Hachisuka,
+%     Jensen 2009); both are now cited separately with their own DOIs.
+%   * Veach's 1997 thesis is not indexed by Crossref at all.
+%   * The reference previously keyed as a vertex-connection-and-merging paper
+%     resolved to an unrelated 2025 journal article and has been removed.
+%=======================================================================
+
+@article{airy1838,
+  author  = {Airy, George Biddell},
+  title   = {On the intensity of light in the neighbourhood of a caustic},
+  journal = {Transactions of the Cambridge Philosophical Society},
+  volume  = {6},
+  pages   = {379--402},
+  year    = {1838},
+  note    = {Conventional citation; pre-DOI literature.}
+}
+
+@incollection{berry1980,
+  author    = {Berry, M. V. and Upstill, C.},
+  title     = {{IV} Catastrophe Optics: Morphologies of Caustics and Their
+               Diffraction Patterns},
+  booktitle = {Progress in Optics},
+  volume    = {18},
+  pages     = {257--346},
+  year      = {1980},
+  doi       = {10.1016/S0079-6638(08)70215-4}
+}
+
+@book{whitney1955,
+  author    = {Whitney, Hassler},
+  title     = {On Singularities of Mappings of {E}uclidean Spaces. {I}.
+               Mappings of the Plane Into the Plane},
+  booktitle = {Hassler Whitney Collected Papers},
+  pages     = {370--406},
+  year      = {1992},
+  doi       = {10.1007/978-1-4612-2972-8_27},
+  note      = {Original: \emph{Annals of Mathematics} 62(3), 374--410, 1955.}
+}
+
+@book{golubitsky1986,
+  author    = {Golubitsky, Martin and Guillemin, Victor},
+  title     = {Stable Mappings and Their Singularities},
+  series    = {Graduate Texts in Mathematics},
+  volume    = {14},
+  publisher = {Springer},
+  year      = {1986},
+  note      = {Conventional citation.}
+}
+
+@book{silverman1986,
+  author    = {Silverman, B. W.},
+  title     = {Density Estimation for Statistics and Data Analysis},
+  publisher = {Chapman and Hall},
+  address   = {London},
+  year      = {1986},
+  note      = {Conventional citation; source of the kernel bias expansion.}
+}
+
+@article{daimon2007,
+  author  = {Daimon, Masahiko and Masumura, Akira},
+  title   = {Measurement of the refractive index of distilled water from the
+             near-infrared region to the ultraviolet region},
+  journal = {Applied Optics},
+  volume  = {46},
+  number  = {18},
+  pages   = {3811--3820},
+  year    = {2007},
+  doi     = {10.1364/AO.46.003811}
+}
+
+@article{rubin1985,
+  author  = {Rubin, M.},
+  title   = {Optical properties of soda lime silica glasses},
+  journal = {Solar Energy Materials},
+  volume  = {12},
+  number  = {4},
+  pages   = {275--288},
+  year    = {1985},
+  doi     = {10.1016/0165-1633(85)90052-8}
+}
+
+@inproceedings{jensen1996,
+  author    = {Jensen, Henrik Wann},
+  title     = {Global Illumination using Photon Maps},
+  booktitle = {Rendering Techniques '96 (Eurographics Workshop on Rendering)},
+  pages     = {21--30},
+  year      = {1996},
+  doi       = {10.1007/978-3-7091-7484-5_3}
+}
+
+@inproceedings{hachisuka2008,
+  author    = {Hachisuka, Toshiya and Ogaki, Shinji and Jensen, Henrik Wann},
+  title     = {Progressive photon mapping},
+  booktitle = {ACM SIGGRAPH Asia 2008 Papers},
+  pages     = {1--8},
+  year      = {2008},
+  doi       = {10.1145/1457515.1409083}
+}
+
+@inproceedings{hachisuka2009,
+  author    = {Hachisuka, Toshiya and Jensen, Henrik Wann},
+  title     = {Stochastic progressive photon mapping},
+  booktitle = {ACM SIGGRAPH Asia 2009 Papers},
+  pages     = {1--8},
+  year      = {2009},
+  doi       = {10.1145/1661412.1618487}
+}
+
+@phdthesis{veach1997,
+  author = {Veach, Eric},
+  title  = {Robust Monte Carlo Methods for Light Transport Simulation},
+  school = {Stanford University},
+  year   = {1997},
+  note   = {Conventional citation; not indexed by Crossref.}
+}
+
+@article{hanika2015,
+  author  = {Hanika, Johannes and Droske, Marc and Fascione, Luca},
+  title   = {Manifold Next Event Estimation},
+  journal = {Computer Graphics Forum},
+  volume  = {34},
+  number  = {4},
+  pages   = {87--97},
+  year    = {2015},
+  doi     = {10.1111/cgf.12681}
+}
+
+@article{zeltner2020,
+  author  = {Zeltner, Tizian and Georgiev, Iliyan and Jakob, Wenzel},
+  title   = {Specular manifold sampling for rendering high-frequency caustics
+             and glints},
+  journal = {ACM Transactions on Graphics},
+  volume  = {39},
+  number  = {4},
+  year    = {2020},
+  doi     = {10.1145/3386569.3392408}
+}
+
+@article{yan2018,
+  author  = {Yan, Ling-Qi and Hasan, Milos and Jakob, Wenzel and Lawrence,
+             Jason and Marschner, Steve and Ramamoorthi, Ravi},
+  title   = {Rendering specular microgeometry with wave optics},
+  journal = {ACM Transactions on Graphics},
+  volume  = {37},
+  number  = {4},
+  pages   = {1--10},
+  year    = {2018},
+  doi     = {10.1145/3197517.3201351}
+}
+
+@article{cuypers2012,
+  author  = {Cuypers, Tom and Haber, Tom and Bekaert, Philippe and Oh,
+             Se Baek and Raskar, Ramesh},
+  title   = {Reflectance model for diffraction},
+  journal = {ACM Transactions on Graphics},
+  volume  = {31},
+  number  = {5},
+  pages   = {1--11},
+  year    = {2012},
+  doi     = {10.1145/2231816.2231820}
+}
+
+@article{musbach2013,
+  author  = {Musbach, Andrew and Meyer, Gary W. and Reitich, Fernando and Oh,
+             Se Baek},
+  title   = {Full Wave Modelling of Light Propagation and Reflection},
+  journal = {Computer Graphics Forum},
+  volume  = {32},
+  number  = {6},
+  pages   = {24--37},
+  year    = {2013},
+  doi     = {10.1111/cgf.12012}
+}
+
+@inproceedings{arvo1994,
+  author    = {Arvo, James},
+  title     = {The irradiance Jacobian for partially occluded polyhedral sources},
+  booktitle = {Proceedings of SIGGRAPH '94},
+  pages     = {343--350},
+  year      = {1994},
+  doi       = {10.1145/192161.192250}
+}
+
+@article{mitchell1992,
+  author  = {Mitchell, Don P. and Hanrahan, Pat},
+  title   = {Illumination from curved reflectors},
+  journal = {ACM SIGGRAPH Computer Graphics},
+  volume  = {26},
+  number  = {2},
+  pages   = {283--291},
+  year    = {1992},
+  doi     = {10.1145/142920.134082}
+}
+
+@article{muller2017,
+  author  = {M{\"u}ller, Thomas and Gross, Markus and Nov{\'a}k, Jan},
+  title   = {Practical Path Guiding for Efficient Light-Transport Simulation},
+  journal = {Computer Graphics Forum},
+  volume  = {36},
+  number  = {4},
+  pages   = {91--100},
+  year    = {2017},
+  doi     = {10.1111/cgf.13227}
+}
+
+@article{kouyoumjian1974,
+  author  = {Kouyoumjian, R. G. and Pathak, P. H.},
+  title   = {A uniform geometrical theory of diffraction for an edge in a
+             perfectly conducting surface},
+  journal = {Proceedings of the IEEE},
+  volume  = {62},
+  number  = {11},
+  pages   = {1448--1461},
+  year    = {1974},
+  doi     = {10.1109/PROC.1974.9651}
+}
+
+@book{pharr2023,
+  author    = {Pharr, Matt and Jakob, Wenzel and Humphreys, Greg},
+  title     = {Physically Based Rendering: From Theory to Implementation},
+  edition   = {4th},
+  publisher = {MIT Press},
+  year      = {2023},
+  note      = {Conventional citation; the reference implementation of
+               Chapter~\ref{sec:current} is this book's renderer, PBRT-v4.}
+}
+
+@misc{jakob2022,
+  author = {Jakob, Wenzel and Speierer, S{\'e}bastien and Roussel, Nicolas and
+            Nimier-David, Merlin and Vicini, Delio and Zeltner, Tizian and
+            Nicolet, Baptiste and Crespo, Miguel and Leroy, Vincent and
+            Zhang, Ziyi},
+  title  = {Mitsuba 3 renderer},
+  year   = {2022},
+  note   = {Conventional citation. Architecture described in Nimier-David et
+            al., \emph{Mitsuba 2}, ACM TOG 38(6), 2019,
+            doi:10.1145/3355089.3356498.}
+}

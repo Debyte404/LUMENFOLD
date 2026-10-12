@@ -1,0 +1,237 @@
+%-----------------------------------------------------------------------
+\appendix
+\section{Material models}
+\label{app:material}
+
+Both media are evaluated from published measurement rather than from a fitted
+dispersion curve. Section~\ref{sec:verify-index} explains why: a fit is where
+this project's one physical error hid.
+
+\subsection{Water}
+
+Equation~\eqref{eq:sellmeier} with the four-term Sellmeier coefficients of
+Daimon and Masumura \cite{daimon2007}, measured on HPLC-distilled water at
+\SI{20.0}{\celsius}. The coefficients as evaluated by the solver are:
+
+\begin{table}[h]
+\centering
+\caption{Water Sellmeier coefficients, $\lambda$ in micrometres. These are the
+values in \texttt{src/app/showcase\_main.cpp} and in the Python reference, and
+they agree term for term.}
+\label{tab:sellmeier}
+\small
+\begin{tabular}{@{}rr@{}}
+\toprule
+$j$ & $B_j$ \hspace{3em} $C_j$ \\
+\midrule
+1 & \num{5.684027565e-1} \hspace{3em} \num{5.101829712e-3} \\
+2 & \num{1.726177391e-1} \hspace{3em} \num{1.821153936e-2} \\
+3 & \num{2.086189578e-2} \hspace{3em} \num{2.620722293e-2} \\
+4 & \num{1.130748688e-1} \hspace{3em} \num{1.069792721e1} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Glass}
+
+Equation~\eqref{eq:rubin} with the soda-lime silica coefficients of Rubin
+\cite{rubin1985}: $1.5130 - 0.003169\,\lambda^2 + 0.003962/\lambda^2$ with
+$\lambda$ in micrometres.
+
+\subsection{Evaluated indices}
+
+\begin{table}[h]
+\centering
+\caption{Indices at the three render channels. Red has the lowest index in both
+media, so red refracts least and lands farthest from the axis; the chromatic
+ordering in every figure follows from this table, and from nothing else.}
+\label{tab:indices}
+\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Channel & $\lambda$ & Water $n$ & Glass $n$ \\
+\midrule
+R & \SI{650}{\nano\meter} & \num{1.33167} & \num{1.52104} \\
+G & \SI{550}{\nano\meter} & \num{1.33468} & \num{1.52514} \\
+B & \SI{450}{\nano\meter} & \num{1.33961} & \num{1.53192} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{The withdrawn fit}
+
+For the record, since the numbers from it appeared in an earlier draft: the
+Cauchy form previously used was $n(\lambda) = 1.3208 + 5200/\lambda^2$ with
+$\lambda$ in nanometres for water, and $1.5095 + 4200/\lambda^2$ for glass.
+Evaluated at \SI{450}{\nano\meter} and \SI{650}{\nano\meter}, the water form
+carries roughly \num{1.97} times the dispersion of \eqref{eq:sellmeier}, and the
+glass form is about \num{0.0017} low at one channel. These forms must not be
+revived; the measured path is the one in Table~\ref{tab:indices}.
+
+%-----------------------------------------------------------------------
+\section{The fold normal form}
+\label{app:normalform}
+
+Proposition~\ref{prop:foldnormal} is stated for a one-dimensional pupil. Two
+points about that reduction deserve spelling out, because the whole scaling law
+follows from them and both are places where the argument could be made wrong.
+
+\paragraph{Why one dimension is enough.} The map \eqref{eq:raymap} is
+two-dimensional, but at a fold the Jacobian has rank one, so there is a single
+direction in which the map is degenerate and a transverse direction in which it
+is a local diffeomorphism. In the normal-form coordinates $(u,v)$ of
+\eqref{eq:normalform}, $u$ is the non-degenerate direction: it takes part in no
+degeneracy, and the diffraction integral factors into an integral along $u$
+times the one-dimensional integral \eqref{eq:phase} along $v$. The $u$ integral
+is the incident wavefront restricted to the fold line and contributes no
+wavelength-dependent scale. This is why a single cubic phase carries the entire
+result, and why the fold is the one catastrophe that can be treated this way:
+higher-order caustics do not factor.
+
+\paragraph{Why the pupil truncation does not matter.} The integral
+\eqref{eq:phase} is stated over $\rho \in [-1,1]$, a finite pupil, while the
+Airy function is an integral over the whole line. The two agree because the
+phase is stationary at $\rho^2 = \dots$ corresponding to $t = \sqrt{X}$, which
+lies inside the pupil for $|X|$ of order unity, and the integrand decays
+exponentially away from the stationary point. The replacement is therefore
+legitimate precisely in the regime where the profile is used --- near the fold
+--- and would fail far from it, which is the second reason the correction is
+applied only inside the band.
+
+\paragraph{The scaling, assembled.} Writing the canonical coordinate from the
+proof of Proposition~\ref{prop:foldnormal} as
+\begin{equation}
+X = -x\,k^{2/3}2^{1/3}c^{-1/3},
+\end{equation}
+the transverse distance at which $|X| = 1$ is
+\begin{equation}
+d = k^{-2/3}2^{-1/3}c^{1/3}
+  = \frac{\lambda^{2/3}c^{1/3}}{2\pi^{2/3}},
+\end{equation}
+which contains $\lambda$ only as $\lambda^{2/3}$. Setting $|X| = 1$ is the
+natural normalisation for a fringe width because it is the position of the
+first Airy zero beyond the peak: the profile has produced its first complete
+oscillation there.
+
+%-----------------------------------------------------------------------
+\section{Estimators, formally}
+\label{app:estimators}
+
+Section~\ref{sec:estimators} lists the statistics informally. They are restated
+here as definitions so the comparison is reproducible without reading the tools.
+
+\begin{definition}[Edge radius]
+\label{def:edge}
+For a single-channel image $I$ on a receiver with known centre $\mathbf{0}$,
+let $M = \max I$ and, for $r > 0$, let $\bar I(r)$ be the mean of $I$ over the
+annulus $\{\,r \le \|\mathbf{u}\| < r + \SI{1}{\milli\meter}\,\}$. The edge
+radius is
+\begin{equation}
+r_e \;=\; \sup\{\, r : \bar I(r) > 0.02\,M \,\}.
+\end{equation}
+Dividing by $M$ makes the statistic invariant to any uniform scale, and taking a
+mean over an annulus rather than a maximum makes it unaffected by a ceiling
+applied to the core.
+\end{definition}
+
+\begin{definition}[Tiled correlation]
+\label{def:corr}
+For images $A$, $B$ on a common grid and tile edge $s$ in pixels, partition the
+grid into $\lceil W/s \rceil \times \lceil H/s \rceil$ tiles, replace each tile by
+its mean, and compute the Pearson correlation of the resulting two matrices. The
+statistic is reported by tile edge $s$; naming it by tile \emph{count} instead
+reverses the apparent trend, which is the error of
+Section~\ref{sec:verify-metric}.
+\end{definition}
+
+\begin{definition}[Positive-part differential]
+\label{def:pospart}
+Given renders $P$ (with the refracting body present) and $Q$ (without), the
+caustic estimate is $\max(P - Q, 0)$ elementwise. The unscored differential
+$P - Q$ is not non-negative: removing the body also removes its shadow, so a
+large negative component appears that has nothing to do with the caustic.
+\end{definition}
+
+\begin{definition}[Temporal flicker]
+\label{def:flicker}
+For a rendered sequence $\{I_t\}$ and a region $R$, the flicker is
+\begin{equation}
+F \;=\; \frac{1}{|R|}\sum_{\mathbf{u} \in R}
+\frac{1}{T-1}\sum_{t=1}^{T-1}\big| I_{t+1}(\mathbf{u}) - I_t(\mathbf{u}) \big| ,
+\end{equation}
+in units of the 8-bit quantisation step.
+\end{definition}
+
+%-----------------------------------------------------------------------
+\section{Notation}
+\label{app:notation}
+
+\begin{table}[h]
+\centering
+\caption{Symbols used throughout.}
+\label{tab:notation}
+\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+Symbol & Meaning \\
+\midrule
+$\mathbf{x} = (x,y)$ & surface coordinate \\
+$h(\mathbf{x},t)$ & water-surface height field \eqref{eq:surface} \\
+$\nrm$ & surface unit normal \eqref{eq:normal} \\
+$\dir$ & distant-source unit direction, along propagation \\
+$\trn$ & refracted unit direction \eqref{eq:snell} \\
+$\eta$ & index ratio $n_1/n_2$ at an interface \\
+$c_i$, $c_t$ & cosines of incidence and transmission \\
+$\Hm$ & surface-to-receiver ray map \eqref{eq:raymap} \\
+$\Jm$, $\detJ$ & its Jacobian and determinant \\
+$\fold$ & the fold locus $\{\detJ = 0\}$ \\
+$\recv$ & receiver footprint \\
+$I$ & receiver irradiance \eqref{eq:irradiance} \\
+$B$ & detected fold band \\
+$s$ & signed distance to $B$ \\
+$w$, $w_c$ & fold fringe width, per channel \eqref{eq:perchannel} \\
+$\Ai$ & Airy function of the first kind \\
+$X$ & canonical fold coordinate \eqref{eq:canonical} \\
+$b(s)$ & band modulation profile \eqref{eq:profile} \\
+$\kappa$ & display ceiling \\
+$k^{*}$ & band flux ratio \eqref{eq:kstar} \\
+$T$ & Fresnel power transmission \eqref{eq:fresnel} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%-----------------------------------------------------------------------
+\section{Reproducibility manifest}
+\label{app:manifest}
+
+\begin{table}[h]
+\centering
+\caption{The bake's parameters as used for every result in this paper.}
+\label{tab:manifest}
+\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+Parameter & Value \\
+\midrule
+Bake grid (results)      & $1024^2$ \\
+Bake grid (efficiency study) & $256^2$--$1024^2$ \\
+Spatial extent           & \SI{\pm 160}{\milli\meter} \\
+Surface amplitudes $A_i$ & \num{0.65}, \num{0.40}, \num{0.25}, \num{0.15} \si{\milli\meter} \\
+Surface wavelengths $\Lambda_i$ & 42, 27, 17, 11 \si{\milli\meter} \\
+Source                   & distant, \SI{0.53}{\degree}, direction \eqref{eq:snell} \\
+Receiver                 & \SI{320}{\milli\meter} square, Lambertian \\
+Detector percentile      & 2nd percentile of $|\detJ|$ \\
+Reference width $w_{\text{ref}}$ & \SI{123}{\micro\meter} (physical) \\
+Airy table               & 2048 entries, $u \in [0,8]$, linear interpolation \\
+Profile floor            & \num{0.15} \\
+Ceiling multiplier       & $1.35\,\kappa$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The reference width is the physical fringe scale for this geometry, obtained
+independently by \texttt{tools/fringe\_scale.py}. It is deliberately not
+inflated for visibility: an earlier version of this work used \SI{1.5}{}
+\si{\milli\meter}, which is \num{12.2} times the physical value, and the
+difference between the two is the difference between showing a measured
+dispersion and drawing decorative fringes.

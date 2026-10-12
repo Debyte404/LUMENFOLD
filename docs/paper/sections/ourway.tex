@@ -1,0 +1,242 @@
+%-----------------------------------------------------------------------
+\section{Our way}
+\label{sec:ourway}
+%-----------------------------------------------------------------------
+
+The method follows directly from the two facts established in
+Section~\ref{sec:fold}: the geometric quadrature is right wherever the map is
+non-degenerate, and the band it cannot represent carries a finite amount of
+power (Corollary~\ref{cor:integrable}). So we keep the geometric quadrature
+everywhere, detect the band, and inside the band redistribute the band's own
+measured energy according to the fold profile. Nothing is added to the image
+that was not already in it under the geometric model; only its distribution
+changes.
+
+\subsection{The idea in one paragraph}
+\label{sec:ours-idea}
+
+Sample the surface, refract, splat, and compute $|\detJ|$ by finite differences
+of the map \eqref{eq:raymap}. Threshold $|\detJ|$ to find the band. Outside the
+band, keep \eqref{eq:irradiance} untouched. Inside the band, replace the
+divergent weight with the peak-normalised Airy profile evaluated at the signed
+distance to the band, and rescale that band's values so the band integrates to
+the flux it had before. Because the correction is confined to the band and
+conserves the band's own power, it cannot change the image outside the feature
+and cannot introduce energy at all.
+
+\subsection{Fold detection}
+\label{sec:ours-detect}
+
+The detector matters as much as the correction, and a careless one will appear
+to work while being unable to converge.
+
+\begin{lemma}[A quantile detector cannot converge]
+\label{lem:quantiledetector}
+Let the detector be ``flag the brightest $p$ percent of pixels''. Then the
+flagged fraction is $p/100$ of the image by construction, independent of the
+true fraction of the receiver occupied by the fold, and the flagged set does not
+converge to $\Hm(\fold)$ under refinement.
+\end{lemma}
+
+\begin{proof}
+The flagged set is defined by the order statistic of the image, so its measure
+is fixed at $p/100$ of the receiver for every image. As the surface sampling
+refines the image changes but the flagged measure does not, so the limit, if it
+exists, still has measure $p/100$ rather than the measure of $\Hm(\fold)$, which
+is generically a curve of measure zero.
+\end{proof}
+
+We therefore threshold the analytic $|\detJ|$ rather than the image. The
+threshold is taken at the second percentile of $|\detJ|$ over the receiver
+domain, which flags the band without reference to brightness. Under refinement
+this set converges to the neighbourhood of the fold, and its measure is a
+property of the geometry rather than of the choice of statistic.
+
+\begin{remark}[Why the percentile is on the Jacobian and not the field]
+\label{rem:detvsfield}
+Section~\ref{sec:results-ablation} measures the alternative directly: swapping
+the $|\detJ|$ detector for a brightest-percentile detector degrades the
+convergence of the result, because the flagged set stops tracking the geometry.
+The measured difference is reported there rather than asserted here.
+\end{remark}
+
+\subsection{Normalisation, and why it is a discrete ratio}
+\label{sec:ours-normalisation}
+
+We now come to the point Lemma~\ref{lem:notl1} forces. The band's correction
+multiplies a profile by a scale, and the scale is not a constant that can be
+written down: because $|\Ai|^2$ is not integrable, there is no $Z$ with
+$Z^{-1}|\Ai|^2$ a probability density, so a closed-form normaliser does not
+exist. What does exist is a discrete ratio over the detected band, and
+Corollary~\ref{cor:integrable} is what makes it meaningful.
+
+Let $G_i$ be the geometric field \eqref{eq:irradiance} on the band $B$, let
+$\bar G$ be its spatially smoothed version, let $\kappa$ be the ceiling,
+let $b(s_i)$ be the profile \eqref{eq:profile}, and define
+\begin{equation}
+k^{*} \;=\;
+\frac{\displaystyle \sum_{i \in B} G_i}
+     {\displaystyle \sum_{i \in B} \min\!\big(\bar G_i, \kappa\big)\, b(s_i)} .
+\label{eq:kstar}
+\end{equation}
+
+\begin{lemma}[Band-local flux is conserved]
+\label{lem:flux}
+With $I_i = \min(\bar G_i,\kappa)\,b(s_i)\,k^{*}$ for $i \in B$ and no ceiling
+applied, the corrected band carries exactly the geometric band's flux:
+$\sum_{i \in B} I_i = \sum_{i \in B} G_i$.
+\end{lemma}
+
+\begin{proof}
+Substituting \eqref{eq:kstar},
+\begin{equation}
+\sum_{i \in B} I_i
+= k^{*} \sum_{i \in B} \min(\bar G_i,\kappa)\,b(s_i)
+= \frac{\sum_{i\in B} G_i}{\sum_{i\in B}\min(\bar G_i,\kappa)b(s_i)}
+  \cdot \sum_{i \in B} \min(\bar G_i,\kappa)\,b(s_i)
+= \sum_{i \in B} G_i . \qedhere
+\end{equation}
+\end{proof}
+
+The ceiling in the actual construction is
+$I_i = \min\big(\min(\bar G_i,\kappa)b(s_i)k^{*},\,1.35\kappa\big)$, which can
+clip the brightest band pixels and therefore breaks the exact equality of
+Lemma~\ref{lem:flux}. We state the lemma for the unclipped case and report the
+size of the discrepancy from a separate audit
+(Section~\ref{sec:verify-energy}) rather than claiming an exactness the
+implementation does not have.
+
+\begin{remark}[Why the rescale is band-local and applied before the ceiling]
+\label{rem:bandlocal}
+The tempting alternative is to rescale the whole channel after the display clamp
+so the overall level looks right. That fails: the clamp has already bounded the
+image, and a subsequent global multiply pushes the peak back above the ceiling
+the clamp just enforced, reintroducing the artefact the ceiling exists to
+prevent. Conserving flux inside the band and applying the ceiling afterwards
+keeps the bound at every resolution. This ordering is not cosmetic; it is the
+difference between a bounded field and an unbounded one.
+\end{remark}
+
+\begin{remark}[The ratio is not evidence]
+\label{rem:circular}
+Equation~\eqref{eq:kstar} divides the measured band flux by the measured band
+flux by construction, so quoting $k^{*}$ as evidence of energy conservation is
+circular. It is a bookkeeping step, not a measurement. The non-circular
+statement is the throughput audit of Section~\ref{sec:verify-energy}, which
+follows the light through every interface with the Fresnel weights of
+\eqref{eq:fresnel}.
+\end{remark}
+
+\subsection{The algorithm}
+\label{sec:ours-algorithm}
+
+Algorithm~\ref{alg:bake} states the bake. The pass structure matters for cost:
+the surface evaluation, the refraction and the splat are fused into one pass,
+which was worth a factor of \num{2.95} on its own at $512^2$
+(Section~\ref{sec:results-cost}).
+
+\begin{algorithm}[t]
+\caption{The wave-corrected bake}
+\label{alg:bake}
+\begin{algorithmic}[1]
+\Require surface $h$ \eqref{eq:surface}, source $\dir$, media $n(\lambda)$
+         \eqref{eq:sellmeier}--\eqref{eq:rubin}, grid $N$, width $w_{\text{ref}}$,
+         ceiling $\kappa$
+\Ensure field $I$ on the receiver
+\Statex
+\Statex \textbf{Pass 1 --- geometric backbone (fused)}
+\ForAll{surface cells $\mathbf{x}$ on the grid}
+    \State $\nrm \gets$ normal \eqref{eq:normal}; \quad $c_i \gets -\dir\cdot\nrm$
+    \If{$\eta^2(1-c_i^2) > 1$} \textbf{continue} \Comment{total internal reflection}
+    \EndIf
+    \State $\trn \gets$ refracted direction \eqref{eq:snell}
+    \State $\mathbf{u} \gets \Hm(\mathbf{x})$ \eqref{eq:raymap}
+    \If{$\mathbf{u} \notin \recv$} \textbf{continue} \Comment{discard, do not clamp
+        (Section~\ref{sec:ours-boundary})}
+    \EndIf
+    \State accumulate weight $1/|\detJ|$ into $I$ at $\mathbf{u}$
+\EndFor
+\Statex
+\Statex \textbf{Pass 2 --- Jacobian and band}
+\State $\detJ \gets$ finite differences of $\Hm$ \Comment{\eqref{eq:raymap}}
+\State $B \gets \{\,i : |{\detJ}_i| \le q_2(|\detJ|)\,\}$ \Comment{2nd percentile,
+       Lemma~\ref{lem:quantiledetector}}
+\State $s \gets$ Euclidean distance transform of $B$
+\Statex
+\Statex \textbf{Pass 3 --- per-channel Airy replacement}
+\ForAll{channels $c \in \{R,G,B\}$}
+    \State $w_c \gets w_{\text{ref}}\,(\lambda_c/550\,\text{nm})^{2/3}$
+          \Comment{Corollary~\ref{cor:scaling}}
+    \State $b(s) \gets 0.15 + 0.85\,|\Ai(-s/w_c)|^2 / \max_u|\Ai(-u)|^2$
+          \Comment{\eqref{eq:profile}}
+    \State $\bar G \gets$ spatially smoothed $G$; \quad
+           $k^{*} \gets$ ratio \eqref{eq:kstar}
+    \ForAll{$i \in B$}
+        \State $I_i \gets \min\big(\min(\bar G_i,\kappa)\,b(s_i)\,k^{*},\;1.35\kappa\big)$
+    \EndFor
+\EndFor
+\State \Return $I$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{The receiver boundary}
+\label{sec:ours-boundary}
+
+Rays whose receiver hit lands outside the domain are discarded, not clamped to
+the border. Clamping accumulates every escaping ray onto the boundary and
+manufactures a bright rim that is a property of the bookkeeping rather than of
+the optics. Formally, with $\recv$ the receiver footprint,
+\begin{equation}
+\text{contribute}(\mathbf{x}) \iff \Hm(\mathbf{x}) \in \recv .
+\label{eq:boundary}
+\end{equation}
+The measured difference between the two choices is a factor of \num{38} in the
+peak of an earlier version, and \eqref{eq:boundary} is also what makes the C++
+and Python implementations agree to the precision reported in
+Section~\ref{sec:verify-parity}.
+
+\subsection{Coupling to a renderer}
+\label{sec:ours-coupling}
+
+The field is a receiver-space quantity, so the natural coupling is to inject it
+as an emitted radiance texture on the receiver and let the renderer handle the
+rest of the transport. Two details of that coupling cost us time and are worth
+recording. The injection must be written as RGBA: a single-channel collapse
+through an interpolation path silently discards the chromatic separation, and
+the result looks plausible while being achromatic. And the injected texture must
+not be used to compute the renderer's own caustics, or the two are counted
+twice; the renderer's caustic pass is disabled for our frames.
+
+\subsection{Cost and complexity}
+\label{sec:ours-cost}
+
+The bake is $\order{N^2}$ in the grid for pass 1, plus the cost of the distance
+transform in pass 2, plus three channel passes in pass 3. The measured figures
+are in Table~\ref{tab:cost}; the salient ones are that a $512^2$ bake takes
+\SI{36.2}{\milli\second} on eight threads and that two thirds of it is the Airy
+term, which is the obvious target for further work.
+
+We deliberately do not claim the method is ``faster than path tracing'' in
+general. The cost comparison that is meaningful is per caustic of a given
+quality, and Section~\ref{sec:results-cost} makes it on that basis, including
+the regime where we lose.
+
+\subsection{The parameters}
+\label{sec:ours-parameters}
+
+The method has three parameters, and Section~\ref{sec:results-ablation}
+measures the sensitivity to each rather than asserting a value.
+
+\begin{itemize}
+\item \textbf{Detector percentile.} Second percentile of $|\detJ|$. This sets
+      the band width; too small and the band fails to cover the fold, too large
+      and the correction is applied where the geometry was correct.
+\item \textbf{Reference width $w_{\text{ref}}$.} The fringe scale
+      \eqref{eq:scalelaw} for the geometry. Its physically meaningful value for
+      this scene is \SI{123}{\micro\meter}
+      (Section~\ref{sec:estimators} and Remark~\ref{rem:coherence}), and using a
+      larger value for visibility is exactly the exaggeration this paper avoids.
+\item \textbf{Ceiling $\kappa$.} Bounds the field. It interacts with
+      Lemma~\ref{lem:flux} as described, and the audit of
+      Section~\ref{sec:verify-energy} quantifies the interaction.
+\end{itemize}

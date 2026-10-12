@@ -65,6 +65,12 @@ These share no code with the estimator, which is the point.
 |---|---|
 | `production_renders.py` | The deliverable stills and clips (`--combined-only`, `--cycles-clips`). |
 | `ripple_gifs.py` | The three ripple GIFs, one camera, physical Airy width (`--validate` for frame 0 only, `--encode-only`). |
+| `make_no_exaggeration_figure.py` | Physical fringe width vs the 12.2x exaggeration, side by side, for the README. |
+| `make_paper_figures_pdf.py` | The paper's figures as vector PDF (incl. Fig. 1 as a to-scale technical drawing) with alpha flattened. |
+| `build_paper_pdf.py` | Compile the CGF paper with tectonic and report the page count. |
+| `check_paper.py` | Dangling \ref targets, uncited bibliography entries, missing citations. |
+| `scan_ai_tells.py` | AI-writing tells in the manuscript (strips LaTeX comments first; the naive version over-counted em dashes 20x). |
+| `verify_refs.py`, `verify_refs2.py` | Every citation checked against the Crossref API; caught three wrong references. |
 | `airy_honesty_sweep.py` | What narrowing the Airy band to the physical width costs (fringe colour vs aliasing). |
 | `frame_test2.py` | Chooses the GIF camera by measuring the caustic's margin with a differential mask. |
 | `cam_projection_check.py` | Proves the Blender and PBRT cameras agree, analytically, point by point. |

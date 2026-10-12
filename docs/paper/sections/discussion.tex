@@ -1,0 +1,126 @@
+%-----------------------------------------------------------------------
+\section{Discussion}
+\label{sec:discussion}
+%-----------------------------------------------------------------------
+
+\subsection{What the comparison actually established}
+\label{sec:disc-what}
+
+The headline table invites a reading the rest of the paper does not support. On
+the coarsest, most stable scale our field correlates better with an independent
+trace than either reference solver does, and at matched splat budgets above
+roughly \num{1000000} it is both cheaper and closer than plain geometric
+sampling. Neither of those is a general speed-up claim. Below that budget the
+geometric estimator wins outright, as
+Table~\ref{tab:efficiency} shows, and on the finest scale measured SPPM ties us.
+
+The defensible statement is narrower and, we think, more interesting. The
+geometric estimator's error converges to a floor, and the floor exists because
+it converges to a different model. Rays carry no energy into the fringe skirt, so
+no sample budget reaches the wave-corrected target. Refining a sampler changes
+the estimate of the geometric integral and cannot change which integral it is.
+That is a statement about reachability rather than about speed, and it is the
+one the data supports.
+
+\subsection{The estimator keeps being the problem}
+\label{sec:disc-estimator}
+
+The two results we withdrew from earlier drafts were both killed by statistics,
+not by physics. One was a correlation that flipped sign under a change of sign
+convention, the other a dispersion model that had been fitted rather than
+measured. Both are reported in full because they share a structure that a reader
+reproducing this work will meet.
+
+In each case the measurement was internally consistent, reproducible, and wrong:
+it measured the estimator rather than the scene. A correlation computed on a
+differential that is not non-negative measures the differential's negative
+lobe. An exponent fitted over three wavelengths measures the baseline. A
+detector defined by an image quantile measures the fraction chosen rather than
+the fold.
+
+We do not think this is a peculiarity of caustics. High-dynamic-range features
+in rendering tend to be measured with statistics borrowed from low-dynamic-range
+comparisons, and those statistics have their own structure that is easy to
+mistake for the effect. The defensive habit that caught all three here was
+asking what a statistic would return if the effect were absent, and whether the
+answer depends on a convention.
+
+\subsection{Guidance for a practitioner}
+\label{sec:disc-guidance}
+
+Three things from this work transfer without the rest.
+
+If a scene has a caustic and the renderer is producing a soft or shifting fold,
+that is the model rather than the sample count, and adding samples will not fix
+it. Raising the budget makes the softness converge toward a wrong shape.
+
+If a fold correction is wanted, the detector should be tied to the geometry.
+Thresholding $|\detJ|$ converges under refinement; thresholding image brightness
+does not, and the failure is invisible in a single frame because the flagged
+region looks plausible either way. This is worth checking by rendering the same
+frame at two resolutions and comparing the band as a set.
+
+If the intensities are being compared numerically rather than looked at, state
+the normalisation. Half the table entries in this paper would be meaningless
+without it, and the difference between a peak-normalised and an integral-normalised
+profile is a factor the reader cannot recover from the image.
+
+\subsection{The coherence question, restated}
+\label{sec:disc-coherence}
+
+The limitation of Section~\ref{sec:limits-coherence} deserves repeating in the
+discussion because it changes how the paper should be read. The fold profile
+computed here is the coherent-limit profile. Under a source of the size used in
+this scene, the physical fringe spacing is roughly seven times smaller than the
+source's geometric blur, so a photograph would not show those fringes.
+
+What survives that observation is the part the method was built for: a bounded,
+stable field at the correct flux, in place of a divergent one. The fringes are
+the visible signature of the correction but not its justification, and a reader
+interested in the justification should read
+Table~\ref{tab:efficiency} and Table~\ref{tab:flicker} rather than
+Figure~\ref{fig:airy}. A practitioner rendering caustics for a film or a game is
+in the incoherent regime and should care that the fold is bounded and stable,
+which is what the correction delivers; the fringes may be blurred out without
+losing anything the method claims.
+
+\subsection{Cost, and where it goes}
+\label{sec:disc-cost}
+
+Two thirds of a bake is the Airy term, and most of that is the exact Euclidean
+distance transform used to obtain the signed distance to the detected band. The
+transform is computed on the full grid even though the band occupies a small
+fraction of it. Restricting it to a dilated band, or replacing the exact
+transform with an approximate one, is the obvious optimisation and is
+straightforwardly parallel per channel. We have not done it, so the figures in
+Table~\ref{tab:cost} are the unoptimised ones, and anyone extending this
+implementation should expect to make it substantially faster without touching
+the parts of the method that matter.
+
+The other cost is scene-dependent in a way worth flagging. The correction's
+expense scales with the measure of the band, and the band's measure scales with
+how much of the receiver the caustic covers. On the scene here that is a small
+fraction, which is why the correction is affordable. A scene whose caustic
+covers a large part of the receiver would change the trade, and we have not
+measured where the crossover lies (Section~\ref{sec:limits-cost}).
+
+\subsection{The shape of a follow-up}
+\label{sec:disc-followup}
+
+Two continuations are worth separating, because one is engineering and one is
+science.
+
+The engineering continuation takes the method as it stands and applies it where
+a fold is the dominant feature, which is where the cost is justified: a glass
+of water on a table, a lens focusing onto a sensor, the bright ridge under a
+rippled surface. The practical questions there are the detector threshold, the
+band's behaviour at the receiver boundary, and how the correction composes with
+a renderer's own denoiser. All three are measurable.
+
+The science continuation is the cusp. The fold is the only catastrophe with the
+property that made this work possible, namely that the diffraction integral
+factors into a one-dimensional cubic phase. At a cusp the local form is quartic,
+the pattern is a Pearcey function, and the scaling is different. Whether the
+same band-local construction carries over at a comparable cost is the natural
+question this paper leaves open, and we have deliberately not guessed at the
+answer.

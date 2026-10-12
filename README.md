@@ -4,11 +4,15 @@ A caustic estimator that replaces the geometric fold singularity with the wave-o
 Airy profile inside a detected fold band, plus a measured comparison of it against the
 caustic solvers in current practice — **PBRT-v4 SPPM, Blender Cycles, and Mitsuba 3**.
 
-**The paper:** [`docs/PAPER.md`](docs/PAPER.md) · printable with typeset maths:
-[`docs/PAPER.html`](docs/PAPER.html) (open in a browser; Ctrl+P → PDF).
+**The paper:** [`docs/paper/main.pdf`](docs/paper/main.pdf) — typeset in the official
+Computer Graphics Forum class (`egpubl.cls`, Eurographics), 21 pages, with lemmas,
+theorems and proofs. Source is `docs/paper/main.tex`; rebuild with
+`python tools/build_paper_pdf.py`. The earlier markdown draft is kept at
+[`docs/PAPER.md`](docs/PAPER.md).
 Every number in it traces to a measurement in [`docs/EVIDENCE.md`](docs/EVIDENCE.md),
 including the ones that went against us — the adversarial audit of our own claims is
-[`docs/CRITIQUE.md`](docs/CRITIQUE.md).
+[`docs/CRITIQUE.md`](docs/CRITIQUE.md), and every citation was verified against
+Crossref by `tools/verify_refs.py`.
 
 ## Headline result
 
@@ -57,6 +61,30 @@ measured index dispersion. The subject exposure is matched across all three
 difference, documented in `docs/EVIDENCE.md` §14.5f).
 
 Regenerate with `python tools/ripple_gifs.py`.
+
+## No exaggerated fringes
+
+Earlier versions of this repo baked the fold band at `airy_scale = 1.5 mm` so the
+fringes would be visible on screen. That value is **12.2× the physical fringe width**
+for this geometry (0.123 mm), and the real-time baker's own default of 20 mm is 163×.
+Those renders are honest pictures of a model that is not this one, and every result
+in the paper now uses the physical width.
+
+![physical vs exaggerated](docs/media/no_exaggeration.png)
+
+Left: our solution at the **physical** fringe width, which is what the paper and the
+GIFs use. Middle: the same band stretched 12.2× for visibility, which is what the
+older stills in `out/` show and what no result is quoted from. Right: the difference.
+
+Worth noticing from the difference panel: exaggeration changes the *fringe structure*
+inside the band, not the position or the extent of the caustic — the bright region
+keeps the same footprint in both. So an exaggerated render is not "wrong about where
+the light goes", it is wrong about the texture inside the fold, and at the physical
+width that texture is below the resolution of the bake anyway (the band is about 2 px
+at 1024²). That is the same conclusion the paper reaches from the coherence argument:
+the fringes are the visible signature of the correction, not its justification.
+
+Regenerate with `python tools/make_no_exaggeration_figure.py`.
 
 ## What the method does
 
@@ -111,6 +139,11 @@ python tools/analytic_caustic.py          # closed-form cylinder reference
 python tools/energy_audit.py              # Fresnel-weighted energy bookkeeping
 python tools/ensemble_study.py            # robustness across 8 wave phases
 python tools/make_paper_figures.py        # regenerate docs/figures/
+python tools/make_paper_figures_pdf.py    # the paper's vector PDF figures
+python tools/build_paper_pdf.py           # compile the CGF paper (tectonic)
+python tools/check_paper.py               # dangling refs / uncited bibliography
+python tools/scan_ai_tells.py             # AI-writing tells in the manuscript
+python tools/verify_refs.py               # every citation, against Crossref
 ```
 
 The full reproduction list, including the renderer-side harnesses (PBRT-v4 SPPM,
@@ -122,11 +155,13 @@ One scene, one machine, no laboratory ground truth — this is a **computational
 evaluation** and physical-apparatus validation is deliberately out of scope. The
 physical claim is one of *form* (finite fringes, chromatic ordering, no
 `1/√·` divergence), not absolute fringe width: for a glass this size the real fringes
-are 0.123 mm wide and a 0.53° sun blurs them away entirely, so the fringes rendered
-here are a legibility choice and cannot be photographed. The efficiency claim is
-amortised against **one fixed geometry family**; change the optic and the solver needs
-new work. Ten further limits are itemised in Section 7 of the paper, and three claims
-from our own earlier record are explicitly withdrawn there.
+are 0.123 mm wide and a 0.53° sun blurs them away entirely, so a photograph would not
+show them however they are rendered. The GIFs and the paper therefore use the physical
+width and show no decorative fringes at all; the exaggerated renders exist only in
+`out/` and are labelled as superseded. The efficiency claim is amortised against **one
+fixed geometry family**; change the optic and the solver needs new work. Ten further
+limits are itemised in Section 7 of the paper, and three claims from our own earlier
+record are explicitly withdrawn there.
 
 ## History
 

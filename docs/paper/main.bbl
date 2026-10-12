@@ -1,0 +1,94 @@
+\newcommand{\etalchar}[1]{$^{#1}$}
+\begin{thebibliography}{\uppercase{CHB{\etalchar{*}}12}}
+
+\bibitem[CHB{\etalchar{*}}12]{cuypers2012}
+\textsc{Cuypers T., Haber T., Bekaert P., Oh S.~B., Raskar R.}:
+\newblock Reflectance model for diffraction.
+\newblock \emph{ACM Transactions on Graphics 31}, 5 (2012), 1--11.
+
+\bibitem[DM07]{daimon2007}
+\textsc{Daimon M., Masumura A.}:
+\newblock Measurement of the refractive index of distilled water from the
+  near-infrared region to the ultraviolet region.
+\newblock \emph{Applied Optics 46}, 18 (2007), 3811--3820.
+
+\bibitem[GG86]{golubitsky1986}
+\textsc{Golubitsky M., Guillemin V.}:
+\newblock \emph{Stable Mappings and Their Singularities}, vol.~14 of
+  \emph{Graduate Texts in Mathematics}.
+\newblock Springer, 1986.
+\newblock Conventional citation.
+
+\bibitem[HDF15]{hanika2015}
+\textsc{Hanika J., Droske M., Fascione L.}:
+\newblock Manifold next event estimation.
+\newblock \emph{Computer Graphics Forum 34}, 4 (2015), 87--97.
+
+\bibitem[HOJ08]{hachisuka2008}
+\textsc{Hachisuka T., Ogaki S., Jensen H.~W.}:
+\newblock Progressive photon mapping.
+\newblock In \emph{ACM SIGGRAPH Asia 2008 Papers} (2008), pp.~1--8.
+
+\bibitem[Jen96]{jensen1996}
+\textsc{Jensen H.~W.}:
+\newblock Global illumination using photon maps.
+\newblock In \emph{Rendering Techniques '96 (Eurographics Workshop on
+  Rendering)} (1996), pp.~21--30.
+
+\bibitem[JSR{\etalchar{*}}22]{jakob2022}
+\textsc{Jakob W., Speierer S., Roussel N., Nimier-David M., Vicini D., Zeltner
+  T., Nicolet B., Crespo M., Leroy V., Zhang Z.}:
+\newblock Mitsuba 3 renderer, 2022.
+\newblock Conventional citation. Architecture described in Nimier-David et al.,
+  \emph{Mitsuba 2}, ACM TOG 38(6), 2019, doi:10.1145/3355089.3356498.
+
+\bibitem[MMRO13]{musbach2013}
+\textsc{Musbach A., Meyer G.~W., Reitich F., Oh S.~B.}:
+\newblock Full wave modelling of light propagation and reflection.
+\newblock \emph{Computer Graphics Forum 32}, 6 (2013), 24--37.
+
+\bibitem[PJH23]{pharr2023}
+\textsc{Pharr M., Jakob W., Humphreys G.}:
+\newblock \emph{Physically Based Rendering: From Theory to Implementation},
+  4th~ed.
+\newblock MIT Press, 2023.
+\newblock Conventional citation; the reference implementation of
+  Chapter~\ref{sec:current} is this book's renderer, PBRT-v4.
+
+\bibitem[Rub85]{rubin1985}
+\textsc{Rubin M.}:
+\newblock Optical properties of soda lime silica glasses.
+\newblock \emph{Solar Energy Materials 12}, 4 (1985), 275--288.
+
+\bibitem[Sil86]{silverman1986}
+\textsc{Silverman B.~W.}:
+\newblock \emph{Density Estimation for Statistics and Data Analysis}.
+\newblock Chapman and Hall, London, 1986.
+\newblock Conventional citation; source of the kernel bias expansion.
+
+\bibitem[Vea97]{veach1997}
+\textsc{Veach E.}:
+\newblock \emph{Robust Monte Carlo Methods for Light Transport Simulation}.
+\newblock PhD thesis, Stanford University, 1997.
+\newblock Conventional citation; not indexed by Crossref.
+
+\bibitem[Whi92]{whitney1955}
+\textsc{Whitney H.}:
+\newblock \emph{On Singularities of Mappings of {E}uclidean Spaces. {I}.
+  Mappings of the Plane Into the Plane}.
+\newblock 1992.
+\newblock Original: \emph{Annals of Mathematics} 62(3), 374--410, 1955.
+
+\bibitem[YHJ{\etalchar{*}}18]{yan2018}
+\textsc{Yan L.-Q., Hasan M., Jakob W., Lawrence J., Marschner S., Ramamoorthi
+  R.}:
+\newblock Rendering specular microgeometry with wave optics.
+\newblock \emph{ACM Transactions on Graphics 37}, 4 (2018), 1--10.
+
+\bibitem[ZGJ20]{zeltner2020}
+\textsc{Zeltner T., Georgiev I., Jakob W.}:
+\newblock Specular manifold sampling for rendering high-frequency caustics and
+  glints.
+\newblock \emph{ACM Transactions on Graphics 39}, 4 (2020).
+
+\end{thebibliography}

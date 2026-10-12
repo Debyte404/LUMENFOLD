@@ -980,6 +980,77 @@ which predates palettegen/paletteuse entirely and fails with "No such filter:
 palettegen". tools/ripple_gifs.py now probes for an ffmpeg that has the filter
 and falls back gracefully; the WinGet Gyan 7.1 full build works.
 
+### 14.5g The paper: venue, format, toolchain (2026-10-12)
+
+The manuscript was retargeted from a markdown draft to the **official Computer
+Graphics Forum format**. CGF is the Eurographics journal (Wiley), submitted
+through http://mc.manuscriptcentral.com/cgf, and the EG association publishes
+the class file: `egPublStyle-cgf.zip` from
+
+    https://www.eg.org/wp/wp-content/uploads/2024/12/egPublStyle-cgf.zip
+
+`docs/paper/` is that template with the paper in it, `\JournalSubmission`, and
+the EG two-column grid (42 pc text width).
+
+**Toolchain.** No TeX distribution was installed on this machine (pdflatex,
+xelatex, latexmk, tectonic, miktex all absent). Tectonic 0.17.0 was used as a
+single binary that resolves packages from its own bundle on demand, which
+avoids a multi-gigabyte MiKTeX install; it compiles the EG class unmodified.
+Two class quirks had to be worked around:
+* `egpubl.cls` defines `\proof`, so `amsthm` must be loaded after
+  `\let\proof\relax \let\endproof\relax` or every build dies with
+  "Command \proof already defined";
+* the template branches on `\ifpdf` and selects the **dvips** graphicx driver
+  when it is false. Tectonic runs XeTeX, where `\ifpdf` is false, so the dvips
+  branch was taken and every `\includegraphics{*.pdf}` failed with "Unable to
+  load picture". Loading graphicx with no driver option fixes it.
+
+**Citations.** The earlier draft carried a note saying its identifiers had
+never been verified (the survey IP got HTTP 429). A paper cannot ship that way,
+so `tools/verify_refs.py` and `verify_refs2.py` check every intended reference
+against the Crossref REST API. The pass caught three real errors:
+1. "Progressive photon mapping" (Hachisuka, Ogaki, Jensen 2008) and
+   "Stochastic progressive photon mapping" (Hachisuka, Jensen 2009) are
+   different papers; the draft conflated them. Both are now cited with their
+   own DOIs (10.1145/1457515.1409083 and 10.1145/1661412.1618487).
+2. The entry keyed as a vertex-connection-and-merging paper resolved to an
+   unrelated 2025 Russian journal article. It was deleted.
+3. Veach's 1997 thesis is not indexed by Crossref at all; it is cited in its
+   conventional thesis form and marked as such.
+Entries whose metadata came back from Crossref carry the returned DOI, author
+list, volume and page range verbatim; entries without a DOI are marked
+"conventional" in `refs.bib` with the reason.
+
+**Figures.** `tools/make_paper_figures_pdf.py` produces vector PDF at the EG
+column widths. Figure 1 was rebuilt from the "sketch" the earlier draft carried
+into a to-scale technical drawing: true relative geometry, dimension lines with
+arrowheads, a scale bar, and a ray path **traced through the actual scene
+geometry** rather than drawn as decoration. Every data axis states its
+normalisation, since "intensity" without one is the easiest way to publish a
+meaningless comparison. The EG guidelines require that no figure contain
+transparent pixels, so all alpha is flattened to opaque — see the trap below.
+
+**Two bugs in our own tooling, both the same class as 11.2 and 20.3:**
+* The first AI-tell scan reported **655 em dashes**, which would be one every
+  23 words. It was counting the `%--------` comment rules that LaTeX sources
+  are full of, not prose. Stripping comments first gives **29 em dashes in
+  13,822 prose words**, about one per 477 words, which is an ordinary academic
+  rate and not a tell at all. The scanner was measuring the file rather than
+  the writing.
+* The alpha-flattening post-pass rewrote `/ca 0.25` to `/ca 1`, which is
+  **shorter**. A PDF's cross-reference table stores absolute byte offsets, so
+  every offset after the substitution was silently corrupted and the engine
+  refused to load files that were 52 KiB and superficially well-formed. The
+  rewrite must be byte-length preserving (`0.25` -> `1.00`).
+
+**What the tell scan actually found**, for the record, since the manuscript was
+reviewed as reading machine-generated: 0 significance inflation, 0 AI
+vocabulary, 0 filler, 0 hedging, 0 signposting, 0 generic conclusions, 0
+rhetorical questions, 0 reassurance kickers, 1 apparent "-ing" hit which is the
+physics term "totally reflecting". The one structural habit worth fixing was
+twelve formulaic "two/three/four things" enumerations in 14k words, several of
+which were rewritten.
+
 ### 14.6 What the audit killed
 
 Three of our own claims do not survive and are withdrawn in CRITIQUE.md:

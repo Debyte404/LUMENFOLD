@@ -1,0 +1,55 @@
+%-----------------------------------------------------------------------
+% Title, authors, abstract, keywords
+%-----------------------------------------------------------------------
+\title[Wave-Corrected Caustics over Photon Splatting]%
+      {Wave-Corrected Caustics over Photon Splatting:\\[2pt]
+       Fold Kinematics, a Band-Local Airy Correction,\\ and a Comparative Evaluation Against Production Solvers}
+
+% --- For anonymous review, replace this block with the submission ID.
+\author[Debyte]
+{\parbox{\textwidth}{\centering Debyte\thanks{Corresponding author.}\orcid{0000-0000-0000-0000}
+        }
+        \\
+{\parbox{\textwidth}{\centering $^1$Independent research
+       }
+}}
+
+%--- abstract -----------------------------------------------------------
+\begin{abstract}
+Photon-splatting and path-traced caustics are the standard way to render the
+light focused by a curved transparent body onto a diffuse receiver. Both
+families evaluate a geometric push-forward whose Jacobian determinant vanishes
+on the fold locus, so the estimator diverges there, and no amount of sampling
+repairs it. We state that failure as a property of the model rather than of the
+discretisation, then describe a hybrid estimator in which a geometric quadrature
+carries the whole image and a wave-optical correction is applied only inside a
+narrowly detected fold band: the band's own geometric energy is redistributed
+according to the Airy fold profile $|\Ai(-s/w)|^2$, with a per-channel width
+$w_c$ following the $\lambda^{2/3}$ scaling implied by the fold's canonical
+form. We first derive the kinematics from scratch --- the ray map, the fold
+condition, the normal form of the fold and the wavelength scaling that follows
+from it --- and then use that derivation to explain where the standard computer
+graphics constructions for caustics succeed and where they necessarily fail.
+
+We evaluate against PBRT-v4 SPPM, Blender Cycles and Mitsuba~3 on an identical
+scene with measured dispersive indices (water: Daimon \& Masumura 2007; glass:
+Rubin 1985). Against an independent brute-force geometric ground truth of
+$810{,}000$ explicit rays, our estimator scores $0.917$ correlation at 40\,mm
+tiles against $0.853$ (SPPM) and $0.828$ (Cycles); at 5\,mm tiles the ordering
+is $0.721$ / $0.722$ / $0.405$. The converged two-dimensional shape of our field
+agrees with SPPM at $r=+0.932$, and its transport throughput measures $96.41\%$
+at three wavelengths with Fresnel reflection as the only loss channel.
+
+We are explicit about what the method does \emph{not} establish. The correction
+is defined only for a fold; it says nothing about higher-order caustics, and we
+show by direct measurement that a naive normalisation of the band is
+\emph{impossible} --- $|\Ai(-u)|^2$ is not integrable on $\mathbb{R}$ --- which
+is why the correction is written as a discrete band ratio rather than a
+continuous constant. Two of our own earlier claims are withdrawn in this paper,
+each killed by an estimator artefact rather than by the physics, and both are
+documented because they are the failure mode we expect a reader to hit.
+\end{abstract}
+
+%--- keywords -----------------------------------------------------------
+\keywords{caustics, wave optics, photon splatting, photon mapping, SPPM,
+diffraction, Airy function, grid-free rendering, comparative evaluation}

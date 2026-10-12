@@ -1,0 +1,145 @@
+%-----------------------------------------------------------------------
+\section{Introduction}
+\label{sec:intro}
+%-----------------------------------------------------------------------
+
+A caustic is the envelope of a family of refracted or reflected rays. Where the
+envelope touches the receiving surface, neighbouring rays cross, the
+surface-to-receiver map loses rank, and the ray density that a renderer
+integrates becomes infinite. Every production caustic method in use today
+integrates that density. The methods differ in how they estimate the integral
+--- photon maps store the ray density as points \cite{jensen1996}, SPPM does so
+with a radius that shrinks as it converges \cite{hachisuka2008}, path tracers
+connect vertices \cite{veach1997} --- but they share the integrand, and the
+integrand is singular on the very feature the user is trying to see.
+
+This paper starts from that observation. The
+first direction is theoretical, and it is the reason the paper opens with
+kinematics rather than with rendering. The singularity is not an accident of
+any parameterisation. It is the fold of a smooth map, it has a normal form, and
+the normal form dictates both how the geometric estimate fails and what the
+correct description near the fold looks like. It also fixes a number: the fold
+is described near its degeneracy by a cubic phase, and the cubic phase carries
+one wavelength and one geometric coefficient, whose ratio is a length. That
+length scales as $\lambda^{2/3}$, not as $\lambda$ and not as the Fresnel
+$\sqrt{\lambda}$. Nobody fits that exponent; it falls out of the normal form,
+and it is what makes a per-channel fringe width more than a decoration.
+
+The second direction is practical. If the wave description is right near the
+fold, and the geometric description is right away from it, then a single
+estimator can use each where it is valid, at the cost of detecting where the
+boundary is. We implement that estimator and then spend the second half of the
+paper trying to falsify it against the tools that practitioners actually run.
+The evaluation is deliberately unflattering in its construction: the ground
+truth is an independent brute-force trace that shares no code with the method
+under test, the reference conforming solver is PBRT-v4 SPPM \cite{pharr2023},
+and a path-traced comparison is produced by Blender Cycles on the same scene
+with the same measured dispersive indices. Where our method loses, we say so.
+
+\subsection{Why the kinematics come first}
+\label{sec:why-kinematics}
+
+It is possible to write a caustic renderer without ever writing down the map
+that is being inverted, and most of the literature discourages doing so: photon
+mapping is presented as a Monte Carlo estimator over paths, and its convergence
+is discussed in terms of sample counts and radii. That presentation is
+efficient, but it hides the one property that decides whether the method can
+work at all. A density estimator whose target integrand diverges is not a
+convergence-rate problem. Increasing the sample count does not help, reducing
+the kernel radius does not help, and adding a denoiser hides the failure behind
+a smooth blur that no longer means anything. The only useful question is
+whether the estimator's support contains the singular set, and that question is
+answered by the rank of a Jacobian.
+
+So we write the kinematics down. Section~\ref{sec:kinematics} defines the
+surface, the ray map, and the exact irradiance it induces, which is the
+push-forward of the surface measure. The fold locus is then the zero set of the
+Jacobian determinant, and we prove the two statements the rest of the paper
+leans on: that a geometric quadrature cannot converge near the fold at any
+resolution (Lemma~\ref{lem:diverge}), and that the correct local description is
+the canonical fold integral whose amplitude envelope is the Airy function
+(Proposition~\ref{prop:foldnormal}). From the same normal form we extract the
+wavelength scaling (Corollary~\ref{cor:scaling}) and, because we have been
+bitten by this, the statement that the resulting intensity is not integrable -
+so a correction built on it cannot be normalised by a constant
+(Lemma~\ref{lem:notl1}).
+
+\subsection{How computer graphics builds caustics}
+\label{sec:why-cg}
+
+Section~\ref{sec:cg} then reads the standard constructions as answers to the
+kinematic problem, which makes their shared limitation visible. Forward
+constructions --- photon mapping and its progressive variant --- estimate the
+push-forward by depositing samples and integrating density. Backward
+constructions --- path tracing, and the bidirectional and vertex-connection
+variants \cite{veach1997,muller2017} --- estimate it by connecting vertices
+and dividing by a geometric term. Both factor the same $1/|\detJ|$, and both
+become invalid exactly on $\fold$. The section states where each family is
+exact, where each is merely expensive, and where neither can be repaired,
+because that boundary is what the hybrid estimator is built around.
+
+\subsection{The current way, and the way we take}
+\label{sec:why-current}
+
+Sections~\ref{sec:current} and \ref{sec:ourway} are the two halves of the
+comparison. The first measures what current practice produces and costs. We
+take the position that a comparative claim is only meaningful if the
+comparison runs on one scene, with one set of measured material data, one
+source, and one set of estimators applied identically to all sides; the section
+therefore reports both the numbers and the estimator convention that produced
+them, including one previously published statistic that we withdraw because it
+was an artefact of that convention
+(Section~\ref{sec:verify-metric}).
+
+The second half states our method, which is small: keep the geometric
+quadrature, detect the fold band analytically from $|\detJ|$, and inside the
+band replace the divergent density with a normalised Airy profile while
+conserving the band's own measured flux. The method introduces three
+quantities --- a detector percentile, a reference fringe width, and a ceiling
+--- and Section~\ref{sec:results-ablation} measures the sensitivity to each
+rather than asserting a value.
+
+\subsection{Contributions}
+\label{sec:contributions}
+
+\begin{itemize}
+\item A kinematic account of the caustic fold that connects the rendering
+      estimator to the fold's normal form, with the $\lambda^{2/3}$ fringe
+      scaling derived rather than fitted
+      (Section~\ref{sec:kinematics}).
+\item The observation, proved and measured, that the Airy fold intensity is not
+      integrable, so a flux-conserving correction must be formulated as a
+      discrete band ratio; a normalisation constant does not exist
+      (Lemma~\ref{lem:notl1}, Section~\ref{sec:ours-normalisation}).
+\item A hybrid estimator, its implementation, and an ablation over its three
+      parameters (Sections~\ref{sec:ourway}, \ref{sec:results-ablation}).
+\item A like-for-like evaluation against PBRT-v4 SPPM, Blender Cycles and
+      Mitsuba~3 on measured dispersive materials, with the estimator
+      conventions stated and the losses reported
+      (Sections~\ref{sec:results}, \ref{sec:verify}).
+\item Two withdrawn claims from our own earlier drafts, each traced to a
+      measurable estimator artefact, documented so the failure mode is
+      reproducible (Sections~\ref{sec:verify-index}, \ref{sec:verify-metric}).
+\end{itemize}
+
+\subsection{What this paper does not claim}
+\label{sec:notclaimed}
+
+The correction applies to folds. It has no content for higher-order caustics ---
+cusp points, swallowtails, or the Pearcey and umbilic normal forms that govern
+them --- and we do not have a tested implementation for those cases
+(Section~\ref{sec:limitations}). We also do not validate against a physical
+apparatus. The comparison in this paper is entirely computational, against
+solvers and against an independent trace, and the quantities compared are
+therefore properties of those solvers and that scene. A laboratory measurement
+would test a different claim, and the scene here is specified precisely enough
+that someone may make it.
+
+\subsection{Reading order}
+\label{sec:reading}
+
+Section~\ref{sec:kinematics} is self-contained and can be read as a short
+treatment of fold optics for graphics. Readers who want only the method should
+read Section~\ref{sec:ourway} after Section~\ref{sec:cg}; readers who question
+the numbers should read Section~\ref{sec:estimators} first, because two of our
+earlier errors lived there and not in the physics.

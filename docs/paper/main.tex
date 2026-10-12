@@ -1,0 +1,110 @@
+%=======================================================================
+% Wave-Corrected Caustics over Photon Splatting
+% Computer Graphics Forum (Eurographics) submission format.
+%
+% Class and style files: EGauthorGuidelines / egPublStyle-cgf, v2.04+,
+% downloaded from https://www.eg.org/wp/wp-content/uploads/2024/12/egPublStyle-cgf.zip
+% Compile:  tools/build_paper_pdf.py   (tectonic 0.17.0)
+%=======================================================================
+\documentclass{egpubl}
+
+% --- CGF Journal, submission version.
+\JournalSubmission
+
+\CGFStandardLicense
+
+\usepackage[T1]{fontenc}
+\usepackage{dfadobe}
+
+\usepackage{cite}
+\BibtexOrBiblatex
+
+\electronicVersion
+\PrintedOrElectronic
+
+% The stock template branches on \ifpdf: with pdfTeX it loads graphicx with the
+% pdftex driver, otherwise it falls back to dvips, which cannot read PDF figures.
+% Tectonic runs XeTeX, where \ifpdf is false, so the dvips branch was taken and
+% every \includegraphics{*.pdf} failed. Loading graphicx without a driver option
+% lets it detect the engine itself.
+\usepackage{graphicx}
+\graphicspath{{figures/}{./}}
+
+\usepackage{egweblnk}
+
+% --- additions for this paper -------------------------------------------
+\usepackage{amsmath}
+\usepackage{amssymb}
+% egpubl.cls defines \proof itself; amsthm would collide with it. Release the
+% class's definition first so our proof environments come from amsthm.
+\let\proof\relax
+\let\endproof\relax
+\usepackage{amsthm}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{siunitx}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{xcolor}
+\usepackage{url}
+
+\sisetup{detect-all,group-separator={,},group-minimum-digits=4}
+
+% Theorem-like environments. Everything the paper asserts as a formal
+% statement is one of these; the remaining prose is measurement.
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{proposition}[theorem]{Proposition}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+\newtheorem{assumption}[theorem]{Assumption}
+
+% Notation shortcuts
+\newcommand{\Hm}{\mathbf{H}}
+\newcommand{\Jm}{J_{\Hm}}
+\newcommand{\fold}{\mathcal{F}}
+\newcommand{\recv}{\Omega}
+\newcommand{\dir}{\hat{\mathbf{s}}}
+\newcommand{\nrm}{\mathbf{n}}
+\newcommand{\trn}{\hat{\mathbf{t}}}
+\newcommand{\Ai}{\operatorname{Ai}}
+\newcommand{\detJ}{\det \Jm}
+\newcommand{\dd}{\mathrm{d}}
+\newcommand{\order}[1]{\mathcal{O}\!\left(#1\right)}
+\DeclareMathOperator{\sinc}{sinc}
+
+\begin{document}
+
+\input{sections/frontmatter}
+
+\input{sections/intro}
+
+\input{sections/kinematics}
+
+\input{sections/cgcaustics}
+
+\input{sections/current}
+
+\input{sections/ourway}
+
+\input{sections/results}
+
+\input{sections/verification}
+
+\input{sections/limitations}
+
+\input{sections/discussion}
+
+\input{sections/conclusion}
+
+\input{sections/appendix}
+
+\bibliographystyle{eg-alpha}
+\bibliography{refs}
+
+\end{document}

@@ -1,0 +1,121 @@
+%-----------------------------------------------------------------------
+\section{Limitations}
+\label{sec:limitations}
+%-----------------------------------------------------------------------
+
+\subsection{The correction is defined only for a fold}
+\label{sec:limits-fold}
+
+The profile of Section~\ref{sec:ours-normalisation} is the diffraction pattern
+of a fold. At a cusp the local phase is quartic rather than cubic and the
+diffraction pattern is a Pearcey function; at a swallowtail or an umbilic point
+it is something else again. The method as stated has no content for any of
+them, and Assumption~\ref{as:fold} excludes them explicitly. A surface steep
+enough to produce higher-order caustics leaves the domain of the normal form
+(Remark~\ref{rem:slope}), so this is not an edge case that a scene designer can
+avoid by choosing reasonable parameters: the surface of \eqref{eq:surface}
+satisfies the assumption, and a more agitated one would not.
+
+We have not built or tested the cusp case, so we do not know whether the
+natural generalisation --- detect the higher-order stratum, substitute the
+corresponding catastrophe function --- works in practice at a comparable cost.
+We flag it as the most obvious next step and as an untested conjecture, not as
+a contribution.
+
+\subsection{The coherent limit is not the sun}
+\label{sec:limits-coherence}
+
+This is the most serious limitation and it is a statement about the physics
+rather than about the implementation. The source in this scene subtends
+\SI{0.53}{\degree}, and at the receiver distance that corresponds to a geometric
+blur of roughly \SI{925}{\micro\meter}. The physical fringe spacing implied by
+\eqref{eq:scalelaw} for this geometry is \SI{123}{\micro\meter}, about
+\num{7.5} times smaller. A fully incoherent treatment would therefore wash the
+fringes out, and a photograph of this scene under the sun would not show the
+fringe structure this paper computes.
+
+What the paper's fringe results therefore establish is that the wave-corrected
+estimator reproduces the \emph{coherent-limit} fold profile, that the profile is
+the Airy function, and that the resulting field is bounded and smooth where the
+geometric estimator is neither. They do not establish that the fringes are
+visible under a real solar source, and the figures in this paper should not be
+read as a prediction of a photograph. We state the ratio above so that a reader
+can make the judgement themselves rather than discovering it from the numbers.
+
+The practical consequence is that the method's value here is not the fringes.
+It is that replacing a divergent integrand with a bounded one, at the correct
+flux, produces a caustic that is both closer to the converged answer and stable
+in time (Section~\ref{sec:results-flicker}). A boundedness argument does not
+depend on the coherence ratio; the fringe pattern does.
+
+\subsection{Not resolved at the production grid}
+\label{sec:limits-resolution}
+
+The fold's apparent breadth measures $2.30\times$ the ground truth at $1024^2$
+and $1.87\times$ at $4096^2$. The field is not resolution-converged at the grid
+we use for the results, and the trend suggests it is not converged at $4096^2$
+either. Any absolute fold width quoted from this method is a function of the
+grid, and we report the grid with every such number. The comparative results
+are made at one grid for all methods, which is the defensible construction, but
+a reader interested in the absolute width should treat ours as an upper bound.
+
+\subsection{The ceiling is a modelling choice}
+\label{sec:limits-ceiling}
+
+The ceiling $\kappa$ bounds the field, and Lemma~\ref{lem:flux} holds without
+it. With it, band flux is no longer exactly conserved and the discrepancy is a
+function of how much of the band the ceiling clips. This is a real
+inconsistency in the construction and we have not eliminated it; we have
+measured its magnitude (Section~\ref{sec:verify-energy}) and reported it rather
+than setting the ceiling high enough that the effect is invisible. A
+construction that conserves flux and bounds the field at once would be an
+improvement.
+
+\subsection{Estimator dependence}
+\label{sec:limits-estimators}
+
+Every comparative number in this paper is one statistic applied to fields
+produced by three different programs. We chose the statistics before the
+comparison (Section~\ref{sec:estimators}), which is the correct order, and we
+report the code that produces them so the choice can be reversed. But a claim
+that flips under a change of statistic is not a result, and we found exactly one
+such statistic in our own history
+(Section~\ref{sec:verify-metric}). Others may remain, and the reader is
+entitled to check.
+
+\subsection{No physical apparatus}
+\label{sec:limits-lab}
+
+The comparison is entirely computational. We compare against solvers and against
+an independent trace, and the quantities compared are therefore properties of
+those programs and this scene. A laboratory test would address a different
+claim --- whether the geometric-plus-Airy model predicts a measured intensity
+distribution --- and it would additionally test the coherence question of
+Section~\ref{sec:limits-coherence} in the only way that question can be settled.
+The scene is specified precisely enough in Table~\ref{tab:scene} that this is
+feasible, and we regard it as the natural continuation.
+
+\subsection{Scope of the cost claims}
+\label{sec:limits-cost}
+
+The timing figures are from one machine and one implementation. The method's
+advantage is a boundedness argument with a cost attached, and the cost scales
+with the band's measure, which is scene-dependent. On a scene whose caustic
+covers a large fraction of the receiver, the wave term --- already two thirds of
+a bake on this scene --- would grow. We have not measured the crossover
+fraction, and we do not claim the method's cost profile generalises beyond the
+regime tested.
+
+\subsection{What would falsify the approach}
+\label{sec:limits-falsify}
+
+To keep the claims checkable we state what we would take as a refutation. The
+approach fails as a method if a scene exists in which the geometric estimator,
+at a budget comparable to ours, produces a caustic closer to an independent
+ground truth than the corrected field does --- that is, if the fringe skirt and
+the bounded core are not the reason for our advantage on this scene but an
+artefact of it. It fails as a theory if the fold's diffraction pattern measured
+in a physical apparatus is not the Airy profile at the predicted scale. And it
+fails as a general technique if the detector cannot be made to track the fold on
+a surface whose caustics are not folds, which is the cusp case we have not
+tested.

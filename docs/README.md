@@ -6,8 +6,9 @@ documents carry dated scope notes.
 
 | File | What it is | State |
 |---|---|---|
-| [`PAPER.md`](PAPER.md) | **The paper.** Full manuscript: theory, 14 numbered equations, results, verification, limits, references, reproduction. | current, primary deliverable |
-| [`PAPER.html`](PAPER.html) | The paper as a printable web page — maths typeset by MathJax, figures inlined. Open in a browser, Ctrl+P → PDF. No LaTeX distribution is installed on this machine, so this is the typeset artefact. | generated from PAPER.md |
+| [`paper/main.pdf`](paper/main.pdf) | **The paper.** Typeset in the official Computer Graphics Forum class (`egpubl.cls`, Eurographics), 21 pages: kinematics with lemmas, theorems and proofs, how computer graphics builds caustics, the current solvers, the method, results, verification, limits, discussion, appendices. Source in `paper/`. | current, primary deliverable |
+| [`PAPER.md`](PAPER.md) | Earlier markdown draft of the same manuscript. Superseded by `paper/main.tex`; kept for the record. | superseded |
+| [`PAPER.html`](PAPER.html) | Printable web page generated from the markdown draft. The LaTeX build replaced it as the typeset artefact. | generated from PAPER.md |
 | [`EVIDENCE.md`](EVIDENCE.md) | **The measurement record** — 1,400+ lines, every number in the paper with its provenance, including negative results, the estimator traps that produced false conclusions, and the index error that was caught. | current, canonical |
 | [`CRITIQUE.md`](CRITIQUE.md) | Adversarial audit of our own claims: which survived, which were inflated, which were vacuous. Includes the active falsifier list. | current |
 | [`PAPER_PLAN.md`](PAPER_PLAN.md) | Planning document: claim inventory, related-work survey (the novelty gap), figure list, staged timeline, target venues, threats to validity. | current where it has been updated (claim inventory, venue gate); the apparatus experiment is descoped |
@@ -18,7 +19,8 @@ documents carry dated scope notes.
 
 | Path | Contents |
 |---|---|
-| `figures/` | The paper's 9 figures, generated from real artefacts by `tools/make_paper_figures.py`. `figure_data.json` carries the numbers they plot. |
+| `paper/` | The CGF LaTeX source: `main.tex`, `sections/`, `refs.bib` (every entry verified against Crossref), and `figures/` as vector PDF. Compile with `tools/build_paper_pdf.py`. |
+| `figures/` | The earlier raster figures, generated from real artefacts by `tools/make_paper_figures.py`. `figure_data.json` carries the numbers they plot. The paper now uses the vector PDFs in `paper/figures/`. |
 | `media/` | Presentation media: the four clips (ripple, turntable, combined, and Cycles' counterparts), **`ripple_{ours,cycles,spmm}.gif`** — the same ripple animation three ways, one verified camera, physical fringe width, exposure-matched subject (EVIDENCE 14.5f) — contact sheet, comparison figures, showcase stills. |
 | `data/` | Machine-readable artefacts: the baked caustic field (`caustic_wave.npy`) and the efficiency study results. |
 

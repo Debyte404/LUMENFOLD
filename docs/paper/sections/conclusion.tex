@@ -1,0 +1,95 @@
+%-----------------------------------------------------------------------
+\section{Conclusion}
+\label{sec:conclusion}
+%-----------------------------------------------------------------------
+
+The caustic fold is a rank-one degeneracy of the surface-to-receiver map, and
+every caustic method in production use estimates a density that is unbounded
+there. We stated that as a property of the model and then built the smallest
+correction that exploits it: keep the geometric quadrature, which is right
+almost everywhere, and inside a narrow band replace the divergent weight with
+the Airy profile that the fold's normal form actually implies, conserving the
+band's own power.
+
+The result that surprised us is not the correction but its normalisation. The
+Airy intensity is not integrable, so no constant normalises it
+(Lemma~\ref{lem:notl1}), and the band's power is nevertheless finite
+(Corollary~\ref{cor:integrable}). Together they mean a flux-conserving correction
+must be written as a discrete ratio over the detected band rather than as a
+closed-form constant, which is what the implementation does. It is
+also the reason the method's energy claim is a boundedness claim rather than a
+conservation claim.
+
+On the comparative side, the position is narrower than a speed-up claim. Against
+an independent brute-force trace we lead at coarse scales ($0.917$ against
+$0.853$ SPPM, $0.828$ Cycles), tie SPPM at the finest scale measured
+($0.721$ against $0.722$), and lose to plain geometric Monte Carlo below a
+budget of about \num{262000} splats. What we do claim is that above roughly
+\num{1000000} splats our single pass is $1.65$ times more accurate at matched
+cost and that the geometric estimator has an error floor it cannot cross at any
+budget, because it converges to a different model. That is a claim about
+reachability, not about speed.
+
+Two of our own earlier results are withdrawn here, both killed by estimators
+rather than by physics: a dispersion model that was fitted rather than measured
+and carried twice the true dispersion (Section~\ref{sec:verify-index}), and a
+correlation score that was an artefact of a sign convention and a tile-naming
+inversion (Section~\ref{sec:verify-metric}). Both are reported in the form that
+makes them reproducible, because we think the failure mode is more likely to be
+repeated than the method.
+
+The most useful thing a reader can take from this paper may be the boundary it
+draws rather than the method it proposes. Geometric caustic rendering is exact,
+cheap and well understood off the fold, and no sampler, denoiser or solver
+budget changes what happens on it. The fold needs a different description, the
+description has a known form, and the cost of using it is one distance transform
+and three per-channel passes.
+
+\section{Reproduction}
+\label{sec:repro}
+
+The paper's artefacts are produced by the following, from the repository root.
+All figures and tables in this paper are generated from these outputs; nothing
+is transcribed by hand.
+
+\begin{verbatim}
+# the kinematic derivation's numerical constants
+python tools/airy_facts.py                 # Airy peak, integral divergence
+python tools/verify_refs.py                # citation verification (Crossref)
+
+# wave-physics verification
+python tools/verify_wave_correction.py     # profile vs scipy Airy
+python tools/verify_ray_map.py             # the independent brute-force trace
+python tools/fold_diag.py                  # fold locus, flux, boundary ablations
+python tools/parity_cpp_vs_py.py           # C++ vs Python reference
+
+# the comparison
+python tools/spmm_vs_groundtruth.py        # three-way ranking, one axis
+python tools/metric_parity_check.py        # both estimator conventions
+python tools/accuracy_vs_ground_truth.py   # the headline accuracy
+python tools/energy_audit.py               # Fresnel throughput
+python tools/efficiency_study.py           # RMSE vs splat budget
+python tools/ensemble_study.py             # 8-phase ensemble
+
+# cost
+build/bench.exe 512 1                      # bake timing, one thread
+build/bench.exe 512 8                      # bake timing, eight threads
+
+# the figures and clips
+python tools/make_paper_figures.py         # paper figures
+python tools/ripple_gifs.py                # the three ripple GIFs
+
+# this paper
+python tools/build_paper_pdf.py            # LaTeX -> PDF
+\end{verbatim}
+
+The three ripple animations referenced in the supplementary material are
+produced by \verb|tools/ripple_gifs.py|, which renders the same animating
+caustic through our estimator, Cycles and SPPM with one camera. The camera is
+identical across the three to a projected-point disagreement of \num{0.0000}
+(\verb|tools/cam_projection_check.py|), and the band uses the physical fringe
+width rather than a visibility-exaggerated one, so the animations show the
+measured dispersion rather than decorative fringes. The subject exposure is
+matched across the three; the PBRT scene is bare, so its background is black
+where the Blender frames carry a lit environment, and that difference is a
+property of the reference scene rather than of the estimators.

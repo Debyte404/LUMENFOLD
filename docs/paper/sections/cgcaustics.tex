@@ -1,0 +1,259 @@
+%-----------------------------------------------------------------------
+\section{How computer graphics builds caustics}
+\label{sec:cg}
+%-----------------------------------------------------------------------
+
+Every caustic method in production use estimates \eqref{eq:irradiance}.
+Rendering caustics by following light through curved bodies is as old as
+global-illumination rendering itself \cite{mitchell1992}; what has changed since
+is the estimator, not the object being estimated. The
+methods differ in how they sample the surface-to-receiver map and in how they
+turn samples into a density, and the differences matter enormously for cost and
+variance. They do not differ in the integrand, and the integrand is what
+Lemma~\ref{lem:diverge} says is unbounded. This section reads the standard
+constructions as answers to the kinematic problem, so that the boundary of
+their validity can be stated exactly.
+
+\subsection{Estimating a push-forward}
+\label{sec:two-families}
+
+Estimating $I(\mathbf{u})$ requires samples of $\Hm$ and a way to convert them
+into a density at $\mathbf{u}$. There are exactly two families in practice.
+
+\emph{Forward} methods sample the surface, push the samples through $\Hm$, and
+estimate the resulting density where the samples land. Photon mapping
+\cite{jensen1996} and its progressive variant \cite{hachisuka2008} are the
+canonical members. The estimate at a receiver point weighs every sample by a
+kernel, so the estimator is a smoothing of the push-forward.
+
+\emph{Backward} methods sample from the camera, follow the transport, and
+connect to light-carrying vertices, weighting the connection by a geometric
+term that contains the same $1/|\detJ|$ factor. Path tracing with next-event
+estimation, bidirectional path tracing, and the manifold-based methods
+\cite{hanika2015,zeltner2020} are members. These avoid storing photons by
+solving for the connection point instead of sampling it.
+
+Both families are Monte Carlo estimators of the same integral. Both are
+unbiased for the \emph{integral} of $I$ over a pixel, which is what a renderer
+must produce. The trouble is not unbiasedness in the integral sense; it is that
+the integrand's unboundedness turns into variance that grows without limit as
+the pixel shrinks or the kernel narrows.
+
+\subsection{Forward: photon mapping and the bias at the fold}
+\label{sec:photonmap}
+
+Photon mapping deposits $N$ samples $\mathbf{u}_i = \Hm(\mathbf{x}_i)$ and
+estimates the density with a kernel $K_h$ of bandwidth $h$,
+\begin{equation}
+\hat I(\mathbf{u}) \;=\; \frac{1}{N} \sum_{i=1}^{N}
+K_h\!\big(\mathbf{u} - \mathbf{u}_i\big).
+\label{eq:kde}
+\end{equation}
+When the $\mathbf{x}_i$ are uniform on the surface, $\hat I$ estimates the
+push-forward density of \eqref{eq:irradiance} after smoothing. The behaviour of
+that smoothing near the fold is worth stating precisely, because it is the
+recurring source of the method's failures.
+
+\begin{lemma}[Kernel smoothing cannot resolve the fold]
+\label{lem:kdebias}
+Let $K_h$ be a kernel with $\int K_h = 1$, finite second moment
+$\sigma^2 = \int \mathbf{z}^2 K(\mathbf{z})\dd\mathbf{z}$, and let $I$ be the
+push-forward density of \eqref{eq:irradiance}. Then
+\begin{equation}
+\mathbb{E}\big[\hat I(\mathbf{u})\big] - I(\mathbf{u})
+\;=\; \frac{h^2}{2}\sigma^2 \nabla^2 I(\mathbf{u}) + \order{h^4},
+\label{eq:kdebias}
+\end{equation}
+and near the fold, where $I \sim (2\sqrt{b})^{-1}$ in the normal-form coordinate
+$b$ of \eqref{eq:normalform}, the second derivative behaves as
+$\nabla^2 I \sim b^{-5/2}$ and the bias in \eqref{eq:kdebias} is unbounded for
+every fixed $h > 0$.
+\end{lemma}
+
+\begin{proof}
+Equation~\eqref{eq:kdebias} is the standard kernel-density bias expansion
+\cite{silverman1986}, obtained by Taylor-expanding $I$ under the convolution.
+For the fold, differentiating \eqref{eq:folddensity} twice in $b$ gives
+$\rho''(b) = \tfrac{3}{8}b^{-5/2}$, which diverges as $b\to 0^+$. Since
+\eqref{eq:kdebias} multiplies it by $h^2/2$, the bias grows without bound as the
+fold is approached, and because $b = 0$ lies in the support of the estimate
+(Lemma~\ref{lem:diverge}) the bias is unbounded at points the estimator is
+expected to resolve.
+\end{proof}
+
+Lemma~\ref{lem:kdebias} explains an artefact we observed repeatedly and which
+Section~\ref{sec:results} reports: the fold's apparent brightness and width in
+a photon map track the kernel radius rather than the physics. Narrowing $h$
+reduces the smoothing but raises the variance, since fewer photons fall inside
+the kernel; the two effects pull against each other, and no $h$ makes the fold
+correct. This is the reason the photon-map caustic in
+Figure~\ref{fig:fourpanel} looks soft where ours is sharp, and it is not a
+matter of insufficient photons.
+
+\begin{remark}[Radius shrinking does not remove the bias]
+\label{rem:sppm}
+Progressive photon mapping \cite{hachisuka2008}, and its stochastic variant
+\cite{hachisuka2009}, shrink the radius as samples
+accumulate, which makes the estimator consistent \emph{for the integral}. It
+achieves this by letting $h \to 0$ while $N \to \infty$ at a controlled rate.
+The bias term of \eqref{eq:kdebias} then vanishes in the limit, at the price of
+the sample count and the accumulation time that Section~\ref{sec:current}
+measures. The estimator becomes correct in the limit and remains wrong at any
+finite budget, and for a fold the convergence is slow precisely because the
+integrand is unbounded: the reported SPPM timings in this paper
+(Table~\ref{tab:cost}) are the cost of pushing that limit far enough to see the
+feature at all.
+\end{remark}
+
+\subsection{Backward: connection, and the same factor}
+\label{sec:backward}
+
+Backward estimators write the pixel value as an integral over transport paths
+and evaluate it by connecting vertices. A connection between a receiver vertex
+and a light-carrying vertex carries the geometric term
+\begin{equation}
+G(\mathbf{x} \to \mathbf{u}) \;=\;
+\frac{\big|\nrm_{\mathbf{u}} \cdot \omega_{\mathbf{u}}\big|}
+{\|\mathbf{x} - \mathbf{u}\|^{2}} \cdot
+\big|\detJ(\mathbf{x})\big|^{-1}
+\label{eq:geometricterm}
+\end{equation}
+up to the conventions of the particular formulation. The last factor is the
+same $1/|\detJ|$: the connection is undefined where the map is degenerate.
+Backward methods therefore inherit the fold problem exactly, and the
+literature's principal responses are to avoid connecting near degeneracies, to
+solve for the connection on a manifold instead of sampling it
+\cite{hanika2015,zeltner2020}, or to accept the noise and denoise it away.
+
+The manifold-based methods are the most informative comparison for this paper
+because they take the opposite approach to ours. Where we keep the geometric
+quadrature everywhere and \emph{replace} the integrand inside the fold band,
+manifold sampling keeps the geometric integrand and \emph{solves} for where the
+degenerate connection must be. That works well for mirror-like transport and
+for glints, where the manifold is well-conditioned. It does not address the
+fold's divergence, because the divergence is a property of the integrand the
+method still evaluates; near the fold the solution point is sought where the
+Jacobian vanishes, which is the same place the weight blows up.
+
+\subsection{The boundary of validity, stated once}
+\label{sec:validity}
+
+Collecting the two families, the situation is the following. Away from $\fold$
+the map is a local diffeomorphism, $\detJ$ is bounded away from zero, and both
+families are exact in the limit and cheap in practice; this is the regime in
+which caustic rendering is a solved problem. On $\fold$ the density is
+unbounded (Lemma~\ref{lem:diverge}), the forward estimator's bias is unbounded
+for every bandwidth (Lemma~\ref{lem:kdebias}), and the backward estimator's
+connection weight is unbounded. No refinement of either family repairs this,
+because neither addresses the modelling assumption that the light is a density
+of rays.
+
+\begin{table}[t]
+\centering
+\caption{Where the standard families stand, by the analysis of this section.
+``Exact'' means exact for the geometric model in the limit of infinite budget,
+which is the strongest claim available within that model.}
+\label{tab:families}
+\small
+\begin{tabular}{@{}p{0.20\linewidth}p{0.20\linewidth}p{0.22\linewidth}p{0.24\linewidth}@{}}
+\toprule
+Family & Away from $\fold$ & On $\fold$ & Repair \\
+\midrule
+Photon map \cite{jensen1996} &
+exact in limit, cheap &
+bias $\sim h^2 b^{-5/2}$ unbounded &
+none; narrower $h$ trades bias for variance \\
+\addlinespace
+SPPM \cite{hachisuka2008} &
+exact in limit, expensive &
+consistent but slow, since $h\to0$ is needed &
+time alone \\
+\addlinespace
+Path tracing + NEE &
+exact in limit, cheap for direct &
+weight $\propto |\detJ|^{-1}$ unbounded &
+variance only \\
+\addlinespace
+Manifold/vertex connection \cite{hanika2015,zeltner2020} &
+excellent, well conditioned &
+solves at the degeneracy &
+none; targets a different failure \\
+\addlinespace
+Wave-optical BRDF \cite{yan2018,cuypers2012} &
+changes the model & changes the model &
+not applicable to a transmissive fold \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Where this sits in the transport literature}
+\label{sec:related}
+
+It is worth separating three things this paper borrows from, because a reader
+may reasonably ask why a wave-optical correction is being attached to estimators
+from a purely geometric literature.
+
+The first is the \emph{estimator}. The push-forward of \eqref{eq:irradiance} is
+what photon mapping estimates by density \cite{jensen1996}, what progressive
+variants estimate with a shrinking radius \cite{hachisuka2008,hachisuka2009},
+and what bidirectional and vertex-connection methods estimate by connecting
+vertices rather than by storing samples \cite{veach1997}. Path-guiding and
+manifold methods attack the same integral by changing \emph{where} the samples
+go \cite{muller2017,hanika2015,zeltner2020}. Our correction changes none of
+this. It changes the integrand inside a band and is therefore orthogonal to
+every one of those improvements: a better sampler in the band still estimates an
+unbounded function.
+
+The second is the \emph{Jacobian}. Propagating irradiance through a scene by its
+determinant is classical \cite{arvo1994}, and the rank deficiency that concerns
+us is the same rank deficiency that appears in those formulations as a
+degenerate geometric term. Treating the degeneracy as a modelling boundary
+rather than as a numerical nuisance is the position this paper takes.
+
+The third is the \emph{diffraction}. Uniform diffraction theories patch a
+geometric solution with a correction near a shadow boundary
+\cite{kouyoumjian1974}; catastrophe optics gives the corresponding local forms
+for caustics \cite{berry1980,airy1838}; and graphics has applied wave theory to
+reflectance \cite{cuypers2012,yan2018} and to propagation through media
+\cite{musbach2013}. The band-local correction here is that same patch, restricted
+to a fold and applied inside a renderer's estimator rather than to a field
+everywhere.
+
+Placing the method against all three at once also makes its scope clear. It
+inherits the estimator's sampling behaviour away from the band, it inherits the
+Jacobian's degeneracy as the thing it must detect, and it inherits the fold's
+normal form as the only catastrophe it can currently correct. The parts of the
+literature it does not touch are the parts that solve different problems.
+
+\subsection{Wave optics already in graphics}
+\label{sec:priorwave}
+
+Treating light as a wave is not new to graphics, and the existing work divides
+into two groups that are both different from what we do.
+
+The first group modifies the reflectance model so that a surface, or a
+microsurface, reflects according to wave theory. Cuypers et al.\
+\cite{cuypers2012} give a diffraction-aware BRDF for a surface with a periodic
+structure, and Yan et al.\ \cite{yan2018} render specular microgeometry with
+wave optics, treating a rough surface as a collection of diffracting patches.
+Both replace the reflection model and keep the transport geometric. Neither
+addresses refraction through a transparent body, which is where a water-surface
+caustic lives.
+
+The second group models propagation through a medium with a wave equation
+rather than with rays. Musbach et al.\ \cite{musbach2013} solve for the field
+through a medium and produce diffraction effects in a rendering context. This is
+closer in spirit to our treatment of the fold, and it is considerably more
+expensive, because it propagates a field through the whole domain rather than
+only near the degeneracy. The classical continuous-mathematics counterpart
+is the uniform theory of diffraction \cite{kouyoumjian1974}, which patches a
+geometric solution with a diffraction correction near a shadow boundary; the
+band correction of this paper is the same manoeuvre applied to a caustic rather
+than to an edge.
+
+Our position sits between the two. We keep the geometric transport and the
+geometric quadrature, which is where the efficiency is, and pay for wave optics
+only inside a detected band, which is where the geometry is wrong. The cost of
+that decision is a detector and a conserved-flux bookkeeping step; the benefit
+is that the expensive part is confined to a set of small measure
+(Section~\ref{sec:ours-cost}).
