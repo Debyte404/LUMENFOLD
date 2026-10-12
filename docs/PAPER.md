@@ -61,9 +61,10 @@ by our term -- on an identical 120-frame orbit clip we finish in 773.3 s
 against Cycles' 1043.2 s (1.35x) while flickering 7.9x less in the caustic
 region. Against PBRT-v4 SPPM -- the reference conforming solver -- the
 converged shape agrees at r = +0.932, but SPPM reaches a 512^2 caustic frame
-in 34 s where our bake is 0.31 s, so the comparison is one of *cost structure*
-(amortised deterministic bake versus per-shot stochastic convergence), not a
-uniform win. Three prior claims in our own record are explicitly withdrawn
+in 34 s where our bake for the same grid is 0.036 s (8 threads, 0.078 s on
+one) -- a like-for-like factor near 1000 on caustic production, so the real
+difference is one of *cost structure* (amortised deterministic bake versus
+per-shot stochastic convergence), not a uniform win. Three prior claims in our own record are explicitly withdrawn
 (17-18x noise, +46.7 brightness agreement, flux 1.0000 as evidence). Laboratory
 validation is out of scope; the physical claim we do make is one of form
 (finite fringes, chromatic ordering, no divergence), demonstrated on a single
@@ -422,7 +423,9 @@ Cycles path tracing: in every configuration tested the caustic region was
 within 1.3x, and on one of the two clips Cycles was ahead. What is claimed is
 the combination: correctly placed, correctly ordered, deterministic, 7.9x less
 temporal flicker, closer to independent ground truth at every scale, and for
-this geometry family 1-3 orders of magnitude cheaper to produce per frame.
+this geometry family 2-3 orders of magnitude cheaper to produce a caustic
+(0.036 s at 512^2 against SPPM's 34 s; ~0.34 s at the 768^2 clip bake against
+the same 34 s), for a geometry the bake can be reused on.
 
 ## 9. Limitations and future work
 
