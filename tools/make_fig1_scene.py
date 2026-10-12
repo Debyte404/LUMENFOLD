@@ -152,10 +152,13 @@ def main():
             color="black", zorder=9)
     ax.text(0.0, (WATER + H_GLASS) / 2, "air", ha="center", va="center",
             fontsize=7.5, color="black", zorder=9)
-    ax.text(-R_OUT - 0.030, 0.030, "glass", ha="center", va="center", fontsize=7.5,
+    # "glass" sits on the RIGHT of the cylinder. On the left it collided with the
+    # rotated dimension labels: those are drawn right-aligned to their dimension
+    # line and extend leftward, straight over a label placed at x = -0.065.
+    ax.text(R_OUT + 0.046, 0.034, "glass", ha="center", va="center", fontsize=7.5,
             color="black")
-    ax.annotate("", xy=(-(R_OUT + R_IN) / 2, 0.058),
-                xytext=(-R_OUT - 0.026, 0.034),
+    ax.annotate("", xy=((R_OUT + R_IN) / 2, 0.026),
+                xytext=(R_OUT + 0.030, 0.033),
                 arrowprops=dict(arrowstyle="->", lw=0.45, color="black"))
     ax.text(R_OUT + 0.030, H_GLASS - 0.004, "focused\nband", ha="center",
             va="center", fontsize=6.5)
