@@ -2,18 +2,22 @@
 import subprocess, sys
 import numpy as np
 
-N, T, AS = 256, 1.7, 0.02
-subprocess.run(["cmake", "--build", "D:/ValueProjects/caustics/build", "--config", "Release",
-                "--target", "dump"], capture_output=True, text=True)
-subprocess.run(["D:/ValueProjects/caustics/build/src/app/Release/dump.exe",
-                str(N), str(T), str(AS),
-                "D:/ValueProjects/caustics/build/g_cpp.bin",
-                "D:/ValueProjects/caustics/build/w_cpp.bin"], check=True)
-gc = np.fromfile("D:/ValueProjects/caustics/build/g_cpp.bin", np.float32).reshape(N, N)
 
-sys.path.insert(0, "D:/ValueProjects/caustics/tools")
+# Repo root, derived rather than hardcoded.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+N, T, AS = 256, 1.7, 0.02
+subprocess.run(["cmake", "--build", _ROOT + "/build", "--config", "Release",
+                "--target", "dump"], capture_output=True, text=True)
+subprocess.run([_ROOT + "/build/src/app/Release/dump.exe",
+                str(N), str(T), str(AS),
+                _ROOT + "/build/g_cpp.bin",
+                _ROOT + "/build/w_cpp.bin"], check=True)
+gc = np.fromfile(_ROOT + "/build/g_cpp.bin", np.float32).reshape(N, N)
+
+sys.path.insert(0, _ROOT + "/tools")
 import importlib.util
-spec = importlib.util.spec_from_file_location("ac", "D:/ValueProjects/caustics/tools/airy_caustic.py")
+spec = importlib.util.spec_from_file_location("ac", _ROOT + "/tools/airy_caustic.py")
 ac = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ac)
 ac.N = N

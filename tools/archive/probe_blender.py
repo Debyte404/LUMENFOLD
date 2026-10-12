@@ -2,6 +2,10 @@
 import bpy
 import sys
 
+
+# Repo root, derived rather than hardcoded.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 print("BLENDER", bpy.app.version_string)
 print("CYCLES_AVAILABLE", "cycles" in bpy.context.preferences.addons)
 
@@ -25,7 +29,7 @@ scene.cycles.samples = 8
 scene.cycles.use_denoising = True
 scene.render.resolution_x = 160
 scene.render.resolution_y = 120
-scene.render.filepath = "D:/ValueProjects/caustics/out/blender_probe.png"
+scene.render.filepath = _ROOT + "/out/blender_probe.png"
 scene.render.image_settings.file_format = "PNG"
 try:
     scene.cycles.device = "GPU"

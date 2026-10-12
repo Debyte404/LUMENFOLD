@@ -2,8 +2,12 @@
 import subprocess, sys
 import numpy as np
 
+
+# Repo root, derived rather than hardcoded.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 N, T = 256, 1.7
-BUILD = "D:/ValueProjects/caustics/build"
+BUILD = _ROOT + "/build"
 
 # C++ side: bake with geometric_only but also dump intermediates — quick hack:
 # recompute h/gx/gy in pure python (same formulas) and compare to cpp FIELD only.
@@ -15,9 +19,9 @@ subprocess.run([f"{BUILD}/src/app/Release/dump.exe", str(N), str(T), "0.02",
                 f"{BUILD}/g_cpp.bin", f"{BUILD}/w_cpp.bin"], check=True)
 gc = np.fromfile(f"{BUILD}/g_cpp.bin", np.float32).reshape(N, N)
 
-sys.path.insert(0, "D:/ValueProjects/caustics/tools")
+sys.path.insert(0, _ROOT + "/tools")
 import importlib.util
-spec = importlib.util.spec_from_file_location("ac", "D:/ValueProjects/caustics/tools/airy_caustic.py")
+spec = importlib.util.spec_from_file_location("ac", _ROOT + "/tools/airy_caustic.py")
 ac = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ac)
 ac.N = N

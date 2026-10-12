@@ -1,4 +1,7 @@
 add_executable(caustics_demo main.cpp)
+# main.cpp includes two_medium.hpp and uses twomed::, so it needs that target's
+# PUBLIC include directory. Without this the target has never compiled.
+target_link_libraries(caustics_demo PRIVATE two_medium)
 add_executable(parity parity_main.cpp)
 add_executable(dump dump_main.cpp)
 add_executable(edt edt.cpp)  # standalone CDT-vs-scipy test (tools/edt_debug.py)
@@ -33,7 +36,8 @@ target_link_directories(viewer_interactive PRIVATE
   "${FILAMENT_DIR}/lib/x86_64/md" "${MUJOCO_DIR}/lib")
 set_property(TARGET viewer_interactive PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
 target_compile_options(viewer_interactive PRIVATE /std:c++20 /EHsc)
-target_compile_definitions(viewer_interactive PRIVATE _CRT_SECURE_NO_WARNINGS NOMINMAX WIN32_LEAN_AND_MEAN)
+target_compile_definitions(viewer_interactive PRIVATE
+  CAUSTICS_ROOT="${CMAKE_SOURCE_DIR}" _CRT_SECURE_NO_WARNINGS NOMINMAX WIN32_LEAN_AND_MEAN)
 target_link_libraries(viewer_interactive PRIVATE two_medium caustic mujoco
   filament backend bluegl bluevk filabridge filaflat utils geometry smol-v ibl zstd abseil
   gdi32 user32 opengl32)

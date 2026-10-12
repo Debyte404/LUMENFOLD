@@ -17,6 +17,10 @@ import os
 import sys
 import time
 
+
+# Repo root, derived rather than hardcoded.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import numpy as np
@@ -25,7 +29,7 @@ from PIL import Image
 
 from probe_lux2 import Mesh, cylinder_side, disc
 
-OUT = "D:/ValueProjects/caustics/out"
+OUT = _ROOT + "/out"
 PATCH = 0.16          # our solver's field spans [-0.16, +0.16] m
 R_OUT, R_IN, H, BOT = 0.035, 0.0315, 0.090, 0.0035
 WATER_Z = 0.0594

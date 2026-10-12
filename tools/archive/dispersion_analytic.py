@@ -13,7 +13,11 @@ vanishes, which is the same feature analytic_caustic.py already located at
 """
 import sys
 import numpy as np
-sys.path.insert(0, "D:/ValueProjects/caustics/tools")
+
+# Repo root, derived rather than hardcoded.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+sys.path.insert(0, _ROOT + "/tools")
 from analytic_caustic import hit
 
 M = 200000

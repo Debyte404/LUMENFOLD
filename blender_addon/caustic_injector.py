@@ -1,6 +1,6 @@
 """Wave Caustic Injector — a Blender add-on that replaces Cycles' stochastic
 caustics with a baked, wave-corrected caustic from the solver in
-D:/ValueProjects/caustics.
+this repository.
 
 Why: Cycles discovers caustics by random path tracing, so they are the noisiest
 thing in a glass render and get worse as the light source shrinks. This add-on

@@ -396,8 +396,8 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE, LPSTR cmd, int show) {
   if (autoshot) {
     // proof mode: log to file (GUI apps can't inherit the parent's pipe).
     // Absolute path so it can't silently vanish on a CWD mismatch.
-    (void)freopen("D:/ValueProjects/caustics/out/autoshot_stdout.log", "w", stdout);
-    (void)freopen("D:/ValueProjects/caustics/out/autoshot_stdout.log", "w", stderr);
+    (void)freopen((std::string(CAUSTICS_ROOT) + "/out/autoshot_stdout.log").c_str(), "w", stdout);
+    (void)freopen((std::string(CAUSTICS_ROOT) + "/out/autoshot_stdout.log").c_str(), "w", stderr);
   } else {
     AllocConsole();
     (void)freopen("CONOUT$", "w", stdout);
@@ -567,7 +567,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE, LPSTR cmd, int show) {
   FloorHalf rightFloor = make_quad(0.0f, 4.0f, mi);
 
   // ---------- Blender-style viewport grid (toggle with G) ----------
-  auto gridblob = read_file("D:/ValueProjects/caustics/build/materials/grid_lines.filamat");
+  auto gridblob = read_file((std::string(CAUSTICS_ROOT) + "/build/materials/grid_lines.filamat").c_str());
   Material* gridMat = Material::Builder().package(gridblob.data(), gridblob.size()).build(*engine);
   auto make_lines = [&](const std::vector<float>& segs, float3 tint, float alpha) {
     uint32_t nv = uint32_t(segs.size() / 3);
@@ -629,7 +629,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE, LPSTR cmd, int show) {
   GridMesh gAxisY = make_lines(yAxis, float3{0.30f, 0.80f, 0.32f}, 0.95f);
 
   // ---------- water surface at z=0 (transparent, animated ripples) ----------
-  auto wblob = read_file("D:/ValueProjects/caustics/build/materials/water_surface.filamat");
+  auto wblob = read_file((std::string(CAUSTICS_ROOT) + "/build/materials/water_surface.filamat").c_str());
   Material* waterMat = Material::Builder().package(wblob.data(), wblob.size()).build(*engine);
   MaterialInstance* waterMi = waterMat->createInstance();
   waterMi->setParameter("tint", float3{0.10f, 0.38f, 0.52f});
@@ -672,7 +672,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE, LPSTR cmd, int show) {
   camera->setExposure(1.4f);  // lift bodies out of the dark
 
   // ---------- floating bodies (sphere + hull box) ----------
-  auto mat_blob2 = read_file("D:/ValueProjects/caustics/build/materials/body_lit.filamat");
+  auto mat_blob2 = read_file((std::string(CAUSTICS_ROOT) + "/build/materials/body_lit.filamat").c_str());
   Material* bodyMat =
       Material::Builder().package(mat_blob2.data(), mat_blob2.size()).build(*engine);
   MeshData sphereMesh = make_sphere_mesh(0.15f, 20, 28);

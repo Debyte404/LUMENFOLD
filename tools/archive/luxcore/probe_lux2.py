@@ -12,7 +12,11 @@ import time
 
 import pyluxcore
 
-OUT = "D:/ValueProjects/caustics/out"
+
+# Repo root, derived rather than hardcoded.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))))
+OUT = _ROOT + "/out"
 os.makedirs(OUT, exist_ok=True)
 
 SEG = 48

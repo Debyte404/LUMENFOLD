@@ -11,6 +11,10 @@ import os
 import sys
 import time
 
+
+# Repo root, derived rather than hardcoded.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import numpy as np
@@ -19,7 +23,7 @@ from PIL import Image
 
 from lux_photon_caustic import build, PATCH
 
-OUT = "D:/ValueProjects/caustics/out"
+OUT = _ROOT + "/out"
 
 
 def main():

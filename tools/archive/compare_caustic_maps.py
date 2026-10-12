@@ -10,7 +10,11 @@ Run:  python tools/archive/compare_caustic_maps.py
 import numpy as np
 from PIL import Image
 
-OUT = "D:/ValueProjects/caustics/out"
+
+# Repo root, derived rather than hardcoded.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+OUT = _ROOT + "/out"
 
 
 def srgb_to_linear(a):

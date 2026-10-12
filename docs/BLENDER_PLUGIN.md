@@ -7,7 +7,7 @@ material as light.
 ## Install
 
 1. Blender → `Edit > Preferences > Add-ons > Install from Disk…`
-2. Pick `D:/ValueProjects/caustics/blender_addon/caustic_injector.py`
+2. Pick `blender_addon/caustic_injector.py` from this repository
 3. Enable **Wave Caustic Injector** (Render category).
 
 ## Use

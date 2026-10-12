@@ -24,7 +24,11 @@ import sys
 import numpy as np
 from PIL import Image
 
-ROOT = "D:/ValueProjects/caustics"
+
+# Repo root, derived rather than hardcoded.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+ROOT = _ROOT
 BLENDER = "C:/Program Files/Blender Foundation/Blender 4.2/blender.exe"
 SCENE = f"{ROOT}/tools/blender_scene.py"
 OUT = f"{ROOT}/out"

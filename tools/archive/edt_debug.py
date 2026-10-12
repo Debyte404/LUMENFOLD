@@ -3,8 +3,12 @@ import subprocess
 import numpy as np
 from scipy.ndimage import distance_transform_edt
 
-EDTSRC_PATH = "D:/ValueProjects/caustics/src/app/edt.cpp"
-BUILD = "D:/ValueProjects/caustics/build"
+
+# Repo root, derived rather than hardcoded.
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+EDTSRC_PATH = _ROOT + "/src/app/edt.cpp"
+BUILD = _ROOT + "/build"
 
 # Build via cmake (already proven to find libs).
 subprocess.run(["cmake", "--build", BUILD, "--config", "Release", "--target", "edt"],

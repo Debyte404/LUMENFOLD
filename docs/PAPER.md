@@ -1,6 +1,6 @@
 # Wave-Corrected Caustics over Photon Splatting: A Comparative Evaluation against Photon Mapping and Path Tracing
 
-**Debyte** · `D:/ValueProjects/caustics` · Draft, 2026-10-12
+**Ankit Chetri (Debyte404)** · Draft, 2026-10-12
 
 ---
 
