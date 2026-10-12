@@ -41,9 +41,12 @@ def main():
         print("  https://github.com/tectonic-typesetting/tectonic/releases")
         return 2
 
-    cmd = [tec, "-X", "compile", "main.tex", "--outdir", PAPER]
-    if a.keep:
-        cmd.append("--keep-intermediates")
+    # Always keep intermediates. check_paper.py verifies that every \label
+    # reached main.aux, and tectonic only writes the .aux to disk when
+    # intermediates are kept -- without this the check inspects a stale file and
+    # reports false failures.
+    cmd = [tec, "-X", "compile", "main.tex", "--outdir", PAPER,
+           "--keep-intermediates"]
     print("+", " ".join(cmd))
     r = subprocess.run(cmd, cwd=PAPER, capture_output=True, text=True, timeout=3600)
 

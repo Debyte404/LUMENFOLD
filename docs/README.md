@@ -6,7 +6,7 @@ documents carry dated scope notes.
 
 | File | What it is | State |
 |---|---|---|
-| [`paper/main.pdf`](paper/main.pdf) | **The paper.** Typeset in the official Computer Graphics Forum class (`egpubl.cls`, Eurographics), 23 pages: kinematics with lemmas, theorems and proofs, how computer graphics builds caustics, the current solvers, the method, results, verification, limits, discussion, appendices. Source in `paper/`. | current, primary deliverable |
+| [`paper/main.pdf`](paper/main.pdf) | **The paper.** Typeset in the official Computer Graphics Forum class (`egpubl.cls`, Eurographics), 22 pages: kinematics with lemmas, theorems and proofs, how computer graphics builds caustics, the current solvers, the method, results, verification, limits, discussion, appendices. Source in `paper/`. | current, primary deliverable |
 | [`PAPER.md`](PAPER.md) | Earlier markdown draft of the same manuscript. Superseded by `paper/main.tex`; kept for the record. | superseded |
 | [`PAPER.html`](PAPER.html) | Printable web page generated from the markdown draft. The LaTeX build replaced it as the typeset artefact. | generated from PAPER.md |
 | [`EVIDENCE.md`](EVIDENCE.md) | **The measurement record** — 1,400+ lines, every number in the paper with its provenance, including negative results, the estimator traps that produced false conclusions, and the index error that was caught. | current, canonical |

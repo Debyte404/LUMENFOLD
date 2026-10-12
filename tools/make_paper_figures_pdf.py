@@ -192,91 +192,11 @@ def trace_ray(y0):
 
 
 # ------------------------------------------------------------------- figure 1
-def fig_scene():
-    """To-scale technical drawing: the scene, the traced light path, the fold."""
-    fig, ax = plt.subplots(figsize=(FULL, FULL * 0.40))
-
-    # glass body: cross-section, hatched wall, no alpha
-    ax.add_patch(Rectangle((-R_OUT, 0), 2 * R_OUT, H_GLASS, fill=False,
-                           lw=0.9, ec="black", zorder=3))
-    ax.add_patch(Rectangle((-R_IN, 0), 2 * R_IN, WATER, fill=False,
-                           lw=0.7, ec="0.35", ls=(0, (4, 2)), zorder=3))
-    # water fill, hatched rather than translucent (no alpha in a submission)
-    ax.add_patch(Rectangle((-R_IN, 0), 2 * R_IN, WATER, fill=True, fc="0.92",
-                           ec="none", zorder=2, hatch="...."))
-    ax.plot([-R_IN, R_IN], [WATER, WATER], color="black", lw=0.9, zorder=4)
-    # receiver
-    ax.plot([-0.16, 0.16], [0, 0], color="black", lw=1.8, zorder=4)
-
-    # traced light path -- computed, not sketched
-    for y0 in (-0.004, 0.001, 0.006, 0.011):
-        pts, hit = trace_ray(y0)
-        if len(pts) > 1:
-            xs = [q[0] for q in pts]; zs = [q[1] for q in pts]
-            ax.plot(xs, zs, color="0.15", lw=0.6, zorder=5)
-    # incident bundles
-    for y0 in (-0.004, 0.001, 0.006, 0.011):
-        xs = -SUN[0] / SUN[2] * (0.155 - y0)
-        ax.annotate("", xy=(xs + 0.004, 0.150), xytext=(xs - 0.020, 0.190),
-                    arrowprops=dict(arrowstyle="->", lw=0.6, color="0.15"))
-
-    # fold band on the receiver, from the ray map's own extent
-    ax.add_patch(Rectangle((0.036, -0.0035), 0.061, 0.007, fc="0.55",
-                           ec="none", zorder=6))
-    ax.annotate("fold band", xy=(0.066, -0.014), ha="center", va="top",
-                fontsize=7, color="black")
-    ax.annotate("", xy=(0.036, -0.010), xytext=(0.097, -0.010),
-                arrowprops=dict(arrowstyle="<->", lw=0.5, color="black"))
-    ax.text(0.0665, -0.0085, r"$61\,$mm", ha="center", va="bottom", fontsize=6.5)
-
-    # dimension lines
-    def dim_h(x0, x1, z, label, off=0.0):
-        ax.annotate("", xy=(x0, z + off), xytext=(x1, z + off),
-                    arrowprops=dict(arrowstyle="<->", lw=0.5, color="black"))
-        ax.text((x0 + x1) / 2, z + off + 0.004, label, ha="center", va="bottom",
-                fontsize=6.5)
-        for xx in (x0, x1):
-            ax.plot([xx, xx], [z, z + off], color="black", lw=0.4, ls=":")
-
-    def dim_v(z0, z1, x, label):
-        ax.annotate("", xy=(x, z0), xytext=(x, z1),
-                    arrowprops=dict(arrowstyle="<->", lw=0.5, color="black"))
-        ax.text(x + 0.004, (z0 + z1) / 2, label, ha="left", va="center",
-                fontsize=6.5, rotation=90)
-        for zz in (z0, z1):
-            ax.plot([x, x + 0.004], [zz, zz], color="black", lw=0.4)
-
-    dim_v(0.0, H_GLASS, -0.052, r"$H=90\,$mm")
-    dim_v(0.0, WATER, -0.062, r"fill $59.4\,$mm")
-    dim_h(-R_OUT, R_OUT, H_GLASS, r"$\varnothing\,70\,$mm", off=0.010)
-
-    # wall thickness callout
-    ax.annotate("", xy=(R_IN, 0.078), xytext=(R_OUT, 0.078),
-                arrowprops=dict(arrowstyle="<->", lw=0.5, color="black"))
-    ax.text(R_OUT + 0.006, 0.078, r"wall $3.5\,$mm", ha="left", va="center",
-            fontsize=6.5)
-
-    # scale bar, 20 mm
-    ax.add_patch(Rectangle((-0.152, -0.026), 0.020, 0.004, fc="black", ec="none"))
-    ax.text(-0.142, -0.031, r"$20\,$mm", ha="center", va="top", fontsize=6.5)
-
-    ax.text(-0.020, 0.168, r"sun: distant, $0.53^\circ$", fontsize=7)
-    ax.text(0.040, 0.040, "glass\n" + r"$n(\lambda)$", fontsize=7, va="center")
-    ax.text(-0.024, 0.018, "water\n" + r"$n(\lambda)$ Sellmeier", fontsize=7,
-            ha="center", va="center")
-    ax.text(0.0, -0.043, "receiver (matte, Lambertian)", fontsize=7, ha="center")
-
-    ax.set_xlim(-0.185, 0.185)
-    ax.set_ylim(-0.050, 0.185)
-    ax.set_aspect("equal")
-    ax.set_xlabel(r"$x$ (mm)")
-    ax.set_ylabel(r"$z$ (mm)")
-    ax.grid(False)
-    ax.set_xticks(np.arange(-0.15, 0.20, 0.05))
-    ax.set_yticks(np.arange(0.0, 0.20, 0.05))
-    ax.set_xticklabels([f"{v*1000:.0f}" for v in np.arange(-0.15, 0.20, 0.05)])
-    ax.set_yticklabels([f"{v*1000:.0f}" for v in np.arange(0.0, 0.20, 0.05)])
-    save(fig, "fig1_scene", "to-scale drawing, traced path")
+# Figure 1 lives in tools/make_fig1_scene.py. Its earlier version here traced rays
+# in the x-z plane rather than along the sun's azimuth, intersected the wall as a
+# circle instead of a rectangle, and drew the fold band at a hardcoded 36-97 mm.
+# Keeping a second renderer for the same file invited the bad one back, so it was
+# deleted rather than left uncalled.
 
 
 # ------------------------------------------------------------------- figure 2
@@ -305,38 +225,11 @@ def fig_fold_optics():
 
 
 # ------------------------------------------------------------------- figure 3
-def fig_airy():
-    """The fold profile and the non-integrability of the Airy intensity."""
-    from scipy.special import airy
-    from scipy.integrate import quad
-    u = np.linspace(0, 8, 2000)
-    I = airy(-u)[0] ** 2
-    peak_u = 1.01879297
-    peak_h = 0.286928
-
-    fig, axes = plt.subplots(1, 2, figsize=(FULL, FULL * 0.33))
-    axes[0].plot(u, I, color="black", lw=0.9)
-    axes[0].plot([peak_u], [peak_h], "o", ms=3, color="black")
-    axes[0].annotate(r"peak $X=1.0188$, beside the fold",
-                     xy=(peak_u, peak_h), xytext=(2.4, 0.26), fontsize=7,
-                     arrowprops=dict(arrowstyle="->", lw=0.6))
-    axes[0].axvline(0, color="0.6", lw=0.5, ls=":")
-    axes[0].set_title(r"(a) fold intensity $|\mathrm{Ai}(-u)|^{2}$")
-    axes[0].set_xlabel(r"$u$ (canonical fold coordinate, dimensionless)")
-    axes[0].set_ylabel(r"$|\mathrm{Ai}(-u)|^{2}$")
-
-    L = np.linspace(1, 5000, 300)
-    vals = []
-    for l in L:
-        vals.append(quad(lambda x: airy(x)[0] ** 2, -l, 80, limit=400)[0])
-    axes[1].plot(L, vals, color="black", lw=0.9, label="computed")
-    axes[1].plot(L, np.sqrt(L) / np.pi + 0.5, color="0.45", lw=0.9, ls="--",
-                 label=r"$\pi^{-1}\sqrt{L}$ (Lemma 1)")
-    axes[1].set_title(r"(b) $\int_{-L}^{80}|\mathrm{Ai}(u)|^{2}\mathrm{d}u$ diverges")
-    axes[1].set_xlabel(r"truncation $L$ (dimensionless)")
-    axes[1].set_ylabel("integral")
-    axes[1].legend(loc="upper left")
-    save(fig, "fig3_airy", "profile and non-integrability")
+# Figure 3 lives in tools/fix_fig3_airy.py. Its version here carried a badly set
+# integral in the panel title, a hardcoded "(Lemma 1)" inside a legend, and a
+# computed curve made jagged by calling quad() once per abscissa on a slowly
+# converging oscillatory integrand. Removed rather than left uncalled: two
+# writers for one output file means the load order decides which is published.
 
 
 # ------------------------------------------------------------------- figure 4
@@ -514,9 +407,7 @@ def fig_ripple():
 
 def main():
     print(f"writing vector PDFs to {FIG}")
-    fig_scene()
     fig_fold_optics()
-    fig_airy()
     fig_field()
     fig_quality()
     fig_fourpanel()

@@ -54,15 +54,18 @@
 % Theorem-like environments. Everything the paper asserts as a formal
 % statement is one of these; the remaining prose is measurement.
 \theoremstyle{plain}
-\newtheorem{theorem}{Theorem}
-\newtheorem{lemma}[theorem]{Lemma}
-\newtheorem{corollary}[theorem]{Corollary}
-\newtheorem{proposition}[theorem]{Proposition}
+% theoremcounter is the shared master counter for the environments below. This
+% paper states no theorems, so it is never used as an environment; it exists so
+% that lemmas, corollaries and propositions share one sequence of numbers.
+\newtheorem{theoremcounter}{Theorem}
+\newtheorem{lemma}[theoremcounter]{Lemma}
+\newtheorem{corollary}[theoremcounter]{Corollary}
+\newtheorem{proposition}[theoremcounter]{Proposition}
 \theoremstyle{definition}
-\newtheorem{definition}[theorem]{Definition}
+\newtheorem{definition}[theoremcounter]{Definition}
 \theoremstyle{remark}
-\newtheorem{remark}[theorem]{Remark}
-\newtheorem{assumption}[theorem]{Assumption}
+\newtheorem{remark}[theoremcounter]{Remark}
+\newtheorem{assumption}[theoremcounter]{Assumption}
 
 % Notation shortcuts
 \newcommand{\Hm}{\mathbf{H}}

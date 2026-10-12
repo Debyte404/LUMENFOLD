@@ -20,7 +20,9 @@ import os
 import re
 import sys
 
-PAPER = "D:/ValueProjects/caustics/docs/paper"
+ROOT = "D:/ValueProjects/caustics"
+PAPER = f"{ROOT}/docs/paper"
+REPO = ROOT
 SRC = [f"{PAPER}/main.tex"] + sorted(glob.glob(f"{PAPER}/sections/*.tex"))
 
 
@@ -70,11 +72,21 @@ def main():
     else:
         print("note: main.aux absent, skipping the compiled-label check")
 
+    # ---- 4c. every tool the paper names actually exists ---------------
+    flat = text.replace("\\_", "_")
+    named = sorted(set(re.findall(r"(?:tools|out)/([A-Za-z0-9_]+\.py)", flat)))
+    absent = [n for n in named if not os.path.exists(f"{REPO}/tools/{n}")
+              and not os.path.exists(f"{REPO}/out/{n}")]
+    if absent:
+        problems.append(
+            f"{len(absent)} scripts named in the paper do not exist: {absent}")
+
     print(f"sources checked      : {len(SRC)}")
     print(f"labels defined       : {len(labels)}")
     print(f"reference targets    : {len(refs)}")
     print(f"citations used       : {len(used)}")
     print(f"bibliography entries : {len(bib)}")
+    print(f"scripts named        : {len(named)}")
     print()
     print(f"references with no label : {len(missing_refs)}  {missing_refs}")
     print(f"citations not in refs.bib: {len(missing_cites)}  {missing_cites}")

@@ -1,0 +1,204 @@
+"""make_fig1_scene.py -- Figure 1 as a to-scale technical drawing.
+
+What was wrong with the first version, all of it visible in the render:
+
+  1. rays were traced in the x-z plane from the sun vector's x and z components.
+     The sun's azimuth is 27.7 deg, so light also moves in y; the section has to
+     be taken along the sun's azimuth for the 2-D refraction to be exact.
+  2. the fold band was drawn at a HARDCODED 36-97 mm. A drawn band that does not
+     correspond to the measured caustic is exactly the kind of decoration this
+     work is meant to avoid.
+  3. the air gap inside the glass was labelled "glass", and both material labels
+     sat inside the water region.
+
+Two modelling errors were made and fixed while rebuilding, both of which made the
+figure silently wrong rather than visibly broken:
+
+  * the light path was taken as glass -> water at the inner wall. Per
+    tools/verify_ray_map.py it is
+        air -> outer wall -> inner wall -> AIR CAVITY -> rippling surface
+            -> water -> receiver:
+    light enters high on the side wall and crosses the empty cavity before it
+    reaches the water at all;
+  * the wall was intersected as a CIRCLE of radius R_OUT. That is the cylinder's
+    cross-section, but an axial section of a finite cylinder is a RECTANGLE, so
+    the wall is the vertical pair x = +/-R_OUT over z in [0, H_GLASS]. The circle
+    only spans z = +/-35 mm and rejected every ray for entering too low.
+
+The 2-D section does NOT reproduce the 3-D caustic (its landing map stays
+monotonic even with the scene's ripple present, because the in-plane ripple is a
+single 1-D sinusoid while the real fold comes from the full 2-D surface). So the
+figure does not invent a band from it: the band drawn on the receiver is the
+MEASURED extent of the caustic taken from the ray map, projected onto the section
+direction, and the caption says so.
+
+Run:  <system python> tools/make_fig1_scene.py
+"""
+import os
+import sys
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.patches import Rectangle
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import fig1_geometry as G
+
+ROOT = "D:/ValueProjects/caustics"
+FIG = f"{ROOT}/docs/paper/figures"
+MM = 1.0 / 25.4
+FULL = 174 * MM
+
+plt.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Times New Roman", "Nimbus Roman", "DejaVu Serif"],
+    "font.size": 8, "axes.labelsize": 8, "xtick.labelsize": 7, "ytick.labelsize": 7,
+    "axes.linewidth": 0.6, "xtick.major.width": 0.6, "ytick.major.width": 0.6,
+    "savefig.bbox": "tight", "savefig.pad_inches": 0.01, "figure.dpi": 300,
+    "pdf.fonttype": 42,
+})
+
+R_OUT, R_IN, H_GLASS, WATER = G.R_OUT, G.R_IN, G.H_GLASS, G.WATER
+
+
+def measured_caustic_span():
+    """Measured extent of the caustic, from the independent trace, projected onto
+    the section direction. Nothing hardcoded: this is the same brute-force trace
+    (tools/verify_ray_map.py) the paper's ground truth uses."""
+    import verify_ray_map as V
+    from scipy.ndimage import gaussian_filter
+    X, Y = V.trace(n_side=1200)[:2]
+    g = gaussian_filter(V.to_grid(X, Y).astype(float), 2.0)
+    n = g.shape[0]
+    xs = np.linspace(-0.16, 0.16, n)
+    ys = np.linspace(0.16, -0.16, n)
+    m = g > 0.25 * g.max()
+    yy, xx = np.where(m)
+    # project onto the in-plane sun azimuth
+    r = xs[xx] * G.D[0] + ys[yy] * G.D[1]
+    return float(r.min()), float(r.max()), float(g.max())
+
+
+def main():
+    lo, hi, _ = measured_caustic_span()
+    print(f"measured caustic span along the section direction: "
+          f"{lo*1000:.1f} .. {hi*1000:.1f} mm")
+
+    fig, ax = plt.subplots(figsize=(FULL, FULL * 0.46))
+
+    # ---- geometry, true scale
+    ax.add_patch(Rectangle((-R_OUT, 0), 2 * R_OUT, H_GLASS, fill=False,
+                           lw=1.0, ec="black", zorder=4))
+    ax.add_patch(Rectangle((-R_IN, 0), 2 * R_IN, H_GLASS, fill=False,
+                           lw=0.7, ec="black", zorder=4))
+    ax.add_patch(Rectangle((-R_IN, 0), 2 * R_IN, WATER, fc="0.90", ec="none",
+                           zorder=2))
+    ax.plot([-R_IN, R_IN], [WATER, WATER], color="black", lw=1.0, zorder=5)
+    ax.plot([-0.16, 0.16], [0, 0], color="black", lw=2.0, zorder=5)
+
+    # ---- traced light path (real rays through the real interfaces)
+    bw = (WATER - G.Z_AT_B0) / G.DZ_DB
+    bt = (H_GLASS - G.Z_AT_B0) / G.DZ_DB
+    for frac in (0.10, 0.32, 0.55, 0.78, 0.96):
+        b = bw + frac * (bt - bw)
+        pts, _ = G.path(b)
+        xs = [p[0] for p in pts]; zs = [p[1] for p in pts]
+        ax.plot(xs, zs, color="0.15", lw=0.55, zorder=6)
+    # incoming sun rays, drawn parallel at the true elevation
+    for frac in (0.10, 0.32, 0.55, 0.78, 0.96):
+        b = bw + frac * (bt - bw)
+        p0 = -0.30 * G.D + b * G.NPERP
+        ax.annotate("", xy=(p0[0] + 0.045 * G.D[0], p0[1] + 0.045 * G.D[1]),
+                    xytext=(p0[0] - 0.02 * G.D[0], p0[1] - 0.02 * G.D[1]),
+                    arrowprops=dict(arrowstyle="->", lw=0.5, color="0.35"))
+
+    # ---- the measured caustic, drawn where it was measured
+    ax.add_patch(Rectangle((lo, -0.0030), hi - lo, 0.0060, fc="0.35",
+                           ec="none", zorder=7))
+    ax.annotate("", xy=(lo, -0.0135), xytext=(hi, -0.0135),
+                arrowprops=dict(arrowstyle="<->", lw=0.5, color="black", zorder=8))
+    ax.text((lo + hi) / 2, -0.0175, f"caustic  {abs(hi-lo)*1000:.0f} mm  (measured)",
+            ha="center", va="top", fontsize=7, zorder=8)
+
+    # ---- dimension lines, kept clear of the geometry
+    def dim_v(z0, z1, x, label, side="left"):
+        ax.annotate("", xy=(x, z0), xytext=(x, z1),
+                    arrowprops=dict(arrowstyle="<->", lw=0.5, color="black"))
+        ax.text(x + (-0.004 if side == "left" else 0.004), (z0 + z1) / 2, label,
+                ha="right" if side == "left" else "left", va="center",
+                fontsize=6.5, rotation=90)
+        for zz in (z0, z1):
+            ax.plot([x, x + (0.003 if side == "left" else -0.003)], [zz, zz],
+                    color="black", lw=0.4)
+
+    dim_v(0.0, H_GLASS, -0.056, r"glass height $90$", "left")
+    dim_v(0.0, WATER, -0.044, r"water fill $59.4$", "left")
+    # wall thickness, called out to the right
+    ax.annotate("", xy=(R_OUT, H_GLASS * 1.06), xytext=(-R_OUT, H_GLASS * 1.06),
+                arrowprops=dict(arrowstyle="<->", lw=0.5, color="black"))
+    ax.text(0.0, H_GLASS * 1.06 + 0.004, r"$\varnothing\,70$ mm  outer",
+            ha="center", va="bottom", fontsize=6.5)
+
+    ax.annotate("", xy=(-R_OUT, 0.072), xytext=(-R_IN, 0.072),
+                arrowprops=dict(arrowstyle="-", lw=0.5, color="black"))
+    ax.annotate("wall 3.5", xy=(0.020, 0.030), xytext=(-0.052, 0.096),
+                fontsize=6.5, ha="left",
+                arrowprops=dict(arrowstyle="->", lw=0.45, color="black"))
+
+    # ---- material labels, each with a leader to its own region
+    ax.text(0.0, WATER * 0.55, "water", ha="center", va="center", fontsize=7.5,
+            color="black", zorder=9)
+    ax.text(0.0, (WATER + H_GLASS) / 2, "air", ha="center", va="center",
+            fontsize=7.5, color="black", zorder=9)
+    ax.text(-R_OUT - 0.030, 0.030, "glass", ha="center", va="center", fontsize=7.5,
+            color="black")
+    ax.annotate("", xy=(-(R_OUT + R_IN) / 2, 0.058),
+                xytext=(-R_OUT - 0.026, 0.034),
+                arrowprops=dict(arrowstyle="->", lw=0.45, color="black"))
+    ax.text(R_OUT + 0.032, H_GLASS - 0.012, "receiver-side\nrefraction", ha="center",
+            va="center", fontsize=6.5)
+    ax.annotate("", xy=(0.016, 0.004), xytext=(R_OUT + 0.030, H_GLASS - 0.026),
+                arrowprops=dict(arrowstyle="->", lw=0.45, color="black"))
+
+    ax.text(-0.055, 0.152, r"sun: distant, $0.53^\circ$, elevation $25.4^\circ$",
+            fontsize=7.5, ha="left")
+
+    # ---- scale bar
+    ax.add_patch(Rectangle((-0.152, -0.030), 0.020, 0.004, fc="black", ec="none"))
+    ax.text(-0.142, -0.034, r"$20$ mm", ha="center", va="top", fontsize=6.5)
+
+    ax.text(0.0, -0.041, "receiver: matte, Lambertian, 320 mm square",
+            ha="center", va="top", fontsize=7)
+
+    ax.set_xlim(-0.180, 0.180)
+    ax.set_ylim(-0.050, 0.190)
+    ax.set_aspect("equal")
+    ax.grid(False)
+    ax.set_xlabel(r"$x$ (mm)")
+    ax.set_ylabel(r"$z$ (mm)")
+    xt = np.arange(-0.15, 0.20, 0.05)
+    yt = np.arange(0.0, 0.20, 0.05)
+    ax.set_xticks(xt); ax.set_yticks(yt)
+    ax.set_xticklabels([f"{v*1000:.0f}" for v in xt])
+    ax.set_yticklabels([f"{v*1000:.0f}" for v in yt])
+
+    p = f"{FIG}/fig1_scene.pdf"
+    fig.savefig(p)
+    plt.close(fig)
+
+    import re
+    d0 = open(p, "rb").read()
+    d1 = re.sub(rb"/(ca|CA) ([0-9]*\.?[0-9]+)",
+                lambda m: b"/" + m.group(1) + b" " +
+                          (("1." + "0" * (len(m.group(2).decode()) - 2))
+                           if "." in m.group(2).decode() else "1").encode(),
+                d0)
+    if len(d1) == len(d0):
+        open(p, "wb").write(d1)
+    print(f"wrote {p}")
+
+
+if __name__ == "__main__":
+    main()

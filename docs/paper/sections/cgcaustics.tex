@@ -90,8 +90,6 @@ correct. This is the reason the photon-map caustic in
 Figure~\ref{fig:fourpanel} looks soft where ours is sharp, and it is not a
 matter of insufficient photons.
 
-\begin{remark}[Radius shrinking does not remove the bias]
-\label{rem:sppm}
 Progressive photon mapping \cite{hachisuka2008}, and its stochastic variant
 \cite{hachisuka2009}, shrink the radius as samples
 accumulate, which makes the estimator consistent \emph{for the integral}. It
@@ -103,7 +101,6 @@ finite budget, and for a fold the convergence is slow precisely because the
 integrand is unbounded: the reported SPPM timings in this paper
 (Table~\ref{tab:cost}) are the cost of pushing that limit far enough to see the
 feature at all.
-\end{remark}
 
 \subsection{Backward: connection, and the same factor}
 \label{sec:backward}

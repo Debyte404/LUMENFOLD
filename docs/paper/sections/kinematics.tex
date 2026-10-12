@@ -78,15 +78,12 @@ follows from the analytic gradient,
 \label{eq:normal}
 \end{equation}
 
-\begin{remark}[The slope is the small parameter]
-\label{rem:slope}
 For the amplitudes above, $|\nabla h| \le \sum_i A_i k_i \approx 0.34$ at the
 shortest wave, so the surface stays well inside the small-slope regime in which
 the paraxial normal form of Section~\ref{sec:foldnormal} is the leading term.
 This matters because the fold normal form is asymptotic, and a surface steep
 enough to produce higher-order caustics would leave its domain of validity. We
 return to this in Section~\ref{sec:limits-fold}.
-\end{remark}
 
 \subsection{The ray map}
 \label{sec:raymap}
@@ -136,15 +133,12 @@ status of \eqref{eq:irradiance}: it is exact for the geometric model, not an
 estimator. Every method in Section~\ref{sec:cg} estimates this same object, and
 that shared target is why they share a failure.
 
-\begin{remark}[Why the determinant and not a solid angle]
-\label{rem:det}
 Equation~\eqref{eq:irradiance} is the Jacobian form of the usual
 $\cos\theta / r^2$ falloff; the same determinant is what Arvo
 \cite{arvo1994} propagates irradiance with in a different setting, which is why
 the degeneracy studied here is a familiar object. The two agree wherever $\Hm$ is a diffeomorphism;
 \eqref{eq:irradiance} is preferable here because it remains meaningful as a
 statement about rank, which is what the fold is about.
-\end{remark}
 
 \subsection{The fold, and why a quadrature fails there}
 \label{sec:fold}
@@ -226,8 +220,6 @@ holds a \emph{finite} amount of power. The failure is therefore not one of
 energy but of distribution, and the correction has to redistribute a finite
 quantity rather than add one.
 
-\begin{remark}[Refinement does not converge, and this is not a sampling bug]
-\label{rem:nobug}
 It is tempting to read the divergence as a sign that the sampler is
 insufficiently adaptive. It is not. Adaptive sampling can place points better,
 but no placement makes a function unbounded at a point; it only changes how
@@ -235,7 +227,6 @@ quickly the estimate grows. The measured consequence in our own runs was a
 receiver core whose apparent radius was set by wherever a ceiling was applied
 rather than by the physics, which is exactly the artefact the estimators of
 Section~\ref{sec:estimators} exist to avoid.
-\end{remark}
 
 \begin{figure*}[t]
 \centering
@@ -303,14 +294,11 @@ immaterial because the integrand is stationary at $t = \sqrt{X}$ inside the
 range, and its modulus squared is $|\Ai(-X)|^2$.
 \end{proof}
 
-\begin{remark}[Why this is the object to substitute]
-\label{rem:whyairy}
 Equation~\eqref{eq:canonical} is finite for every $X$, is maximal at
 $X = -1.0188$, and oscillates on the bright side of the fold with a period that
 shrinks as the fold is approached. Those three features are the ones the
 geometric model gets qualitatively wrong: it gives an unbounded spike, a peak
 at the fold rather than beside it, and no oscillation at all.
-\end{remark}
 
 \subsection{The ${\lambda^{2/3}}$ fringe scale, derived}
 \label{sec:scaling}
@@ -387,8 +375,8 @@ $\sim (2\pi\sqrt{u})^{-1}$. Hence
 which is unbounded as $L \to \infty$.
 \end{proof}
 
-\begin{remark}[This is the normalisation that does not exist]
-\label{rem:normdoesnotexist}
+\begin{corollary}[No normalising constant exists]
+\label{cor:norm}
 Lemma~\ref{lem:notl1} rules out the natural construction. There is no constant
 $Z$ with $\frac{1}{Z}|\Ai(-u)|^2$ a probability density on $\mathbb{R}$, so a
 band correction cannot be written as a profile times a global constant. What
@@ -397,7 +385,7 @@ Corollary~\ref{cor:integrable} guarantees the band holds finite power. That is
 the construction we use
 (Section~\ref{sec:ours-normalisation}) and it is why the correction carries a
 measured ratio rather than a closed-form constant.
-\end{remark}
+\end{corollary}
 
 Table~\ref{tab:airyfacts} collects the constants used later, each evaluated
 numerically rather than quoted from a table.
@@ -416,7 +404,7 @@ Quantity & Value & Note \\
 $\arg\max_u\,|\Ai(-u)|^2$            & \num{1.01879297}  & peak position \\
 $\max_u |\Ai(-u)|^2$                 & \num{0.286928}    & normaliser \\
 $\int_0^{\infty}\Ai(u)^2\,\dd u$     & \num{0.0669875}   & convergent half-line \\
-$\int_{-L}^{80}\Ai(u)^2\,\dd u$, $L{=}5000$ & \num{22.7437} & vs.\ $\pi^{-1}\sqrt{L} = \num{22.51}$ \\
+$\int_{-L}^{80}\Ai(u)^2\,\dd u$, $L{=}5000$ & \num{22.5079} & $\pi^{-1}\sqrt{L} = \num{22.5079}$ \\
 mean tail intensity                 & $(2\pi\sqrt{u})^{-1}$ & Lemma~\ref{lem:notl1} \\
 \bottomrule
 \end{tabular}
@@ -479,8 +467,6 @@ least, so red must land farthest from the axis. The chromatic ordering in every
 figure of this paper is a consequence of \eqref{eq:sellmeier}, \eqref{eq:rubin}
 and \eqref{eq:perchannel}, not an effect we added.
 
-\begin{remark}[The coherence scale]
-\label{rem:coherence}
 The source subtends \SI{0.53}{\degree}, which at the receiver distance of this
 scene corresponds to a geometric blur of roughly \SI{925}{\micro\meter}. The
 physical fringe spacing implied by \eqref{eq:scalelaw} for this geometry is
@@ -490,7 +476,6 @@ the fringes in this paper is that they are a \emph{resolvable wave feature of
 the coherent-limit model}, not a prediction of what a photograph under the sun
 would show. Section~\ref{sec:limits-coherence} treats this as the method's principal
 limitation.
-\end{remark}
 
 \subsection{Fresnel transport}
 \label{sec:fresnel}

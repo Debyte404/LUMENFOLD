@@ -52,36 +52,37 @@ The paper's artefacts are produced by the following, from the repository root.
 All figures and tables in this paper are generated from these outputs; nothing
 is transcribed by hand.
 
-\begin{verbatim}
-# the kinematic derivation's numerical constants
-python tools/airy_facts.py                 # Airy peak, integral divergence
-python tools/verify_refs.py                # citation verification (Crossref)
-
-# wave-physics verification
-python tools/verify_wave_correction.py     # profile vs scipy Airy
-python tools/verify_ray_map.py             # the independent brute-force trace
-python tools/fold_diag.py                  # fold locus, flux, boundary ablations
-python tools/parity_cpp_vs_py.py           # C++ vs Python reference
-
-# the comparison
-python tools/spmm_vs_groundtruth.py        # three-way ranking, one axis
-python tools/metric_parity_check.py        # both estimator conventions
-python tools/accuracy_vs_ground_truth.py   # the headline accuracy
-python tools/energy_audit.py               # Fresnel throughput
-python tools/efficiency_study.py           # RMSE vs splat budget
-python tools/ensemble_study.py             # 8-phase ensemble
-
-# cost
-build/bench.exe 512 1                      # bake timing, one thread
-build/bench.exe 512 8                      # bake timing, eight threads
-
-# the figures and clips
-python tools/make_paper_figures.py         # paper figures
-python tools/ripple_gifs.py                # the three ripple GIFs
-
-# this paper
-python tools/build_paper_pdf.py            # LaTeX -> PDF
-\end{verbatim}
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}p{0.50\columnwidth}p{0.44\columnwidth}@{}}
+\toprule
+Command & Produces \\
+\midrule
+\texttt{tools/airy\_facts.py} & Airy peak, and the divergence of its intensity \\
+\texttt{tools/verify\_refs.py} & citation check against Crossref \\
+\midrule
+\texttt{tools/verify\_wave\_correction.py} & profile vs \texttt{scipy.special.airy} \\
+\texttt{tools/verify\_ray\_map.py} & the independent brute-force trace \\
+\texttt{tools/fig1\_geometry.py} & Figure~\ref{fig:scene} geometry and light path \\
+\texttt{tools/fold\_diag.py} & fold locus, flux, boundary ablations \\
+\texttt{tools/parity\_cpp\_vs\_py.py} & C++ against the Python reference \\
+\midrule
+\texttt{tools/spmm\_vs\_groundtruth.py} & the three-way ranking, one axis \\
+\texttt{tools/metric\_parity\_check.py} & both estimator conventions \\
+\texttt{tools/accuracy\_vs\_ground\_truth.py} & the headline accuracy \\
+\texttt{tools/energy\_audit.py} & Fresnel throughput \\
+\texttt{tools/efficiency\_study.py} & RMSE against splat budget \\
+\texttt{tools/ensemble\_study.py} & the eight-phase ensemble \\
+\midrule
+\texttt{bench.exe 512 1}, \texttt{512 8} & bake timing, one and eight threads \\
+\midrule
+\texttt{tools/make\_all\_figures.py} & all ten figures, in order \\
+\texttt{tools/ripple\_gifs.py} & the three ripple GIFs \\
+\texttt{tools/build\_paper\_pdf.py} & this document \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 The three ripple animations referenced in the supplementary material are
 produced by \verb|tools/ripple_gifs.py|, which renders the same animating

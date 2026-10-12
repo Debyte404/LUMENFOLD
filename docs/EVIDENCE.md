@@ -1069,6 +1069,86 @@ physics term "totally reflecting". The one structural habit worth fixing was
 twelve formulaic "two/three/four things" enumerations in 14k words, several of
 which were rewritten.
 
+### 14.5h Polish pass: leanness, figures, and a fabricated tool (2026-10-12)
+
+Found by reading the *rendered* page rather than the sources. Five items.
+
+**1. The math was not lean.** Census: 5 lemmas, 2 corollaries, 1 proposition,
+5 definitions, 1 assumption and TWELVE remarks, plus a `theorem` environment
+declared and never used. Twelve numbered Remarks is not lean -- most were
+ordinary argumentative paragraphs in a theorem-style wrapper, adding numbered
+objects to track without adding content. Nine were unwrapped to prose, one
+(the non-integrability consequence) was promoted to a Corollary, three genuine
+asides were kept, and the unused declaration went. Numbered statements went
+from 26 to 17, and 65 to 52 as rendered.
+
+Both attempts before the successful one are worth recording, because both were
+the same mistake:
+* attempt 1 used a regex whose label group was OPTIONAL, so each pass matched the
+  earliest remark in the file instead of the labelled one and unwrapped the wrong
+  block;
+* attempt 2 replaced the regex with an exact environment locator (correct) but
+  guarded it with a word-count threshold of 12. Removing a remark whose own title
+  is twelve words drops the file by thirteen, so the guard fired on correct
+  behaviour. A threshold on a count that legitimately varies is not a check.
+The working version asserts the invariant that actually holds -- the BODY's word
+count is unchanged -- and reports the wrapper size rather than bounding it.
+
+**2. Figure 1 was wrong in three ways, all visible on the page.** It traced rays
+in the x-z plane from the sun vector's x and z components, but the sun's azimuth
+is 27.7 deg so the light also moves in y; the section has to be along the
+azimuth. It drew the fold band at a HARDCODED 36-97 mm. And it labelled the air
+gap inside the glass as "glass", with both material labels sitting in the water.
+
+Two further errors were made while rebuilding it, both of which made the figure
+silently wrong rather than visibly broken:
+* the light path was modelled as glass -> water at the inner wall. Per
+  `verify_ray_map.py` it is air -> outer wall -> inner wall -> AIR CAVITY ->
+  rippling surface -> water -> receiver, so light enters high on the side wall
+  and crosses the empty cavity before it meets the water at all;
+* the wall was intersected as a CIRCLE of radius R_OUT. That is the cylinder's
+  cross-section, but an axial section of a finite cylinder is a RECTANGLE: the
+  wall is x = +/-R_OUT over z in [0, H_GLASS]. The circle spans only z = +/-35 mm
+  and rejected every ray for entering too low -- the trace returned 0 of 6000.
+
+The 2-D section does not reproduce the 3-D caustic (its landing map is monotonic
+even with the scene's ripple, because an in-plane ripple is a single 1-D
+sinusoid). So the figure does not invent a band from it: the band drawn on the
+receiver is the MEASURED caustic extent from the ray map, projected onto the
+section direction, and the caption says so.
+
+**3. Figure 3 carried a badly set integral, a hardcoded cross-reference, and a
+noisy curve.** The panel title's `\int_{-L}^{80}` had its bounds collapse onto
+the glyph, so the integral moved to the axis label where mathtext has room. The
+legend asserted "(Lemma 1)" -- LaTeX owns that number and it is not 1, so it now
+says "predicted", which is true under any numbering. The computed curve was
+jagged because `quad` was called once per abscissa on a slowly converging
+oscillatory integrand, each call contributing its own subdivision error;
+integrating ONCE on a fine cumulative grid removed the artefact by construction
+(residual against the prediction is now 0.0016 rms).
+
+**4. A corrected number, found by making the tool exist.** The reproduction list
+named `tools/airy_facts.py`, which did not exist: a fabricated reference in a
+reproduction manifest, which is the one part of a paper that must be exact. The
+tool now exists and its accurate integration gives
+
+    int_{-L}^{80} Ai(u)^2 du at L = 5000 :  22.5079   (paper said 22.7437)
+    pi^-1 sqrt(L)                        :  22.5079
+
+The old 22.7437 was the imprecise quadrature again, high by 1%. The corrected
+value matches the prediction to four figures, which is what Lemma (notl1) claims.
+`check_paper.py` now also asserts that every script named in the paper exists.
+
+**5. Two tools wrote one file each.** The superseded copies of Figures 1 and 3
+inside `make_paper_figures_pdf.py` were deleted rather than left uncalled: with
+two writers for one output, which one is published depends on load order, and
+that is not a property anyone should have to remember. `tools/make_all_figures.py`
+now rebuilds all ten in the right order and verifies that every figure the paper
+includes exists.
+
+Net: 22 pages, 0 unresolved references, 18 named scripts all present, 10 vector
+figures all with alpha flattened to opaque and no `/SMask`.
+
 ### 14.6 What the audit killed
 
 Three of our own claims do not survive and are withdrawn in CRITIQUE.md:

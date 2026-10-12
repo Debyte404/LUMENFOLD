@@ -52,13 +52,10 @@ domain, which flags the band without reference to brightness. Under refinement
 this set converges to the neighbourhood of the fold, and its measure is a
 property of the geometry rather than of the choice of statistic.
 
-\begin{remark}[Why the percentile is on the Jacobian and not the field]
-\label{rem:detvsfield}
 Section~\ref{sec:results-ablation} measures the alternative directly: swapping
 the $|\detJ|$ detector for a brightest-percentile detector degrades the
 convergence of the result, because the flagged set stops tracking the geometry.
 The measured difference is reported there rather than asserted here.
-\end{remark}
 
 \subsection{Normalisation, and why it is a discrete ratio}
 \label{sec:ours-normalisation}
@@ -106,8 +103,6 @@ size of the discrepancy from a separate audit
 (Section~\ref{sec:verify-energy}) rather than claiming an exactness the
 implementation does not have.
 
-\begin{remark}[Why the rescale is band-local and applied before the ceiling]
-\label{rem:bandlocal}
 The tempting alternative is to rescale the whole channel after the display clamp
 so the overall level looks right. That fails: the clamp has already bounded the
 image, and a subsequent global multiply pushes the peak back above the ceiling
@@ -115,7 +110,6 @@ the clamp just enforced, reintroducing the artefact the ceiling exists to
 prevent. Conserving flux inside the band and applying the ceiling afterwards
 keeps the bound at every resolution. This ordering is not cosmetic; it is the
 difference between a bounded field and an unbounded one.
-\end{remark}
 
 \begin{remark}[The ratio is not evidence]
 \label{rem:circular}
@@ -234,7 +228,7 @@ measures the sensitivity to each rather than asserting a value.
 \item \textbf{Reference width $w_{\text{ref}}$.} The fringe scale
       \eqref{eq:scalelaw} for the geometry. Its physically meaningful value for
       this scene is \SI{123}{\micro\meter}
-      (Section~\ref{sec:estimators} and Remark~\ref{rem:coherence}), and using a
+      (Sections~\ref{sec:estimators} and~\ref{sec:dispersion}), and using a
       larger value for visibility is exactly the exaggeration this paper avoids.
 \item \textbf{Ceiling $\kappa$.} Bounds the field. It interacts with
       Lemma~\ref{lem:flux} as described, and the audit of

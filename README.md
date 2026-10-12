@@ -5,7 +5,7 @@ Airy profile inside a detected fold band, plus a measured comparison of it again
 caustic solvers in current practice — **PBRT-v4 SPPM, Blender Cycles, and Mitsuba 3**.
 
 **The paper:** [`docs/paper/main.pdf`](docs/paper/main.pdf) — typeset in the official
-Computer Graphics Forum class (`egpubl.cls`, Eurographics), 21 pages, with lemmas,
+Computer Graphics Forum class (`egpubl.cls`, Eurographics), 22 pages, with lemmas,
 theorems and proofs. Source is `docs/paper/main.tex`; rebuild with
 `python tools/build_paper_pdf.py`. The earlier markdown draft is kept at
 [`docs/PAPER.md`](docs/PAPER.md).
