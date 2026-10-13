@@ -61,7 +61,7 @@ plt.rcParams.update({
     "font.serif": ["Times New Roman", "Nimbus Roman", "DejaVu Serif"],
     "font.size": 8, "axes.labelsize": 8, "xtick.labelsize": 7, "ytick.labelsize": 7,
     "axes.linewidth": 0.6, "xtick.major.width": 0.6, "ytick.major.width": 0.6,
-    "savefig.bbox": "tight", "savefig.pad_inches": 0.01, "figure.dpi": 300,
+    "savefig.bbox": "tight", "savefig.pad_inches": 0.06, "figure.dpi": 300,
     "pdf.fonttype": 42,
 })
 

@@ -63,7 +63,7 @@ plt.rcParams.update({
     "grid.color": "0.85",
     "axes.axisbelow": True,
     "savefig.bbox": "tight",
-    "savefig.pad_inches": 0.01,
+    "savefig.pad_inches": 0.06,
     "figure.dpi": 600,
     "savefig.dpi": 600,
     "pdf.fonttype": 42,
@@ -237,7 +237,8 @@ def fig_fold_optics():
     g = V.to_grid(X, Y)
     g = np.asarray(g, dtype=float)
 
-    fig, axes = plt.subplots(1, 2, figsize=(FULL, FULL * 0.33))
+    fig, axes = plt.subplots(1, 2, figsize=(FULL, FULL * 0.33),
+                             gridspec_kw={"wspace": 0.40})
     im = axes[0].imshow(g ** 0.4, cmap="inferno",
                         extent=[-160, 160, -160, 160], origin="upper")
     axes[0].set_title("(a) brute-force ray density (independent trace)")
@@ -439,7 +440,9 @@ def fig_dispersion():
     ax.legend(handles=[Patch(facecolor="0.55", edgecolor="black", label="ours, filled"),
                        Patch(facecolor="white", edgecolor="0.35", ls="--",
                              label="SPPM, dashed")],
-              frameon=False, loc="upper right")
+              frameon=False, loc="lower center", ncol=2,
+              bbox_to_anchor=(0.5, 1.005), columnspacing=1.8,
+              handlelength=1.5, handletextpad=0.5, fontsize=7)
     for xi, v in zip(x - 0.19, ours):
         ax.text(xi, v + 2, str(v), ha="center", fontsize=6.5)
     for xi, v in zip(x + 0.19, sppm):
