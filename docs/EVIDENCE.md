@@ -1392,6 +1392,70 @@ identical. The check now compares only the used range, and all four report a sin
 shared palette. An instrument that flags a defect in correctly-encoded files is
 worth fixing before it sends you chasing a phantom.
 
+### 14.5n Colour of the caustic and the fringes (2026-10-13)
+
+The estimator is three-channel and never asked what colour the light is. This adds
+both halves of that question: what the medium absorbs, and what the source emits.
+Tool: `tools/colour_study.py`; figure `tools/make_colour_figure.py`; data
+`docs/data/colour_results.json`.
+
+**Ray map reused, not rebuilt.** Path lengths come from `tools/verify_ray_map.py`'s
+trace with `return_paths=True`, a new optional argument. The default return is
+unchanged and the paper's ground-truth check was re-run to confirm it still gives
+r = +0.916 / +0.869 / +0.795 / +0.720 and the 4.5 mm centroid offset. Geometry does
+not depend on the medium, so three traces (one per wavelength) serve every
+medium/illuminant pair, and 1 164 880 rays land on the patch.
+
+**Fringe colour is fixed by lambda^(2/3).** Measured Airy scales 1.749 / 1.565 /
+1.369 um at 650 / 550 / 450 nm, ratios 1.1178 / 1.000 / 0.8748 against the analytic
+(lambda/550)^(2/3). A 12% displacement between the outer channels is what colours
+the pattern. Chromaticity moves by up to 0.95 across the lit band.
+
+**Caustic colour, n=900, brightest 2% of the achromatic trace:**
+
+    equal energy, clear/clear   0.990 1.000 0.970   neutral
+    equal energy, cobalt glass  0.326 0.946 1.000   blue
+    equal energy, amber glass   1.000 0.838 0.319   red
+    equal energy, copper water  0.094 0.822 1.000   blue
+    equal energy, tea water     1.000 0.709 0.156   red
+    solar 5778 K, clear/clear   0.871 1.000 0.961   near-neutral
+    warm 3400 K,  clear/clear   1.000 0.712 0.341   red
+    cool 10000 K, clear/clear   0.467 0.699 1.000   blue
+
+**The sun is not a backdrop, and it is interchangeable with the medium.** Both act
+by multiplying the three channels, so a cobalt glass and a cool source both blue
+the caustic and an amber glass and a warm source both redden it. Moving the source
+from solar to 3400 K shifts the core's normalised RGB by 0.620, comparable to the
+shift from tinting the glass at all. With copper water the same move shifts it
+0.400; solar -> 10000 K shifts 0.404 (clear) and 0.272 (copper).
+
+**What neither can do, which is the actual result.** Absorption attenuates a
+channel without displacing it; a source rescales it without displacing it. Only the
+lambda^(2/3) law moves a fringe. So the colour *sequence* across the band is a
+signature of the wave correction specifically: a geometric solver given the right
+media and the right source would match the caustic core's tint, and would not have
+the sequence at all. Weaker than a colour-accuracy claim and the one the
+measurement supports.
+
+**Two instrument errors, both caught by physics rather than by the code.**
+
+1. The first fringe measurement used a window 12 Airy scales wide and a cubic
+   coefficient of 1.0 instead of 1e-3. The phase then turned over thousands of
+   cycles across the pupil and aliased: the per-channel peaks landed at
+   X = -0.91, -1.23 and -1.13 instead of the -1.0188 that |Ai|^2 demands. To a
+   reader that looks like a chromatic shift and is numerical noise. Fixed by taking
+   the window and coefficient from the verified usage in verify_wave_correction.py;
+   peaks are now -1.048 / -1.003 / -1.022.
+2. The first colour metric was the pairwise ratio B/R. The red channel has an Airy
+   zero inside the lit band, so B/R reached 7.7e4 and the "range" measured a
+   division by almost-zero. Replaced with chromaticity coordinates r = R/(R+G+B),
+   which are bounded and standard.
+
+**The media are the experiment's parameters, not measured materials.** Stated as
+Beer-Lambert coefficients in reciprocal metres, with the optical depth each
+produces over the scene's own path lengths (~7 mm glass, ~90 mm water) printed in
+the report. They are not claimed to be specific commercial glasses or dyes.
+
 ### 14.6 What the audit killed
 
 Three of our own claims do not survive and are withdrawn in CRITIQUE.md:

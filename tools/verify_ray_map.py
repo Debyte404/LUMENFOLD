@@ -83,8 +83,14 @@ def refract(d, nrm, eta):
     return out, good
 
 
-def trace(n_side=900, lam_nm=550.0):
-    """Return table-hit x,y for a grid of rays launched along -SUN."""
+def trace(n_side=900, lam_nm=550.0, return_paths=False):
+    """Return table-hit x,y for a grid of rays launched along -SUN.
+
+    With `return_paths=True` also returns the per-ray path lengths through the
+    glass shell and the water, which Beer-Lambert absorption needs. The default
+    keeps the original five-value return so the paper's ground-truth check and
+    everything downstream of it are untouched.
+    """
     # launch grid on a plane upstream, oriented across the sun direction
     up = np.array([0.0, 0.0, 1.0])
     ex = np.cross(SUN, up)
@@ -124,6 +130,9 @@ def trace(n_side=900, lam_nm=550.0):
     C2 = np.sum(oxy * oxy, axis=-1) - R_IN ** 2
     disc = B2 ** 2 - 4 * A2 * C2
     t = np.where(disc > 0, (-B2 - np.sqrt(np.maximum(disc, 0))) / (2 * A2), np.nan)
+    # Path length through the glass shell: d2 is normalised, so the intersection
+    # parameter IS the distance. Needed by tools/colour_study.py for Beer-Lambert.
+    l_glass = t.copy()
     with np.errstate(invalid="ignore"):
         P2 = P + t[..., None] * d2
     nrm2 = np.zeros_like(P2)
@@ -181,6 +190,12 @@ def trace(n_side=900, lam_nm=550.0):
     X = hit_from[:, :, 0] + ttab * d3[:, :, 0]
     Y = hit_from[:, :, 1] + ttab * d3[:, :, 1]
     sel = alive & (ttab > 0) & (np.abs(X) < EXT) & (np.abs(Y) < EXT)
+    if return_paths:
+        # Water path: d3 is normalised, so ttab is the distance from entry to
+        # table. Rays that entered above the water line also crossed the glass
+        # cavity, which is air and absorbs nothing, so they need no extra term.
+        return (X[sel], Y[sel], l_glass[sel], ttab[sel],
+                int(sel.sum()), int(on_wall.sum()), int(escaped.sum()))
     return X[sel], Y[sel], int(sel.sum()), int(on_wall.sum()), int(escaped.sum())
 
 

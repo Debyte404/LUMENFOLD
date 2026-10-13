@@ -229,6 +229,99 @@ disagreement rather than a dispersion disagreement.}
 \label{fig:dispersion}
 \end{figure}
 
+\subsection{Colour: the medium, the source, and the fringes}
+\label{sec:results-colour}
+
+Everything above is monochromatic in the sense that it never asks what colour the
+light is. Two things set the colour of a caustic --- what the medium absorbs, and
+what the source emits --- and this measures both on the same ray map as
+Section~\ref{sec:verify-profile}, so the geometry is not in question. The media are
+stated as explicit Beer--Lambert coefficients rather than claimed as named
+commercial glasses and dyes, and the transmission each produces over the scene's
+own path lengths (about \SI{7}{\milli\meter} of glass, \SI{90}{\milli\meter} of
+water) is tabulated so the reader can see what was asked for.
+
+\paragraph{The fringes are coloured, and by a fixed amount.}
+The band width goes as $\lambda^{2/3}$, so the three channels place their fringes at
+three different positions. Measured from the independent fold integral of
+Section~\ref{sec:verify-profile} the Airy scales are
+\SI{1.749}{\micro\meter}, \SI{1.565}{\micro\meter} and \SI{1.369}{\micro\meter} at
+650, 550 and 450\,nm, ratios of $1.1178$, $1.000$ and $0.8748$ against the analytic
+$(\lambda/550)^{2/3}$ --- reproduced to four decimals. A \SI{12}{\percent}
+displacement between the outer channels is what makes the pattern coloured rather
+than merely bright, and the chromaticity moves by up to \num{0.95} across the lit
+band. Figure~\ref{fig:colour}(a,c).
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/fig11_colour.pdf}
+\caption{Colour of the caustic and of its fringes. \textbf{(a)} the three channels
+peak at different positions because the band width goes as $\lambda^{2/3}$; the
+scale ratios are the analytic ones to four decimals. \textbf{(b)} the colour of the
+caustic core for five media against four source spectra, from the traced ray map:
+the medium and the source both act by multiplying the channels, so either can
+produce a given tint. \textbf{(c)} the colour down the band itself. The fringes are
+coloured, and the medium decides which of them survive; the medium cannot move
+them.}
+\label{fig:colour}
+\end{figure*}
+
+\paragraph{The medium and the source are interchangeable for tint.}
+Table~\ref{tab:colour} gives the colour of the caustic core. A cobalt glass and a
+cool source both blue the caustic; an amber glass and a warm source both redden it.
+That is not two effects but one --- both multiply the three channels --- and the
+numbers show how nearly interchangeable they are: moving the source from the
+solar spectrum to \SI{3400}{\kelvin} shifts the core's normalised RGB by
+\num{0.620}, which is comparable to the shift from tinting the glass at all.
+
+\begin{table}[t]
+\centering
+\caption{Colour of the caustic core: the brightest \SI{2}{\percent} of the
+achromatic trace, weighted by the source spectrum and the medium transmission.
+Values are normalised so the largest channel is 1. Source temperatures are Planck
+blackbodies; the media are the Beer--Lambert coefficients listed in the
+reproduction section. The sun is not a backdrop: at 3400\,K the same clear scene
+gives a red caustic, at 10\,000\,K a blue one.}
+\label{tab:colour}
+\footnotesize
+\begin{tabular}{llccc}
+\hline
+source & medium & R & G & B \\
+\hline
+equal energy & clear glass, clear water & $0.990$ & $1.000$ & $0.970$ \\
+equal energy & cobalt glass & $0.326$ & $0.946$ & $1.000$ \\
+equal energy & amber glass & $1.000$ & $0.838$ & $0.319$ \\
+equal energy & copper water & $0.094$ & $0.822$ & $1.000$ \\
+equal energy & tea water & $1.000$ & $0.709$ & $0.156$ \\
+\hline
+solar (5778\,K) & clear glass, clear water & $0.871$ & $1.000$ & $0.961$ \\
+warm (3400\,K) & clear glass, clear water & $1.000$ & $0.712$ & $0.341$ \\
+cool (10\,000\,K) & clear glass, clear water & $0.467$ & $0.699$ & $1.000$ \\
+\hline
+warm (3400\,K) & copper water & $0.162$ & $1.000$ & $0.600$ \\
+cool (10\,000\,K) & tea water & $0.953$ & $1.000$ & $0.325$ \\
+\hline
+\end{tabular}
+\end{table}
+
+\paragraph{What neither can do.}
+The medium and the source can each tint the caustic and each tint the fringes, and
+either can be traded for the other. Neither can move a fringe. The displacement
+between channels in Figure~\ref{fig:colour}(a) is set by $\lambda^{2/3}$ and the
+indices; absorption attenuates a channel without displacing it, and a source
+rescales it without displacing it either. So the colour \emph{sequence} across the
+band is a signature of the wave correction specifically, in a way the colour of the
+caustic core is not: a geometric solver with the right media and the right source
+would match the core's tint, and would not have the sequence at all.
+
+This is a weaker claim than a colour-accuracy claim, and it is the one the
+measurement supports. We have not compared these tints against a photograph, for
+the reason given in Section~\ref{sec:limits-coherence}: at a \SI{0.53}{\degree}
+source the fringes this section is about are blurred away by the source's own
+angular size, so the sequence is measurable in a simulation and not in a
+photograph of this scene. The coefficients are the experiment's parameters, not
+measurements of specific materials, and the reproduction section names them.
+
 \subsection{Temporal behaviour}
 \label{sec:results-flicker}
 
