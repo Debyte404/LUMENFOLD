@@ -1392,6 +1392,78 @@ identical. The check now compares only the used range, and all four report a sin
 shared palette. An instrument that flags a defect in correctly-encoded files is
 worth fixing before it sends you chasing a phantom.
 
+### 14.5p The caustic was not tinted by the medium: a light-side quantity shaded on the camera path (2026-10-13)
+
+Asked why the caustic's colour did not change with the medium. It was a real defect,
+and the rendered grid had been contradicting the computed table directly above it
+(14.5n) since the colour work began.
+
+**Symptom.** In the 20-tile rendered grid every water column was nearly identical
+inside a glass row: cobalt glass gave normalised 0.796/0.991/1.000 against clear
+water and 0.794/0.990/1.000 against copper water, i.e. the medium moved the caustic
+by ~0.2%. Copper water is mu = 28/m for red; over the real path that is a 90%
+red loss.
+
+**Decisive test.** Water absorption set to 500/m (opaque: exp(-500*0.0594) ~ 1e-13)
+left the caustic at 203/204/203 against a 210/210/210 baseline. The water did not
+reach the caustic at all. A change-map showed the water affected 10.1% of the frame
+and 40.5% of bright pixels, against the glass's 21.2% / 72.9%.
+
+**Root cause.** Two halves, and both had to be wrong for the symptom to appear.
+
+1. `build_caustic_wavy` baked the field as purely geometric -- compression x Airy
+   profile, per channel, with no absorption term anywhere. The per-channel mean
+   normalisation at the end also made the three channels equal by construction.
+2. The shader then multiplied the caustic by `tp`, the throughput accumulated along
+   the CAMERA ray. The caustic is a light-side quantity: its colour is set by what
+   the sunlight crossed before landing. For the fan thrown clear of the glass the
+   camera path is air, so `tp` ~ 1 and the water never entered. Glass appeared to
+   work only because some caustic pixels are seen THROUGH the glass -- which is why
+   glass moved the caustic 21% and water 10%, instead of neither mattering.
+
+Note the asymmetry that made this look like a partial success: a bug that tints by
+the camera path is not obviously wrong, because it does tint by *something*.
+
+**Fix.** `Hit` now carries `Lg` and `Lw`, the path lengths the light travelled in
+glass and water (computed in `trace_wavy` for both branches: inner-wall-below-level
+straight to the table, and over-the-wall onto the rippling surface). The ray weight
+is multiplied by `exp(-(mu_g*Lg + mu_w*Lw))` per channel, and the channel's mean
+transmission `A_c` is restored after the shape normalisation -- so the shape stays
+mean-1 while the three channels stop being equal. That last step is the whole point:
+normalising per channel had been erasing exactly the quantity being asked about.
+
+**Verified.**
+- copper water now takes the caustic to normalised 0.533/1.000/0.970 (R/G 1.03 ->
+  0.53), a 194-level pixel change, in the region that responds to the medium. A
+  Beer-Lambert prediction over the same path gives 0.084/0.805/1.000; the measured
+  value is diluted toward neutral by the table's diffuse and ambient terms sharing
+  those pixels, as it should be.
+- The renderer's flux-weighted light path is 90.4 / 85.9 / 86.9 mm of water and
+  3.96 / 4.00 / 3.96 mm of glass, which matches the path implied independently by
+  the computed table (90.5 mm) -- so the two sides were always agreeing about the
+  scene and only the renderer was failing to use it.
+- Default media move by A_c = 0.9685 / 0.9945 / 0.9976, i.e. the caustic loses ~3%
+  of its red. `A_c` is a uniform per-channel scalar, so field CENTROIDS, extents and
+  the chromatic separation are invariant and no geometric claim in the paper moves.
+
+**Measurement trap, recorded because it nearly hid the fix.** Ranking pixels by
+luminance to find the caustic is self-defeating: a strongly tinted caustic has LOWER
+luminance than a neutral one, so the brightest pixels are precisely those the tint
+moved least. Measured that way the caustic appeared to get MORE neutral as the
+threshold tightened (0.469 -> 0.539 -> 0.692). Select the region that responds to
+the medium instead (tools/caustic_colour_probe.py), not the region that is brightest.
+
+**Also fixed in passing:** `medium_at` read the constant `kWaterLevel` where
+`g_water_level` is the mutable one. `medium_at` does correctly confine water to the
+inner radius (`r < kRin`), so this is narrow: with `--water-level` the refraction
+interface moved but the medium identity did not, putting the tracer and the shading
+in disagreement about where the water stopped. No effect at the default level
+(the two are equal there), so nothing already rendered moves.
+
+**New instruments:** tools/caustic_colour_probe.py (where and by how much the
+caustic colour responds), tools/render_vs_computed_colour.py (rendered against
+computed, tile by tile -- the check that would have caught this at the start).
+
 ### 14.5o Coloured media rendered, and a source that moves (2026-10-13)
 
 14.5n computed the colour from the traced ray map. This renders it, extends the sweep

@@ -220,6 +220,10 @@ struct Hit {
   double x, y;      // table hit
   double jac;       // |dH/dphi|, metres per radian
   bool ok;
+  // Path lengths the LIGHT travelled through each medium before landing here.
+  // The caustic's colour is set by these, not by the camera ray's path: see the
+  // transmission note in build_caustic_wavy. Left 0 by the simplified tracer.
+  double Lg = 0.0, Lw = 0.0;
 };
 
 Hit trace(double phi, double n_water) {
@@ -531,7 +535,7 @@ int medium_at(const V3& p) {
   double r = std::hypot(p.x, p.y);
   if (r > kRout) return 0;
   if (r > kRin) return 1;
-  return (p.z < kWaterLevel) ? 2 : 0;
+  return (p.z < g_water_level) ? 2 : 0;
 }
 double medium_index(int m, double lambda) {
   if (m == 1) return glass_index(lambda);
@@ -859,6 +863,7 @@ Hit trace_wavy(double phi, double z0, double n_water, double n_glass, const Wave
   if (sIn <= 1e-9) sIn = (-b + sq) / (2 * a);
   if (sIn <= 1e-9) return h;
   V3 W = P + t1 * sIn;
+  h.Lg = sIn;                                          // outer wall -> inner wall
   V3 nIn{W.x / kRin, W.y / kRin, 0.0};                 // outward at the inner wall
   V3 t2;
 
@@ -869,9 +874,10 @@ Hit trace_wavy(double phi, double z0, double n_water, double n_glass, const Wave
     // and the whole field came out empty.
     if (!snell(t1, nIn, n_glass / n_water, t2)) return h;
     if (t2.z >= -1e-9) return h;
-    double drop = -W.z / t2.z;
+    double drop = -W.z / t2.z;                         // t2 is unit: drop IS the distance
     h.x = W.x + t2.x * drop;
     h.y = W.y + t2.y * drop;
+    h.Lw = drop;                                       // inner wall -> table, all water
     h.ok = true;
     return h;
   }
@@ -893,9 +899,10 @@ Hit trace_wavy(double phi, double z0, double n_water, double n_glass, const Wave
   V3 t3;
   if (!snell(t2, n2, 1.0 / n_water, t3)) return h;     // air -> water
   if (t3.z >= -1e-9) return h;
-  double drop = -S.z / t3.z;
+  double drop = -S.z / t3.z;                           // t3 is unit: drop IS the distance
   h.x = S.x + t3.x * drop;
   h.y = S.y + t3.y * drop;
+  h.Lw = drop;                                         // rippling surface -> table
   h.ok = true;
   return h;
 }
@@ -923,6 +930,12 @@ Field build_caustic_wavy(int N, double airy_scale, const WaveParams& wp) {
     // so an argmax picks an arbitrary capped cell). Both of those contaminated
     // the centroid and peak estimators and hid the sign of the effect.
     double sum_r = 0, sum_w = 0, sum_rw = 0, fold_r = 0, best_j = 1e30;
+    // Beer-Lambert along the LIGHT path. The caustic's colour is set by what the
+    // sunlight crossed before landing, not by the camera ray: for the fan thrown
+    // clear of the glass the camera path is pure air, so without this the medium
+    // could not tint the caustic at all. sum_wt / sum_wt_t carry the ray-weighted
+    // mean transmission so the per-channel tint survives the shape normalisation.
+    double sum_wt = 0, sum_wt_t = 0, sum_Lg = 0, sum_Lw = 0;
     // pass 1: ray map, Jacobian, splat
     std::vector<double> jac((size_t)N * N, 1e30);
     for (int i = 0; i < NP; i++) {
@@ -949,6 +962,12 @@ Field build_caustic_wavy(int N, double airy_scale, const WaveParams& wp) {
           sum_rw += rr * wgt;
           if (jdet < best_j) { best_j = jdet; fold_r = rr; }
         }
+        double Tc = std::exp(-(g_glass_abs[c] * h0.Lg + g_water_abs[c] * h0.Lw));
+        sum_wt += wgt;
+        sum_wt_t += wgt * Tc;
+        sum_Lg += wgt * h0.Lg;
+        sum_Lw += wgt * h0.Lw;
+        wgt *= Tc;                       // the field now carries the light's tint
         double fx = (h0.x + kExt) / (2 * kExt) * N - 0.5;
         double fy = (h0.y + kExt) / (2 * kExt) * N - 0.5;
         int x0 = int(std::floor(fx)), y0 = int(std::floor(fy));
@@ -968,11 +987,20 @@ Field build_caustic_wavy(int N, double airy_scale, const WaveParams& wp) {
                   "  fold r %7.3f mm\n",
                   c, nw, 1000 * sum_r / sum_w, 1000 * sum_rw / std::max(sum_w, 1e-30),
                   1000 * fold_r);
+    if (sum_wt > 0)
+      std::printf("  [path]  ch%d flux-wtd glass %6.3f mm  water %7.3f mm  A_c %.4f\n",
+                  c, 1000 * sum_Lg / sum_wt, 1000 * sum_Lw / sum_wt, sum_wt_t / sum_wt);
     double mean = 0;
     for (double v : flux) mean += v;
     mean /= double(N) * double(N);
     if (mean <= 0) mean = 1e-12;
     for (double& v : flux) v /= mean;
+    // Shape is normalised to mean 1; put the channel's mean transmission back so
+    // the three channels no longer have equal magnitude. This is what makes the
+    // caustic chromatic. With the default media the factor is ~0.99, so existing
+    // renders move by about a percent; with a strongly absorbing medium it is the
+    // whole effect.
+    const double A_c = (sum_wt > 0) ? (sum_wt_t / sum_wt) : 1.0;
 
     // pass 2: fold locus = |det J| far below the typical compression
     std::vector<double> js;
@@ -1018,7 +1046,10 @@ Field build_caustic_wavy(int N, double airy_scale, const WaveParams& wp) {
         double base = std::min(sm[i], cap);
         v = std::min(base * (0.15 + 0.85 * airy_prof_1d(s / w)) * kk, cap * 1.35);
       }
-      f.rgb[(size_t)i * 3 + c] = float(std::min(v, cap * 1.35));
+      // A_c carries the channel's mean Beer-Lambert transmission along the LIGHT
+      // path, so the three channels stop being equal: this is what makes the
+      // caustic chromatic with absorbing media.
+      f.rgb[(size_t)i * 3 + c] = float(std::min(v, cap * 1.35) * A_c);
     }
   }
   return f;

@@ -181,6 +181,25 @@ Two findings worth stating plainly, because they are easy to get backwards:
   λ^(2/3). So a coloured fringe pattern is evidence of the wave correction specifically,
   not of coloured media.
 
+One correction worth recording, because the rendered grid originally contradicted the
+table above it. The caustic field was baked as a **purely geometric** quantity —
+compression × Airy profile — and the shader then multiplied it by `tp`, the throughput
+along the **camera** ray. But the caustic is a *light-side* quantity: its colour is set by
+what the sunlight crossed before landing. For the fan thrown clear of the glass the camera
+path is pure air, so `tp ≈ 1` and the water could not tint the caustic at all — measured, a
+copper water that should remove 90% of the red moved the caustic by 0.2%, and water set to
+an opaque 500/m left it unchanged. Glass appeared to work only because some caustic pixels
+are seen *through* the glass.
+
+The fix carries the light path into the field: `Hit` now records the metres travelled in
+glass and water, each ray is weighted by `exp(−µL)` per channel, and the channel's mean
+transmission is restored after the shape normalisation so the three channels stop being
+equal. Copper water now takes the caustic from R/G 1.03 to 0.53 — a 194-level change.
+`A_c` is a uniform per-channel scalar, so field peak positions, extents and the chromatic
+separation are invariant; only intensities move. Confirm with
+`tools/caustic_colour_probe.py` and `tools/render_vs_computed_colour.py` (rendered against
+computed, tile by tile — the check that would have caught this immediately).
+
 <p align="center">
   <img src="docs/media/colour_sun_orbit.gif" width="880"
        alt="Camera held fixed while the sun is rotated a full turn about the glass">
