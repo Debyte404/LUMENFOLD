@@ -1524,6 +1524,67 @@ the source labels below the grid and opening the row spacing; now 0 overlaps. Th
 colour strips' labels were moved off the colour into a gutter, because white text on
 the bright end of a band is unreadable.
 
+### 14.5q Red water, red glass, both: one medium at a time on the ripple clip (2026-10-13)
+
+`tools/ripple_colour_gifs.py` renders the ripple animation with one medium variable
+changed: `ripple_water_red.gif`, `ripple_glass_red.gif`, `ripple_both_red.gif`. Identical
+to `ripple_ours.gif` in camera (az 110 / elev 38 / dist 0.62 / lens 50), physical Airy
+width 0.000123 m, studio rig and 72 frames, so only the medium differs.
+
+Coefficients are per-metre Beer-Lambert chosen so each medium transmits about
+(0.90, 0.15, 0.03) over its real path -- water (1.17, 21.0, 38.9) over ~90 mm and glass
+(30, 344, 721) over ~3.5 mm. Experiment parameters, not measured materials.
+
+**The colour has to be set in two places, and each does half the job.** The pipeline is
+bake -> render, and the two stages carry different parts of the light:
+
+* `showcase --water-abs/--glass-abs` tints the baked caustic FIELD. Required because
+  14.5p established the caustic is a light-side quantity.
+* `blender_scene --water-absorb/--glass-absorb` tints the glass and water BODIES, via a
+  Blender Volume Absorption node driven by the same per-metre coefficients.
+
+Verified by a four-way isolation render (neither / bake only / blender only / both). A
+clip with only one of the two is the failure mode: a red object with a neutral caustic, or
+a red caustic in a clear glass.
+
+**A Blender setting silently disabled the whole medium.** `scene.cycles.volume_bounces`
+defaults to **0**, and at 0 Cycles ignores a connected volume shader entirely -- the
+absorption is built into the material, never integrated, and the medium renders colourless
+with **no warning anywhere in the log**. The first four-case test came back with a
+pixel-identical hue (1.000/0.998/0.997 in all four) and identical frame means to two
+decimals, which is what a silently-ignored dependency looks like. `blender_scene.py` now
+sets `volume_bounces = 8`; this is unrelated to the `--glass-absorb` plumbing, which was
+correct and which the node-name check confirmed was building the node and linking it.
+
+**Second silent failure, same family: Blender resolved a relative `--out` against the
+drive root** (`Saved: 'C:\out\...'`), so a probe rendering to a relative path appeared to
+produce nothing. All absolute paths in the tool; noted because it cost a debugging round
+that looked like a render failure and was a path one.
+
+**Measured, in the glass bounding box (x 199-454, y 70-248, found by differencing against
+the clear clip at a threshold that cuts Monte Carlo noise):**
+
+| clip | R | G | B | norm |
+|---|---|---|---|---|
+| ours | 209.4 | 210.9 | 214.0 | 0.978 0.985 1.000 |
+| red water | 209.4 | 208.8 | 211.1 | 0.992 0.989 1.000 |
+| red glass | 209.3 | 201.0 | 200.2 | 1.000 0.961 0.957 |
+| both | 209.2 | 200.1 | 199.9 | 1.000 0.956 0.955 |
+
+Worst single pixel 114 levels. The whole frame mean stays comparatively cool, which is
+correct and worth stating so it is not read as a shortfall: the studio rig illuminates the
+table directly and is not filtered by the medium, so only the media bodies and the caustic
+change. Glass reads stronger than water here because the glass occupies more of the frame
+in this framing, not because the water coefficient is weaker.
+
+Exposure is deliberately not re-solved per clip. The Blender render IS the final image, so
+a red medium is genuinely darker (frame means 184.1 -> 183.3 / 180.0 / 179.8); normalising
+each clip to its own brightness would remove the light loss the medium causes, which is
+half of what is being shown.
+
+Temporal: all three 72 frames, loop/median 1.11 / 1.18 / 1.23 against 0.99 for the clear
+clip, so no seam artefact was introduced.
+
 ### 14.5n Colour of the caustic and the fringes (2026-10-13)
 
 The estimator is three-channel and never asked what colour the light is. This adds

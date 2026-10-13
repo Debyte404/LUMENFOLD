@@ -222,6 +222,53 @@ one-way ramp: a ramp loops with the cool end snapping back to the warm end, whic
 as a 20× jump at the wrap — a flash, not a sweep. Going up and back makes the wrap an
 ordinary frame step (loop-to-median ratio 0.00).
 
+### Red medium, one variable at a time
+
+The same ripple animation as `ripple_ours.gif` — same camera, same physical Airy width,
+same studio rig, same 72 frames — with only the medium changed:
+
+<p align="center">
+  <img src="docs/media/ripple_water_red.gif" width="560" alt="Red water">
+</p>
+<p align="center">
+  <em>red water</em>
+</p>
+<p align="center">
+  <img src="docs/media/ripple_glass_red.gif" width="560" alt="Red glass">
+</p>
+<p align="center">
+  <em>red glass</em>
+</p>
+<p align="center">
+  <img src="docs/media/ripple_both_red.gif" width="560" alt="Red water and red glass">
+</p>
+<p align="center">
+  <em>both</em>
+</p>
+
+Coefficients are per-metre Beer–Lambert chosen so each medium transmits roughly
+(0.90, 0.15, 0.03) over its real path — about 90 mm of water and 3.5 mm of glass. They are
+experiment parameters, not measured materials. Exposure is deliberately **not** re-solved
+per clip: the Blender render is the final image, so the red medium genuinely loses light,
+and re-normalising each clip would hide exactly that.
+
+Two things that make these work, both of which are easy to miss:
+
+* The colour has to be set **twice**. `--water-abs/--glass-abs` on the bake tints the
+  caustic field, which is a light-side quantity; `--water-absorb/--glass-absorb` on the
+  Blender side tints the glass and water bodies through a volume shader. Doing only one
+  gives you a red object with a neutral caustic, or a red caustic in a clear glass.
+* `scene.cycles.volume_bounces` defaults to **0**, and at 0 Cycles *silently ignores* a
+  connected volume shader. The absorption is built into the material, never integrated,
+  and the medium renders colourless with no warning anywhere in the log. `blender_scene.py`
+  now sets it to 8.
+
+Measured in the glass region: R goes 0.978 → 1.000 and B drops 1.000 → 0.955 against the
+clear clip. The whole frame stays comparatively cool, which is correct — the studio rig
+illuminates the table directly and is not filtered by the medium.
+
+Reproduce with `tools/ripple_colour_gifs.py --case all`.
+
 Reproduce all of it with `tools/colour_study.py` (numbers) and
 `tools/colour_experiments.py` (renders); `tools/make_colour_figure.py` builds the figure the
 paper uses.

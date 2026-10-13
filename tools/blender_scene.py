@@ -48,6 +48,8 @@ def parse_args():
     ap.add_argument("--sun", type=float, default=None, help="sun irradiance W/m^2")
     ap.add_argument("--world", type=float, default=None, help="world strength")
     ap.add_argument("--world-color", default="", help="r,g,b")
+    ap.add_argument("--glass-absorb", default="", help="r,g,b per-metre Beer-Lambert, glass")
+    ap.add_argument("--water-absorb", default="", help="r,g,b per-metre Beer-Lambert, water")
     ap.add_argument("--sun-color", default="", help="r,g,b")
     ap.add_argument("--dist", type=float, default=0.42)
     ap.add_argument("--elev", type=float, default=21.0)
@@ -208,7 +210,27 @@ def make_table(gain, caustic_path, use_caustic, detail=False):
     return obj
 
 
-def make_glass():
+def add_volume_absorption(mat, mu):
+    """Beer-Lambert absorption inside a CLOSED volume, matching the solver.
+
+    Blender's Volume Absorption attenuates as exp(-Density*(1-Color)*L), so a
+    per-channel coefficient mu is expressed as Density = max(mu) and
+    Color = 1 - mu/max(mu). Both media here are closed -- the glass is a 3.5 mm
+    solidify shell, the water a capped volume -- which is what makes the
+    coefficient a per-metre one rather than a per-surface tint.
+    """
+    d = max(mu)
+    if d <= 0.0:
+        return
+    nt = mat.node_tree
+    va = nt.nodes.new("ShaderNodeVolumeAbsorption")
+    va.location = (120, -520)
+    va.inputs["Color"].default_value = tuple(1.0 - m / d for m in mu) + (1.0,)
+    va.inputs["Density"].default_value = d
+    nt.links.new(va.outputs["Volume"], nt.nodes["Material Output"].inputs["Volume"])
+
+
+def make_glass(absorb=None):
     bpy.ops.mesh.primitive_cylinder_add(vertices=128, radius=GLASS_R, depth=GLASS_H,
                                         location=(0, 0, GLASS_H / 2))
     obj = bpy.context.object
@@ -235,6 +257,8 @@ def make_glass():
     # measured soda-lime glass at 550 nm (Rubin 1985), matching the solver;
     # Cycles' IOR is achromatic so the central channel is the honest choice
     b.inputs["Transmission Weight"].default_value = 1.0
+    if absorb:
+        add_volume_absorption(mat, absorb)
     obj.data.materials.append(mat)
     return obj
 
@@ -260,7 +284,7 @@ def wave_h(x, y, t=0.0):
     return h
 
 
-def make_water(waves=True, wave_t=0.0):
+def make_water(waves=True, wave_t=0.0, absorb=None):
     """Water inside the glass, with a genuinely rippled surface.
 
     A flat disc cannot produce the turbulent caustic of the reference
@@ -333,6 +357,8 @@ def make_water(waves=True, wave_t=0.0):
     # measured water at 550 nm (Daimon & Masumura 2007), matching the solver;
     # Cycles' IOR is achromatic so the central channel is the honest choice
     b.inputs["Transmission Weight"].default_value = 1.0
+    if absorb:
+        add_volume_absorption(mat, absorb)
     obj.data.materials.append(mat)
     return obj
 
@@ -424,6 +450,11 @@ def configure_render(args):
     sc.cycles.diffuse_bounces = 4
     sc.cycles.glossy_bounces = 4
     sc.cycles.transmission_bounces = 12
+    # Blender defaults volume_bounces to 0 and then SILENTLY IGNORES any
+    # connected volume shader: the Beer-Lambert absorption is built into the
+    # material and never integrated, so a tinted medium renders colourless.
+    # Absorption needs no scattering, but it does need the volume traversed.
+    sc.cycles.volume_bounces = 8
     sc.cycles.transparent_max_bounces = 12
     try:
         prefs = bpy.context.preferences.addons["cycles"].preferences
@@ -466,9 +497,11 @@ def main():
     make_table(args.gain, args.caustic,
                not args.no_caustic and not args.cycles_caustics,
                detail=getattr(args, "studio", False))
-    make_glass()
+    def _mu(s):
+        return tuple(float(v) for v in s.split(",")) if s else None
+    make_glass(_mu(args.glass_absorb))
     make_water(not getattr(args, "flat_water", False),
-               getattr(args, "wave_t", 0.0))
+               getattr(args, "wave_t", 0.0), _mu(args.water_absorb))
     if getattr(args, "hide_glass", False):
         # differential reference: table only, so (with_glass - without_glass)
         # isolates what the glass actually did to the light
