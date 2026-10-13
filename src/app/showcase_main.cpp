@@ -1082,6 +1082,11 @@ int main(int argc, char** argv) {
   bool has_az = false, has_el = false;
   bool cam_fixed = false;
   double cam_cx = 0.0, cam_cy = 0.0, cam_ext = 0.0;
+  // Camera direction, in degrees. These reproduce the original hardcoded vector
+  // (-0.45, -0.78, 0.44) exactly: az = atan2(-0.78, -0.45) = -120, el = 26.0. Making
+  // them flags is what lets the rotating-source camera be chosen by measurement
+  // instead of by editing and rebuilding.
+  double eye_az = -120.0, eye_el = 26.0, eye_zoom = 1.0;
   double sun_az = 0.0, sun_el = 0.0;
   // "r,g,b" triples, parsed with sscanf so a malformed value is visible rather
   // than silently leaving the default in place.
@@ -1113,6 +1118,9 @@ int main(int argc, char** argv) {
       cam_cx = std::atof(argv[++i]); cam_cy = std::atof(argv[++i]);
       cam_ext = std::atof(argv[++i]); cam_fixed = true; }
     else if (a == "--water-level" && i + 1 < argc) g_water_level = std::atof(argv[++i]);
+    else if (a == "--eye-az" && i + 1 < argc) eye_az = std::atof(argv[++i]);
+    else if (a == "--eye-el" && i + 1 < argc) eye_el = std::atof(argv[++i]);
+    else if (a == "--eye-zoom" && i + 1 < argc) eye_zoom = std::atof(argv[++i]);
     else if (a == "--index-match") g_index_match = true;
     else if (a == "--analytic-cylinder") { g_water_level = 10.0; g_index_match = true; }
   }
@@ -1328,13 +1336,18 @@ int main(int argc, char** argv) {
     maxr = cam_ext;
   }
 
-  const V3 eyeDir = normalize(V3{-0.45, -0.78, 0.44});   // above, looking down-table
+  // Camera direction, from the flags above. az = -120, el = 26 reproduces the original
+  // hardcoded (-0.45, -0.78, 0.44) exactly.
+  const double eaz = eye_az * kPi / 180.0, eel = eye_el * kPi / 180.0;
+  const V3 eyeDir = normalize(V3{std::cos(eel) * std::cos(eaz),
+                                 std::cos(eel) * std::sin(eaz),
+                                 std::sin(eel)});
   // Frame the glass AND the fan together (the reference photograph shows both):
   // aim between them and pull back far enough for the glass to read as a glass
   // rather than filling the frame. At dist = extent*2.6 the glass covered 61%
   // of the image; this puts it near 15%.
   const V3 target{cx * 0.55, cy * 0.55, kGlassH * 0.45};
-  double dist = std::clamp(maxr * 2.4, 0.20, 0.32);
+  double dist = std::clamp(maxr * 2.4, 0.20, 0.32) * eye_zoom;
   const V3 eye = target + eyeDir * dist;
   const V3 fwd = normalize(target - eye);
   const V3 rgt = normalize(V3{fwd.y, -fwd.x, 0});

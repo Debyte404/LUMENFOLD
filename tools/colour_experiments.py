@@ -50,20 +50,34 @@ REF_AZ, REF_EL = 27.699472808054995, 25.449840953628105
 # The renderer's own sun irradiance, used as the reference when no --sun-rgb is given.
 REF_SUN_RGB = (19.0, 17.6, 15.8)
 
+# The renderer's default fringe width, and the physical Airy scale for this geometry at
+# 550 nm. The default is 12.2x the physical value: at 600 px the physical fringe is
+# under two pixels and would not be visible, so the exaggeration is deliberate -- but it
+# must be STATED wherever it is shown, or a reader measures a fringe and gets 12x the
+# truth. Ripple clips and the no-exaggeration figure pass --airy 0.000123 explicitly.
+AIRY_RENDER = 0.0015
+AIRY_PHYSICAL = 0.000123
+AIRY_FACTOR = AIRY_RENDER / AIRY_PHYSICAL
+
 
 def render(out_png, n=900, sun_az=None, sun_el=None, glass=None, water=None,
-           sun_rgb=None, fixed_cam=False, res=None, ssaa=None, extra=()):
+           sun_rgb=None, fixed_cam=False, res=None, ssaa=None, eye=None, extra=()):
     """One frame.
 
     `n` is the OUTPUT WIDTH in pixels, not a sample count -- the flag is named that
     way in the renderer. `res` is the caustic bake resolution: the airy fringe rule
     wants about 4.8 px per feature at 1024, so a finer bake resolves finer fringes.
+    `eye` is (azimuth, elevation, zoom) in degrees and a distance factor; the default
+    (-120, 26, 1.0) reproduces the renderer's original hardcoded direction.
     """
     cmd = [EXE, "--n", str(n), "--out", out_png]
     if res is not None:
         cmd += ["--res", str(res)]
     if ssaa is not None:
         cmd += ["--ssaa", str(ssaa)]
+    if eye is not None:
+        cmd += ["--eye-az", "%.3f" % eye[0], "--eye-el", "%.3f" % eye[1],
+                "--eye-zoom", "%.3f" % eye[2]]
     if sun_az is not None or sun_el is not None:
         cmd += ["--sun-az", str(REF_AZ if sun_az is None else sun_az),
                 "--sun-el", str(REF_EL if sun_el is None else sun_el)]
@@ -136,8 +150,14 @@ def exp_media(n=1100):
     return out
 
 
-def exp_sun(n=1520, frames=96, sweep=360.0, res=2048):
-    """Fixed camera, sun swept in azimuth: the caustic orbits the glass."""
+def exp_sun(n=1520, frames=96, sweep=360.0, res=2048, eye=None):
+    """Fixed camera, sun swept in azimuth: the caustic orbits the glass.
+
+    `eye` is (azimuth, elevation, zoom). The default of (None) keeps the renderer's own
+    direction; tools/camera_sweep.py picks a better one by measuring which camera keeps
+    the caustic in frame for the WHOLE revolution, since the worst sun position is what
+    a viewer sees as the animation losing its subject.
+    """
     os.makedirs(TMP, exist_ok=True)
     for f in os.listdir(TMP):
         if f.startswith("sun_"):
@@ -145,7 +165,7 @@ def exp_sun(n=1520, frames=96, sweep=360.0, res=2048):
     for i in range(frames):
         az = REF_AZ + sweep * i / frames
         p = os.path.join(TMP, f"sun_{i:04d}.png")
-        render(p, n=n, sun_az=az, fixed_cam=True, res=res)
+        render(p, n=n, sun_az=az, fixed_cam=True, res=res, eye=eye)
         if i % 12 == 0:
             print(f"  frame {i}/{frames}  az={az:.1f}")
     out = os.path.join(MEDIA, "colour_sun_orbit.gif")
@@ -194,13 +214,13 @@ def find_ffmpeg():
     return c[0] if c else "ffmpeg"
 
 
-def _encode(pattern, out, max_w=900):
+def _encode(pattern, out, max_w=1520):
     """Encode frames to a GIF, capped in width.
 
-    The render stays high-resolution because the FIGURE panel needs the pixels, but a
-    showcase GIF does not: raising the orbit render to 1520 px produced a 13.11 MB GIF
-    in a repo that is already ~95% media. Capping the encoded width lets the two
-    concerns be tuned independently.
+    `max_w` is a safety rail, not a policy: the render stays high-resolution because the
+    FIGURE panel needs the pixels, and the GIF is allowed up to the render width. An
+    earlier cap of 900 px was there to keep the repository small; the author has said the
+    extra size is wanted, so the cap now only prevents an accidental blow-up.
     """
     import glob
     ff = find_ffmpeg()
@@ -267,6 +287,11 @@ def main():
     ap.add_argument("--mode", default="all",
                     choices=["media", "sun", "suncolour", "verify", "all"])
     ap.add_argument("--frames", type=int, default=72)
+    # Camera for the rotating-source sweep. Chosen by tools/camera_sweep.py, which
+    # measures which direction keeps the caustic in frame across the whole revolution.
+    ap.add_argument("--eye-az", type=float, default=None)
+    ap.add_argument("--eye-el", type=float, default=None)
+    ap.add_argument("--eye-zoom", type=float, default=1.0)
     a = ap.parse_args()
 
     if a.mode in ("verify", "all"):
@@ -279,7 +304,8 @@ def main():
         exp_media()
     if a.mode in ("sun", "all"):
         print("\nsun: fixed camera, sun swept about the glass")
-        exp_sun(frames=a.frames)
+        exp_sun(frames=a.frames, eye=(a.eye_az, a.eye_el, a.eye_zoom)
+                if a.eye_az is not None else None)
     if a.mode in ("suncolour", "all"):
         print("\nsuncolour: source spectrum swept 2000 K -> 12000 K")
         exp_suncolour()

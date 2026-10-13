@@ -2305,3 +2305,57 @@ Two detector bugs were found by trying to break the gate rather than trusting it
 
 Proven to fire: with FULL_MM deliberately broken, the lint returns 1 and the build
 refuses; restored, the set returns to 12/12.
+
+### 14.5t  Stating the exaggeration, and choosing the rotating-source camera
+
+Two reader-facing problems, one of them a correctness risk rather than a cosmetic one.
+
+**The renders exaggerate the fringe width and did not say so.** The renderer's default
+Airy scale is 0.0015 m. The physical Airy scale for this geometry at 550 nm is
+0.000123 m, so the default draws fringes 12.2x wider than they are. That is a
+deliberate display choice -- at 600 px the physical fringe is under two pixels and would
+not be visible at all -- but the paper showed those renders without stating it, so a
+reader could measure a fringe off Figure 11 and get twelve times the truth.
+
+The factor is now derived, never written as a literal:
+AIRY_RENDER / AIRY_PHYSICAL = 12.2, and panels (c) and (d) say it in their titles as
+well as the caption. Panels (a) and (b) are computed from the physical scale and are
+explicitly noted as not exaggerated, so the distinction is visible rather than implied.
+The ripple clips and the no-exaggeration figure already passed --airy 0.000123 and
+remain physical.
+
+**The rotating-source camera was chosen by measurement.** The orbit has a fixed camera
+and a rotating sun, so the caustic travels right round the glass: the WORST sun position
+is the one that matters, because a camera that looks fine at 0 degrees but hides the
+caustic behind the glass at 180 degrees gives an animation that appears to break part
+way through.
+
+The camera direction was hardcoded as (-0.45, -0.78, 0.44), which decodes to azimuth
+-120, elevation 26, and there was no flag for it -- so choosing a better angle meant
+editing and rebuilding. It is now --eye-az / --eye-el / --eye-zoom, and passing
+-120/26/1.0 reproduces the original direction BIT-IDENTICALLY (verified by hashing the
+PNG against a build with the old hardcoded vector).
+
+tools/camera_sweep.py scores cameras over eight sun positions. The metric is calibrated,
+not guessed: measured on real frames the table surface sits at L = 124-144 and the
+caustic at L = 200-243, so the caustic isolates cleanly at med + 0.6*(P99.9 - med). An
+earlier version thresholded at med + 0.55 of the MAX and flagged every camera as
+cropped, because the mask was picking up table.
+
+    coarse sweep   60 cameras x 8 suns = 480 renders
+    result         cropping at zoom 1.0 (2-4 frames); nothing cropped at zoom 1.60
+    refinement     the band 1.30-1.70 searched for the largest safe subject
+
+"Not cropped" is a hard constraint and area is maximised subject to it: a rotation that
+loses its subject is worse than one that shows it smaller.
+
+**Also fixed in this pass**
+
+* fig8's split annotation sat at axes (0.02, 0.06) -- data y ~ 7, while the bars reach
+  107, so it was drawn straight across the R bars. It now sits in the clear strip above
+  the value labels.
+* fig11(c)'s exaggeration note was first placed as a separate text and collided with the
+  panel title (9 text pairs). Folded into the title, where it cannot collide.
+* _encode's width cap is now a safety rail rather than a policy: the earlier 900 px cap
+  was there to keep the repository small, and the author has said the extra size is
+  wanted, so the GIF is encoded at the render width.

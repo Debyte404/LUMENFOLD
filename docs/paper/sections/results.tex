@@ -264,7 +264,13 @@ glass, water and source combinations, rendered from the traced ray map; the hue
 spread across them is red 20, green 18, yellow 15, blue 14, cyan 11, neutral 2.
 \textbf{(d)} the camera held fixed while the source is rotated about the glass: the
 caustic orbits the glass and the frame does not, which is what makes the motion
-visible rather than cancelled by a following camera.}
+visible rather than cancelled by a following camera. Panels (c) and (d) are ray-traced
+with the renderer's default fringe width of \SI{0.0015}{\meter}, which is
+\num{12.2}~times the physical Airy scale of \SI{0.000123}{\meter} for this geometry at
+550\,nm; the physical fringe is under two pixels at these resolutions and would not be
+visible, so the width is deliberately exaggerated and the fringe COUNT is not
+physical. Panels (a) and (b) are computed from the physical scale and are not
+exaggerated in any way.}
 \label{fig:colour}
 \end{figure*}
 

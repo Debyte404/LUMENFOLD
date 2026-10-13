@@ -39,6 +39,8 @@ import os as _os, sys as _sys
 _HERE = _os.path.dirname(_os.path.abspath(__file__))
 if _HERE not in _sys.path:
     _sys.path.insert(0, _HERE)
+from colour_experiments import (AIRY_FACTOR, AIRY_PHYSICAL,   # noqa: E402
+                                AIRY_RENDER)
 from paper_figs import palette, style
 style.apply()
 
@@ -153,8 +155,13 @@ def main():
     ax.set_yticklabels([f"{g} / {w}" for g, w in media],
                         fontsize=6.4)
     ax.tick_params(length=0)
-    ax.set_title("(c) all %d combinations: %d glasses x %d waters x %d sources"
-                 % (len(media) * len(ions), 4, 5, 4), pad=3)
+    # The fringe width here is the renderer default, i.e. EXAGGERATED. Say so, in the
+    # title so it cannot collide with it, and derive the factor from the two lengths
+    # rather than writing "12x" as a literal that could go stale.
+    ax.set_title("(c) all %d combinations: %d glasses x %d waters x %d sources\n"
+                 "fringes drawn %.4f m wide, %.0f$\\times$ the physical %.6f m"
+                 % (len(media) * len(ions), 4, 5, 4,
+                    AIRY_RENDER, AIRY_FACTOR, AIRY_PHYSICAL), pad=3)
 
     # ---- (d) fixed camera, rotating sun -----------------------------------
     ax = fig.add_subplot(gs[3, :])
@@ -178,7 +185,8 @@ def main():
         ax.set_xticks([])
         ax.set_yticks([])
         ax.set_title("(d) camera fixed, sun rotated about the glass: the caustic "
-                     "orbits, the frame does not", pad=4)
+                     "orbits, the frame does not (fringes %.0f$\\times$ physical)"
+                     % AIRY_FACTOR, pad=4)
         for s in ("top", "right", "left", "bottom"):
             ax.spines[s].set_visible(False)
 

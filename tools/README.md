@@ -164,3 +164,36 @@ raster dpi on the page were not the values in the source, and no two figures agr
 
 Then run `python tools/make_all_figures.py`; if the lint fails, fix the figure rather
 than the check.
+
+## Choosing a camera by measurement
+
+`tools/camera_sweep.py` and `tools/camera_refine.py` pick the rotating-source camera.
+The orbit has a FIXED camera and a rotating sun, so the caustic travels right round the
+glass and the WORST sun position is the one that matters: a camera that looks fine at
+0 degrees but hides the caustic behind the glass at 180 degrees gives an animation that
+appears to break part way through.
+
+The metric is calibrated against real frames, not guessed. Measured on a render, the
+table surface sits at L = 124-144 and the caustic at L = 200-243, so the caustic
+isolates cleanly at `med + 0.6*(P99.9 - med)`. Score is the worst-case caustic area over
+a full revolution, with "not cropped" as a HARD constraint -- a rotation that loses its
+subject is worse than one that shows it smaller.
+
+    python tools/camera_sweep.py     # azimuth x elevation x zoom, 8 sun positions
+    python tools/camera_refine.py    # narrow the band around the best result
+
+The renderer exposes `--eye-az / --eye-el / --eye-zoom`; `-120 / 26 / 1.0` reproduces the
+original hardcoded direction `(-0.45, -0.78, 0.44)` bit-identically.
+
+## Exaggeration must be labelled
+
+The renderer's default Airy scale is 0.0015 m; the physical Airy scale for this geometry
+at 550 nm is 0.000123 m, so the default draws fringes **12.2x wider than they are**.
+That is deliberate (the physical fringe is under two pixels at 600 px and would not be
+visible) but it must be STATED wherever it is shown, or a reader measures a fringe and
+gets twelve times the truth.
+
+`colour_experiments.AIRY_FACTOR` derives the number from the two lengths, so it cannot
+go stale. Panels (c) and (d) of Figure 11 state it in their titles and the caption;
+panels (a) and (b) are computed from the physical scale and say they are not
+exaggerated. The ripple clips pass `--airy 0.000123` and are physical.

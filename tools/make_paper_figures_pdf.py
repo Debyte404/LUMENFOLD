@@ -458,8 +458,12 @@ def fig_dispersion():
     ax.set_xticks(x); ax.set_xticklabels(ch)
     ax.set_ylabel("edge radius (mm)")
     ax.set_ylim(0, 122)
-    ax.text(0.02, 0.06, "red$-$blue split $+5.0$ mm in both",
-            transform=ax.transAxes, fontsize=6.5)
+    # The split note goes in the clear strip above the value labels. At (0.02, 0.06) it
+    # ran straight across the R bars -- the bars reach 107 and the text was at data
+    # y ~ 7, so it was drawn over them. Above the labels (which top out at 112) the
+    # full width is empty, and the legend sits outside the axes so there is no clash.
+    ax.text(0.5, 0.988, "red$-$blue split $+5.0$ mm, the same in both methods",
+            transform=ax.transAxes, ha="center", va="top", fontsize=6.5)
     save(fig, "fig8_dispersion", "dispersion ordering")
 
 
