@@ -43,31 +43,18 @@ MM = 1.0 / 25.4
 COL = 84 * MM      # single column width (inches)
 FULL = 174 * MM    # full text width (inches)
 
-SERIF = ["Times New Roman", "Nimbus Roman", "DejaVu Serif"]
-plt.rcParams.update({
-    "font.family": "serif",
-    "font.serif": SERIF,
-    "font.size": 8,
-    "axes.labelsize": 8,
-    "axes.titlesize": 8,
-    "legend.fontsize": 7,
-    "xtick.labelsize": 7,
-    "ytick.labelsize": 7,
-    "axes.linewidth": 0.6,
-    "xtick.major.width": 0.6,
-    "ytick.major.width": 0.6,
-    "lines.linewidth": 1.0,
-    "axes.grid": True,
-    "grid.linewidth": 0.3,
-    "grid.alpha": 1.0,
-    "grid.color": "0.85",
-    "axes.axisbelow": True,
-    "savefig.bbox": "tight",
-    "savefig.pad_inches": 0.06,
-    "figure.dpi": 600,
-    "savefig.dpi": 600,
-    "pdf.fonttype": 42,
-})
+from paper_figs import palette, style
+
+MM = style.MM
+COL = style.COL_MM * MM      # single column width, inches
+FULL = style.FULL_MM * MM    # full text width, inches
+
+# The house style. No local rcParams: four producers each had their own copy and
+# they had drifted apart. Grid stays on for this file because these are data plots
+# whose values are read off the axis.
+style.apply()
+plt.rcParams.update({"axes.grid": True, "grid.color": "#d9d9d9",
+                     "grid.linewidth": 0.35, "axes.axisbelow": True})
 
 # scene constants -- identical to tools/verify_ray_map.py and the solver
 R_OUT, R_IN, H_GLASS = 0.035, 0.0315, 0.090
@@ -80,16 +67,24 @@ N_GLASS = 1.52514      # central channel, Rubin 1985
 # The three render channels. Chosen to separate on hue AND luminance AND dash, so
 # the figures survive greyscale printing and the common red-green confusion: R and G
 # differ in luminance, B is the darkest, and every series carries its own linestyle.
-CH_COLOUR = {0: "#c62828", 1: "#2e7d32", 2: "#1565c0"}
-CH_STYLE = {0: "-", 1: "--", 2: ":"}
+CH_COLOUR = {0: palette.CHANNEL[650], 1: palette.CHANNEL[550],
+             2: palette.CHANNEL[450]}
+CH_STYLE = {0: palette.CHANNEL_DASH[650], 1: palette.CHANNEL_DASH[550],
+            2: palette.CHANNEL_DASH[450]}
 CH_NAME = {0: "R 650 nm", 1: "G 550 nm", 2: "B 450 nm"}
 
 
 def save(fig, name, note=""):
+    """Fit inside the canvas, then assert the page is exactly the authored width.
+
+    Figures used to be saved with a tight bounding box, which CROPPED them: a
+    figure asked for at 174 mm came out at 142 mm and LaTeX then scaled it back,
+    changing its type size and raster dpi. Authored size is now the contract.
+    """
     p = f"{FIG}/{name}.pdf"
-    fig.savefig(p)
-    plt.close(fig)
-    flatten_alpha(p)
+    want_mm = fig.get_size_inches()[0] * 25.4
+    style.fit(fig)
+    style.save(fig, p, width_mm=want_mm)
     print(f"  {name}.pdf  {note}")
 
 
@@ -220,10 +215,14 @@ def decade_ticks(ax, which="x", values=None):
     frequency panel came out reading "5, 6 x 10^0, 10, 20, 3 x 10^1, 40". The
     minor ticks are ticks, not labels.
     """
-    from matplotlib.ticker import NullFormatter, NullLocator
+    from matplotlib.ticker import FuncFormatter, NullFormatter, NullLocator
     axis = ax.xaxis if which == "x" else ax.yaxis
     axis.set_minor_locator(NullLocator())
     axis.set_minor_formatter(NullFormatter())
+    # Matplotlib labels decades as $10^{n}$; mathtext draws the exponent at 0.7x,
+    # so a 7pt axis produced 4.9pt superscripts. Plain decimals keep every glyph
+    # at the axis size, and read better besides.
+    axis.set_major_formatter(FuncFormatter(lambda v, _p: "%g" % v))
     if values is not None:
         axis.set_major_locator(plt.FixedLocator(values))
         axis.set_major_formatter(plt.FixedFormatter([f"{v:g}" for v in values]))
@@ -237,8 +236,9 @@ def fig_fold_optics():
     g = V.to_grid(X, Y)
     g = np.asarray(g, dtype=float)
 
-    fig, axes = plt.subplots(1, 2, figsize=(FULL, FULL * 0.33),
-                             gridspec_kw={"wspace": 0.40})
+    fig, axes = plt.subplots(1, 2, figsize=(FULL, FULL * 0.36),
+                             gridspec_kw={"wspace": 0.40},
+                             layout="constrained")
     im = axes[0].imshow(g ** 0.4, cmap="inferno",
                         extent=[-160, 160, -160, 160], origin="upper")
     axes[0].set_title("(a) brute-force ray density (independent trace)")
@@ -383,7 +383,8 @@ def fig_fourpanel():
     except Exception as e:
         print("  fig6 skipped:", e)
         return
-    fig, axes = plt.subplots(1, 4, figsize=(FULL, FULL * 0.28))
+    fig, axes = plt.subplots(1, 4, figsize=(FULL, FULL * 0.35),
+                             layout="constrained")
     for ax, img, t in zip(axes, (gt, ours, sp, cyc),
                           ("ground truth\n(brute-force trace)", "ours\n(wave-corrected)",
                            "PBRT-v4 SPPM", "Blender Cycles")):
@@ -392,7 +393,7 @@ def fig_fourpanel():
         ax.imshow(np.clip(v, 0, 1) ** 0.45, cmap="inferno")
         ax.set_title(t, fontsize=7)
         ax.set_xticks([]); ax.set_yticks([]); ax.grid(False)
-    fig.text(0.5, -0.02, "each panel normalised to its own maximum, $\\gamma=0.45$",
+    fig.text(0.5, 0.05, "each panel normalised to its own maximum, $\\gamma=0.45$",
              ha="center", fontsize=6.5)
     save(fig, "fig6_fourpanel", "four-way comparison")
 
@@ -412,7 +413,7 @@ def fig_cost():
     ax.bar(x + 0.26, t8, 0.24, color="black", ec="black", lw=0.5, label="total, 8 threads")
     ax.set_yscale("log")
     decade_ticks(ax, "y")
-    ax.set_xticks(x); ax.set_xticklabels([f"${g}^2$" for g in grids])
+    ax.set_xticks(x); ax.set_xticklabels([f"{g}\u00b2" for g in grids])
     ax.set_xlabel("bake grid")
     ax.set_ylabel("time (ms), log scale")
     ax.legend(loc="upper left", frameon=False)

@@ -31,20 +31,11 @@ def main():
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    plt.rcParams.update({
-        "font.family": "serif",
-        "font.serif": ["Times New Roman", "Nimbus Roman", "DejaVu Serif"],
-        "font.size": 8, "axes.labelsize": 8, "axes.titlesize": 8,
-        "legend.fontsize": 7, "xtick.labelsize": 7, "ytick.labelsize": 7,
-        "axes.linewidth": 0.6, "xtick.major.width": 0.6, "ytick.major.width": 0.6,
-        "lines.linewidth": 1.0, "axes.grid": True, "grid.linewidth": 0.3,
-        "grid.alpha": 1.0, "grid.color": "0.85", "axes.axisbelow": True,
-        "savefig.bbox": "tight", "savefig.pad_inches": 0.01, "figure.dpi": 300,
-        "pdf.fonttype": 42,
-    })
+    from paper_figs import palette, style
+    style.apply()
 
     MM = 1.0 / 25.4
-    FULL = 174 * MM
+    FULL = style.FULL_MM * style.MM
 
     u = np.linspace(0, 8, 2000)
     I = airy(-u)[0] ** 2
@@ -90,7 +81,8 @@ def main():
                    fancybox=False)
 
     p = f"{FIG}/fig3_airy.pdf"
-    fig.savefig(p)
+    style.fit(fig)
+    style.save(fig, p, width_mm=style.FULL_MM)
     plt.close(fig)
 
     # byte-length-preserving alpha flatten (a PDF xref stores absolute offsets)

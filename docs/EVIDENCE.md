@@ -2251,3 +2251,57 @@ number may be quoted from those pixels meanwhile.
 Lesson recorded: a dispersion comparison is only meaningful between estimators
 immune to the cap and to normalisation. Neither the ridge argmax (cap) nor the
 mean-over-rays radius (tails) qualifies; the threshold-crossing edge does.
+
+### 14.5s  A measurement gate for the figures
+
+Every figure defect in this paper was found by the author's eye after the draft was
+assembled, then patched in one producer script while the other four kept the bug. The
+figures were produced by four scripts that each carried their own rcParams copy, and
+they had drifted: body text 8pt in two and 7.5pt in two, rasters at 300, 400 and 600
+dpi, one with transparency flattening and three without, and no shared palette -- so
+"the 450 nm channel" was a different blue depending on which figure you read.
+
+Linting the existing set first made the scale of it concrete: **0 of 12 figures passed**.
+
+    every one embedded DejaVuSans   the figures' text was a SANS font while the paper
+                                    is serif; the single largest reason they did not
+                                    look like one document
+    widths 78, 79, 106, 138, 141,    none matched the column (84.4 mm) or the text
+    142, 147, 174 mm                block (177.1 mm), because savefig bbox="tight"
+                                    CROPPED each figure; LaTeX then rescaled it, so the
+                                    type size and dpi were not what the source said
+    text down to 4.0pt              a 7pt axis produced 4.9pt superscripts
+    /SMask and alpha in fig11/12    the venue forbids transparent figure content
+
+The replacement is a design system plus a gate rather than another round of patches:
+
+  * `tools/paper_figs/style.py` -- one style: Times New Roman (metrically identical to
+    the class's Nimbus Roman), a size hierarchy, stroke weights, save() that always
+    flattens alpha and strips a soft mask, and `save(width_mm=...)` that RAISES if the
+    produced page is not the width asked for.
+  * `tools/paper_figs/palette.py` -- one meaning, one colour; every semantic series
+    also carries a dash or hatch pattern so it survives greyscale.
+  * `tools/figure_lint.py` -- measures each figure and fails on a spec violation.
+  * `tools/make_all_figures.py` -- one driver, fixed order, lints at the end.
+  * `build_paper_pdf.py` -- runs the lint first and REFUSES to build on failure.
+
+Result: **12 of 12 pass**, every figure at exactly its include width, 25 pages, 0
+overfull boxes, 0 errors on both engines.
+
+The constants themselves were wrong. The paper's real column is 84.4 mm and its text
+block 177.1 mm; the figures had been authored against 84 and 174, so even the corrected
+set was being rescaled by 1.8%. Measured from the compiled paper, not assumed.
+
+Two detector bugs were found by trying to break the gate rather than trusting it:
+
+  * The lint compared each figure against the same constants the producers author with,
+    so a wrong constant moved both sides together. Breaking FULL_MM to 187.1 mm made a
+    187 mm figure read as "ok". The expectation is now derived from the
+    `\includegraphics` command that places the figure, and the constants are
+    cross-checked against the compiled paper.
+  * The image checks matched "/Subtype /Image" with a space; PyMuPDF wrote
+    "/Subtype/Image" without one, so every image test silently skipped fig11. Same
+    class of mistake as the earlier overfull-box and collision detectors.
+
+Proven to fire: with FULL_MM deliberately broken, the lint returns 1 and the build
+refuses; restored, the set returns to 12/12.

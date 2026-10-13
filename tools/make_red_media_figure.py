@@ -29,6 +29,12 @@ from PIL import Image                     # noqa: E402
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
+import os as _os, sys as _sys
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if _HERE not in _sys.path:
+    _sys.path.insert(0, _HERE)
+from paper_figs import palette, style
+
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 
@@ -62,7 +68,7 @@ def frame(path, which=36):
 
 
 def main():
-    fig, axes = plt.subplots(1, 4, figsize=(174 * MM, 62 * MM))
+    fig, axes = plt.subplots(1, 4, figsize=(style.FULL_MM * style.MM, 62 * MM))
     for ax, (name, label) in zip(axes, PANELS):
         p = os.path.join(MEDIA, name)
         if not os.path.exists(p):

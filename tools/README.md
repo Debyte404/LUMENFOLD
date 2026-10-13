@@ -108,3 +108,59 @@ their siblings by inserting their own directory on `sys.path`, so moving a modul
 silently break the harnesses that reproduce the paper's numbers. The only exception is
 `archive/`, whose members were verified first — they either import nothing local, or
 hardcode the tools path, or move as a self-contained cluster.
+
+## The figure system
+
+Figures are not written ad hoc. They are produced against a spec and then measured
+against it, and the measurement gates the build.
+
+    tools/paper_figs/style.py      the house style: typography, geometry, strokes,
+                                   and save() guarantees
+    tools/paper_figs/palette.py    one meaning, one colour -- channels, methods,
+                                   media, sources
+    tools/figure_lint.py           measures every figure and fails if one is off spec
+    tools/make_all_figures.py      runs all five producers in order, then lints
+
+Producers (one writer per figure -- never two tools to the same file):
+
+    make_paper_figures_pdf.py   figs 2, 4, 5, 6, 7, 8, 9, 10
+    make_fig1_scene.py          fig 1   (scene section, geometry, light path)
+    fix_fig3_airy.py            fig 3   (Airy profile and its divergence)
+    make_colour_figure.py       fig 11  (colour: channels, medium, sun)
+    make_red_media_figure.py    fig 12  (tinted-medium renders)
+
+### What the lint checks, and why each one exists
+
+| check | why |
+|---|---|
+| serif font family | matplotlib substitutes DejaVu Serif silently when Times is absent, and figures stop matching the text face |
+| body text at or above 6pt, scripts at or above 4.5pt | a 7pt axis once produced 4.9pt superscripts |
+| no colliding text | two labels sharing ink; fig2's colorbar label printed through the next panel's axis label |
+| no text outside the canvas | a rotated ylabel's bearing sat at x = -1.1pt |
+| raster at or above 300 dpi | one panel embedded at 98 dpi |
+| no /SMask and no non-opaque alpha | the venue forbids transparent figure content |
+| width equals the \includegraphics width | otherwise LaTeX rescales the figure and its type size and dpi are not what the source says |
+| geometry constants match the compiled paper | both sides could otherwise share the same wrong constant |
+
+### The width contract
+
+Every figure is authored at EXACTLY the width the paper includes it at -- 177.1 mm for
+`width=\textwidth`, 84.4 mm for `width=\linewidth` -- and `style.save(width_mm=...)`
+raises if the produced page differs. Those two numbers are measured from the compiled
+paper, not assumed from the class.
+
+Previously every figure was saved with a tight bounding box, which CROPPED it: a figure
+asked for at 174 mm came out at 142 mm and LaTeX scaled it back, so the type size and
+raster dpi on the page were not the values in the source, and no two figures agreed.
+
+### Adding a figure
+
+    from paper_figs import palette, style
+    style.apply()
+    fig, ax = style.new_fig(style.COL_MM, 60)
+    ...
+    style.fit(fig)
+    style.save(fig, path, width_mm=style.COL_MM)
+
+Then run `python tools/make_all_figures.py`; if the lint fails, fix the figure rather
+than the check.

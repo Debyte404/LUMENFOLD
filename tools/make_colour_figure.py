@@ -35,24 +35,12 @@ OUT = _os.path.join(_ROOT, "docs", "paper", "figures")
 MEDIA = _os.path.join(_ROOT, "docs", "media")
 
 MM = 1.0 / 25.4
-plt.rcParams.update({
-    "font.family": "serif",
-    "font.serif": ["Times New Roman", "Nimbus Roman", "DejaVu Serif"],
-    "font.size": 7.5,
-    "axes.labelsize": 7.5,
-    "axes.titlesize": 7.5,
-    "legend.fontsize": 6.5,
-    "xtick.labelsize": 6.5,
-    "ytick.labelsize": 6.5,
-    "axes.linewidth": 0.6,
-    "xtick.major.width": 0.6,
-    "ytick.major.width": 0.6,
-    "pdf.fonttype": 42,
-    # Raster panels need explicit resolution: the rcParam default is 100 dpi,
-    # which is where the orbit strip embedded at 98 dpi came from.
-    "figure.dpi": 400,
-    "savefig.dpi": 400,
-})
+import os as _os, sys as _sys
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if _HERE not in _sys.path:
+    _sys.path.insert(0, _HERE)
+from paper_figs import palette, style
+style.apply()
 
 STRIP_N = 200          # vector segments per band; the bands are smooth
 
@@ -80,7 +68,7 @@ def main():
               encoding="utf-8") as fh:
         R = json.load(fh)
 
-    fig = plt.figure(figsize=(174 * MM, 196 * MM))
+    fig = plt.figure(figsize=(style.FULL_MM * style.MM, 196 * MM))
     gs = fig.add_gridspec(4, 2, height_ratios=[1.00, 0.55, 1.30, 0.66],
                           hspace=0.95, wspace=0.30,
                           left=0.115, right=0.985, top=0.955, bottom=0.055)
@@ -167,7 +155,8 @@ def main():
     ax.set_xticks(np.arange(len(ions)) + 0.5)
     ax.set_xticklabels(labels, fontsize=6.3)
     ax.set_yticks([len(media) - 1 - r + 0.46 for r in range(len(media))])
-    ax.set_yticklabels([f"{g} / {w}" for g, w in media], fontsize=5.8)
+    ax.set_yticklabels([f"{g} / {w}" for g, w in media],
+                        fontsize=6.4)
     ax.tick_params(length=0)
     ax.set_title("(c) all %d combinations: %d glasses x %d waters x %d sources"
                  % (len(media) * len(ions), 4, 5, 4), pad=3)
@@ -199,7 +188,8 @@ def main():
             ax.spines[s].set_visible(False)
 
     p = _os.path.join(OUT, "fig11_colour.pdf")
-    fig.savefig(p, format="pdf")
+    style.fit(fig)
+    style.save(fig, p, width_mm=style.FULL_MM)
     plt.close(fig)
     print(f"wrote {p}  ({os.path.getsize(p)/1024:.1f} KiB)")
     return 0

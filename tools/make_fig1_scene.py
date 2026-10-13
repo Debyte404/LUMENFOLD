@@ -54,16 +54,14 @@ import fig1_geometry as G
 ROOT = _ROOT
 FIG = f"{ROOT}/docs/paper/figures"
 MM = 1.0 / 25.4
-FULL = 174 * MM
+import os as _os, sys as _sys
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if _HERE not in _sys.path:
+    _sys.path.insert(0, _HERE)
+from paper_figs import palette, style
+FULL = style.FULL_MM * style.MM   # measured text width
 
-plt.rcParams.update({
-    "font.family": "serif",
-    "font.serif": ["Times New Roman", "Nimbus Roman", "DejaVu Serif"],
-    "font.size": 8, "axes.labelsize": 8, "xtick.labelsize": 7, "ytick.labelsize": 7,
-    "axes.linewidth": 0.6, "xtick.major.width": 0.6, "ytick.major.width": 0.6,
-    "savefig.bbox": "tight", "savefig.pad_inches": 0.06, "figure.dpi": 300,
-    "pdf.fonttype": 42,
-})
+style.apply()
 
 R_OUT, R_IN, H_GLASS, WATER = G.R_OUT, G.R_IN, G.H_GLASS, G.WATER
 
@@ -143,7 +141,7 @@ def main():
     # wall thickness, called out to the right
     ax.annotate("", xy=(R_OUT, H_GLASS * 1.06), xytext=(-R_OUT, H_GLASS * 1.06),
                 arrowprops=dict(arrowstyle="<->", lw=0.5, color="black"))
-    ax.text(0.0, H_GLASS * 1.06 + 0.006, r"$\varnothing\,70$ mm",
+    ax.text(0.0, H_GLASS * 1.06 + 0.006, "\u2300 70 mm",
             ha="center", va="bottom", fontsize=6.5)
 
     ax.annotate("", xy=(-R_OUT, 0.072), xytext=(-R_IN, 0.072),
@@ -170,7 +168,7 @@ def main():
     ax.annotate("", xy=(0.016, 0.004), xytext=(R_OUT + 0.030, H_GLASS - 0.026),
                 arrowprops=dict(arrowstyle="->", lw=0.45, color="black"))
 
-    ax.text(-0.055, 0.152, r"sun: distant, $0.53^\circ$, elevation $25.4^\circ$",
+    ax.text(-0.055, 0.152, "sun: distant, 0.53\u00b0, elevation 25.4\u00b0",
             fontsize=7.5, ha="left")
 
     # ---- scale bar
@@ -193,7 +191,8 @@ def main():
     ax.set_yticklabels([f"{v*1000:.0f}" for v in yt])
 
     p = f"{FIG}/fig1_scene.pdf"
-    fig.savefig(p)
+    style.fit(fig)
+    style.save(fig, p, width_mm=style.FULL_MM)
     plt.close(fig)
 
     import re

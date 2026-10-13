@@ -118,6 +118,18 @@ def main():
                     help="(tectonic only; intermediates are kept regardless)")
     a = ap.parse_args()
 
+    # Gate the build on the figures. A figure that violates the design spec -- wrong
+    # width, non-serif font, tiny text, colliding or clipped labels, low raster dpi,
+    # transparency -- must not reach a reader, and every such defect in this paper was
+    # previously found by eye after the fact. Checked before the build because the
+    # build is the expensive part.
+    lint = os.path.join(os.path.dirname(os.path.abspath(__file__)), "figure_lint.py")
+    r = subprocess.run([sys.executable, lint], capture_output=True, text=True)
+    print(r.stdout.rstrip())
+    if r.returncode != 0:
+        print("  FIGURE LINT FAILED -- refusing to build a paper with a bad figure")
+        return 1
+
     log, rc = (build_tectonic(a.keep) if a.engine == "tectonic"
                else build_pdflatex())
     if log is None:
