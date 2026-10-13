@@ -82,8 +82,6 @@ These share no code with the estimator, which is the point.
 | `frame_test2.py` | Chooses the GIF camera by measuring the caustic's margin with a differential mask. |
 | `cam_projection_check.py` | Proves the Blender and PBRT cameras agree, analytically, point by point. |
 | `fix_spmm_exposure.py`, `tune_spmm_scale.py` | Calibrate the SPMM clip's exposure to the Blender one. |
-| `make_paper_figures.py` | Regenerates all 9 figures in `docs/figures/` from real artefacts. |
-| `build_paper_html.py` | `docs/PAPER.md` → `docs/PAPER.html` (MathJax, figures inlined). |
 | `make_comparison_figure.py` | The photograph / ours / Cycles comparison figure. |
 | `airy_caustic.py` | Python reference baker for the pool scene, and its comparison image. |
 | `efficiency_study.py` | Accuracy vs splat budget: Monte-Carlo against the deterministic pass. |
@@ -100,6 +98,8 @@ them are cited in `docs/EVIDENCE.md`. Nothing live imports them.
 | `repro_3452.py`, `two_medium_demo.py` | The MuJoCo air/water physics demos from this repo's earlier stage (see the History section of the root README). |
 | `dispersion_analytic.py` | Superseded by the dispersion work in EVIDENCE §20. |
 | `edt_debug.py`, `probe_blender.py`, `where_diff.py`, `mid_diff.py`, `bisect_parity.py`, `compare_caustic_maps.py`, `showdown_common_mask.py`, `validate_field_vs_cycles.py` | One-off diagnostic inquests, each superseded once its question was answered. |
+| `make_paper_figures.py` | Regenerated the 9 raster figures in `docs/archive/figures/`. Replaced by `make_paper_figures_pdf.py`, which emits the vector PDFs the paper actually uses. |
+| `build_paper_html.py` | Rendered the markdown draft (`docs/archive/PAPER.md`) to a printable web page. The LaTeX build replaced it as the typeset artefact. |
 
 ## Note on layout
 

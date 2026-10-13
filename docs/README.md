@@ -1,32 +1,34 @@
 # docs/ — the written record
 
-Reading order, and what each file is for. Currency is stated per file: the work went
-through a scope change (from physical-validation to comparative-evaluation), so a few
-documents carry dated scope notes.
+The paper, the measurement record behind it, and the presentation media. Nothing here
+is asserted without a measurement; currency is stated per file.
 
-| File | What it is | State |
-|---|---|---|
-| [`paper/main.pdf`](paper/main.pdf) | **The paper.** Typeset in the official Computer Graphics Forum class (`egpubl.cls`, Eurographics), 22 pages: kinematics with lemmas, theorems and proofs, how computer graphics builds caustics, the current solvers, the method, results, verification, limits, discussion, appendices. Source in `paper/`. | current, primary deliverable |
-| [`PAPER.md`](PAPER.md) | Earlier markdown draft of the same manuscript. Superseded by `paper/main.tex`; kept for the record. | superseded |
-| [`PAPER.html`](PAPER.html) | Printable web page generated from the markdown draft. The LaTeX build replaced it as the typeset artefact. | generated from PAPER.md |
-| [`EVIDENCE.md`](EVIDENCE.md) | **The measurement record** — 1,400+ lines, every number in the paper with its provenance, including negative results, the estimator traps that produced false conclusions, and the index error that was caught. | current, canonical |
-| [`CRITIQUE.md`](CRITIQUE.md) | Adversarial audit of our own claims: which survived, which were inflated, which were vacuous. Includes the active falsifier list. | current |
-| [`PAPER_PLAN.md`](PAPER_PLAN.md) | Planning document: claim inventory, related-work survey (the novelty gap), figure list, staged timeline, target venues, threats to validity. | current where it has been updated (claim inventory, venue gate); the apparatus experiment is descoped |
-| [`BLENDER_PLUGIN.md`](BLENDER_PLUGIN.md) | The Blender caustic-injector plug-in: scene contract, honest scope, install and use. | current |
-| [`PHYSICAL_TEST.md`](PHYSICAL_TEST.md) | How the physical questions *would* be settled with apparatus: protocol, falsifiable predictions, what a photograph cannot settle. | **optional appendix — out of scope for this work**, not cited as evidence |
+## Current
+
+| File | What it is |
+|---|---|
+| [`paper/main.pdf`](paper/main.pdf) | **The paper.** Typeset in Computer Graphics Forum's own class (`egpubl.cls`, Eurographics): kinematics, how computer graphics builds caustics, the current solvers, the method, results, verification, limits, discussion, appendices. Source in `paper/`. Compile with `tools/build_paper_pdf.py`. |
+| [`EVIDENCE.md`](EVIDENCE.md) | **The measurement record.** Every number in the paper with its provenance, including the negative results, the estimator traps that manufactured false conclusions, and the defects found after publication-grade checks had passed. Sections `14.5a`–`14.5r` are the colour, colour-rendering and add-on findings. |
+| [`CRITIQUE.md`](CRITIQUE.md) | Adversarial audit of our own claims: which survived, which were inflated, which were vacuous. Carries the active falsifier list. |
+| [`BLENDER_PLUGIN.md`](BLENDER_PLUGIN.md) | The Blender caustic-injector add-on: install, every control, both node graphs, the silent-failure traps, the scene contract, and troubleshooting. |
+| [`PHYSICAL_TEST.md`](PHYSICAL_TEST.md) | How the physical questions *would* be settled with apparatus: protocol, falsifiable predictions, what a photograph cannot settle. **Optional appendix — out of scope for this work**, not cited as evidence. |
 
 ## Directories
 
 | Path | Contents |
 |---|---|
-| `paper/` | The CGF LaTeX source: `main.tex`, `sections/`, `refs.bib` (every entry verified against Crossref), and `figures/` as vector PDF. Compile with `tools/build_paper_pdf.py`. |
-| `figures/` | The earlier raster figures, generated from real artefacts by `tools/make_paper_figures.py`. `figure_data.json` carries the numbers they plot. The paper now uses the vector PDFs in `paper/figures/`. |
-| `media/` | Presentation media: the four clips (ripple, turntable, combined, and Cycles' counterparts), **`ripple_{ours,cycles,spmm}.gif`** — the same ripple animation three ways, one verified camera, physical fringe width, exposure-matched subject (EVIDENCE 14.5f) — contact sheet, comparison figures, showcase stills, and the colour set: **`colour_media_grid.png`** (20 rendered caustics, 4 glass × 5 water), **`colour_sun_orbit.gif`** (camera fixed, sun rotated a full turn) and **`colour_sun_sweep.gif`** (source 2000–12000 K, as a palindrome so the loop does not flash). |
-| `data/` | Machine-readable artefacts: the baked caustic field (`caustic_wave.npy`), the efficiency study results, and **`colour_results.json`** — the full 4×5×4 glass × water × source factorial (80 caustic cases) plus 15 fringe cases. |
+| `paper/` | The CGF LaTeX source: `main.tex`, `sections/`, `refs.bib` (every entry verified against Crossref), `egpubl.cls` and the vector figures in `paper/figures/`. |
+| `media/` | Presentation media. The ripple animation three ways — **`ripple_{ours,cycles,spmm}.gif`**, one verified camera, physical fringe width, exposure-matched subject (EVIDENCE 14.5f) — plus **`hero_comparison.gif`/`.png`**, **`no_exaggeration.png`**, and the colour set: **`colour_media_grid.png`** (20 rendered caustics, 4 glass × 5 water), **`colour_sun_orbit.gif`** (camera fixed, sun rotated a full turn), **`colour_sun_sweep.gif`** (source 2000–12000 K, a palindrome so the loop does not flash), and **`ripple_{water,glass,both}_red.gif`** (one medium variable at a time). |
+| `data/` | Machine-readable artefacts: the baked caustic field (`caustic_wave.npy`), the efficiency study results, **`colour_results.json`** (the full 4×5×4 glass × water × source factorial — 80 caustic cases, 15 fringe cases), and **`figure_data.json`** (the numbers `tools/make_paper_figures_pdf.py` plots). |
+| `archive/` | Superseded material, kept for the record rather than deleted: `PAPER.md` and `PAPER_PLAN.md` (the markdown draft of the manuscript, and its planning document — both replaced by `paper/main.tex`) and `figures/` (the earlier raster figures, replaced by the vector PDFs in `paper/figures/`). |
+
+The generated `docs/PAPER.html` was removed rather than archived: it was a 2.1 MB
+by-product of `PAPER.md`, rebuildable from the archived source by
+`tools/archive/build_paper_html.py`.
 
 ## Where the numbers come from
 
-Nothing in `PAPER.md` is asserted without a measurement behind it. The independent
+Nothing in the paper is asserted without a measurement behind it. The independent
 instruments, none of which share code with the estimator:
 
 - **brute-force geometric trace** — 810 k explicit rays, no parametrisation, no
@@ -41,6 +43,5 @@ instruments, none of which share code with the estimator:
   corrected before any claim was made (`tools/blender_scene.py`).
 
 Two estimator conventions are documented because each one manufactured a false
-conclusion before being caught (`EVIDENCE.md` §6.8 of the paper, §14.5e of EVIDENCE):
-the sign convention for a differential caustic, and the tile-size-vs-tile-count
-naming collision.
+conclusion before being caught (EVIDENCE §14.5e): the sign convention for a
+differential caustic, and the tile-size-vs-tile-count naming collision.

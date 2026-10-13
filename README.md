@@ -385,7 +385,8 @@ estimator and the comparison against SPPM/Cycles/Mitsuba â€” the current work â€
 ## License
 
 [MIT](LICENSE) for the code, tools and figure scripts. The paper text
-(`docs/paper/**`, `docs/PAPER.md`) is a manuscript intended for journal submission and is
+(`docs/paper/**`, and the archived draft in `docs/archive/`) is a manuscript intended
+for journal submission and is
 governed by the venue's terms, not by the MIT grant.
 
 ## Citation

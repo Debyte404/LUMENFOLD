@@ -253,10 +253,73 @@ def fig_fold_optics():
 # writers for one output file means the load order decides which is published.
 
 
+# ---------------------------------------------------------------------------
+# Local 16-bit PNG reader and artefact loader.
+#
+# These were imported from `make_paper_figures` until that tool was archived as
+# superseded. A live tool must not depend on an archived one, so both are copied
+# here along with the imports they need. Do not re-point these at the archive.
+# ---------------------------------------------------------------------------
+def read_png16(path):
+    """Read a 16-bit RGB PNG as float, undoing the solver's /16 export scale."""
+    import struct
+    import zlib
+
+    d = open(path, "rb").read()
+    pos, idat = 8, b""
+    w = h = 0
+    while pos < len(d):
+        ln, typ = struct.unpack(">I4s", d[pos:pos + 8])
+        body = d[pos + 8:pos + 8 + ln]
+        if typ == b"IHDR":
+            w, h, depth, ct = struct.unpack(">IIBB", body[:10])
+        elif typ == b"IDAT":
+            idat += body
+        elif typ == b"IEND":
+            break
+        pos += 12 + ln
+    raw = zlib.decompress(idat)
+    stride = w * 3 * 2
+    out = np.zeros((h, w, 3), np.uint16)
+    p = 0
+    for y in range(h):
+        p += 1
+        out[y] = np.frombuffer(raw[p:p + stride], dtype=">u2").reshape(w, 3)
+        p += stride
+    return out.astype(np.float32) / 65535.0 * 16.0
+
+
+def _lum(path):
+    from PIL import Image
+
+    return np.asarray(Image.open(path).convert("L"), dtype=np.float32)
+
+
+def load_all():
+    """Ground truth, ours, SPPM and Cycles, all resampled onto one grid."""
+    import sys as _sys
+    from PIL import Image
+
+    _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import verify_ray_map as V
+
+    gt = V.to_grid(*V.trace()[:2])
+    H, W = gt.shape
+    field = read_png16(f"{OUT}/caustic_wavy.png")
+    ours = np.asarray(Image.fromarray(field.mean(axis=2).astype(np.float32),
+                                     mode="F").resize((W, H), Image.BOX))
+    d = ((np.load(f"{OUT}/npy/spmm_optics.npy").astype(np.float64) -
+          np.load(f"{OUT}/npy/spmm_nooptics.npy").astype(np.float64)).mean(axis=2))[:, ::-1]
+    sp = np.asarray(Image.fromarray(d.astype(np.float32), mode="F").resize((W, H), Image.BOX))
+    cyc = np.clip(_lum(f"{OUT}/ortho_glass.png") - _lum(f"{OUT}/ortho_nocaustic.png"),
+                  0, None)
+    cyc = np.asarray(Image.fromarray(cyc.astype(np.float32), mode="F").resize((W, H), Image.BOX))
+    return gt, ours, sp, cyc, field
+
+
 # ------------------------------------------------------------------- figure 4
 def fig_field():
     """Our baked field, with the per-channel profile."""
-    from make_paper_figures import read_png16
     try:
         field = read_png16(f"{OUT}/caustic_wavy.png")
     except Exception as e:
@@ -283,7 +346,7 @@ def fig_field():
 # ------------------------------------------------------------------- figure 5
 def fig_quality():
     """Correlation against the independent ground truth, by tile size."""
-    d = json.load(open(f"{ROOT}/docs/figures/figure_data.json"))
+    d = json.load(open(f"{ROOT}/docs/data/figure_data.json"))
     tiles = d["tiles_mm"]
     q = d["quality"]
     fig, ax = plt.subplots(figsize=(COL, COL * 0.72))
@@ -306,7 +369,6 @@ def fig_quality():
 def fig_fourpanel():
     """The same caustic four ways."""
     try:
-        from make_paper_figures import load_all
         gt, ours, sp, cyc, _ = load_all()
     except Exception as e:
         print("  fig6 skipped:", e)
