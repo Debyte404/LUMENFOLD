@@ -95,6 +95,21 @@ def build_pdflatex():
     return log, rc
 
 
+def report_errors(out):
+    """Count compiler ERRORS, not just overfull boxes.
+
+    A grep for "overfull" alone reports a clean build on a document whose engine
+    raised "Undefined control sequence" and died -- tectonic still writes a PDF and
+    a page count, so the page-count check passes too. An undefined command is a
+    silent content loss: the affected material simply is not typeset. This has to
+    be its own assertion.
+    """
+    bad = [l for l in out.splitlines()
+           if "Undefined control sequence" in l or "! LaTeX Error" in l
+           or "! Emergency stop" in l or "Unrecoverable error" in l]
+    return bad
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--engine", choices=("tectonic", "pdflatex"),
@@ -128,6 +143,15 @@ def main():
         print(f"\nPDF: {pdf}  {os.path.getsize(pdf)/1024:.0f} KiB  pages: {n}")
         if n:
             print(f"PAGE COUNT = {n}")
+        # An engine error still usually leaves a PDF and a plausible page count
+        # behind, so "it built" is not a statement about correctness. An undefined
+        # control sequence in particular means content silently did not typeset.
+        # Exit non-zero so a scripted build cannot pass over one -- printing the
+        # error is not enough, because the caller may be grepping for something
+        # else entirely (which is exactly how one hid here).
+        if errs:
+            print(f"BUILD FAILED: {len(errs)} engine error line(s)")
+            return 1
         return 0
     print("\nNO PDF PRODUCED")
     print(log[-2500:])

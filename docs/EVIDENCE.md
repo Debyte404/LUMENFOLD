@@ -1524,6 +1524,50 @@ the source labels below the grid and opening the row spacing; now 0 overlaps. Th
 colour strips' labels were moved off the colour into a gutter, because white text on
 the bright end of a band is unreadable.
 
+### 14.5r The Blender add-on grew a coloured medium, and a check that hid its own failure (2026-10-13)
+
+`blender_addon/caustic_injector.py` v0.2 adds `glass_absorb`/`water_absorb` and two
+operators, **Tint this object's medium** and **Remove medium tint**, so 14.5q's
+two-stage requirement is reachable from the UI rather than only from a harness. The
+bake passes the coefficients through as `--glass-abs`/`--water-abs`; the tint operator
+adds a Volume Absorption node to the chosen object's materials.
+
+**The tint operator raises `volume_bounces` itself.** Left at the default 0, Cycles
+ignores the volume entirely and the medium renders colourless, silently (14.5q). The
+operator raises it only if it is below 1 and reports the value it set, so it cannot
+clobber a scene deliberately configured higher.
+
+**Two defects the headless test found, neither visible from compiling:**
+
+1. `untint_medium` assigned `None` to `Material Output.inputs["Volume"].default_value`.
+   A `NodeSocketShader` has no `default_value` at all, so the operator raised. Clearing
+   a volume socket means removing the LINK, not clearing a value.
+2. The harness asserted exact tuple equality on a `FloatVectorProperty`. The UI stores
+   float32, so `1.17` does not come back as `1.17`; the same applied to the mu
+   round-trip at 1e-6. Tolerances set to 1e-3, which is what float32 UI storage
+   actually supports.
+
+`tools/addon_bringup.py` is the harness: 12 assertions, all passing. The two that matter
+are *is the node LINKED* and *is `volume_bounces` off 0* — the two ways this feature
+fails with no trace in either the render or the log.
+
+**A verification gap of ours, found while doing this.** The paper had been building with
+`\degree` used as a math command (`$360\degree$`) instead of the siunitx unit form
+(`\SI{360}{\degree}`) that the rest of the paper uses. That is an undefined control
+sequence: the engine errored and **content silently did not typeset**. It went unnoticed
+because the build check was invoked as `build_paper_pdf.py | grep -E "overfull|PAGE"`,
+and the tool's own `--- 4 error lines ---` report was filtered out by that grep.
+
+Two rules come out of it, recorded as rules rather than as this incident:
+
+- the build tool now **exits non-zero** on engine errors. Printing them is not enough
+  when the caller may be grepping for something else. Proven by injecting an undefined
+  command: exit 1 with `BUILD FAILED`, and exit 0 once restored.
+- a check is only as good as the filter applied to its output. Reporting "clean" on two
+  properties of a build says nothing about the third that was never read.
+
+With the fix the paper builds clean on both engines: 28 pages, 0 overfull, 0 errors.
+
 ### 14.5q Red water, red glass, both: one medium at a time on the ripple clip (2026-10-13)
 
 `tools/ripple_colour_gifs.py` renders the ripple animation with one medium variable

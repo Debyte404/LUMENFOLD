@@ -292,9 +292,9 @@ different experiment and it needs a fixed frame. By default the camera follows t
 caustic's centroid, so a rotating source makes the frame pan to follow the caustic
 and the two motions cancel --- the caustic appears static, which is the opposite of
 what is happening. Locking the camera shows it: as the sun's azimuth sweeps
-$360\degree$ the caustic's centroid traces a circle of radius
+\SI{360}{\degree} the caustic's centroid traces a circle of radius
 \SI{54.2}{\milli\meter} about the glass while the frame stays put. Sampled at
-$90\degree$ intervals the centroid is at $(+47.3,+24.6)$, $(-26.3,+48.5)$,
+\SI{90}{\degree} intervals the centroid is at $(+47.3,+24.6)$, $(-26.3,+48.5)$,
 $(-48.0,-25.3)$ and $(+24.6,-48.1)$\,mm, whose radii are $53.3$, $55.2$, $54.3$ and
 \SI{54.0}{\milli\meter} --- a circle of \SI{54.2}{\milli\meter} with a standard
 deviation of \SI{0.7}{\milli\meter}, so the orbit is circular rather than merely
@@ -330,6 +330,30 @@ cool (10\,000\,K) & tea water & $0.953$ & $1.000$ & $0.325$ \\
 \hline
 \end{tabular}
 \end{table}
+
+\paragraph{Rendered, and where the colour has to be applied.}
+The table above is computed from the traced ray map. It is also rendered: the same
+geometry baked and rendered in Cycles, with only the medium changed, reproduces the
+tint, and doing so exposes a modelling requirement that is easy to miss.
+
+A caustic is a light-side quantity. Its colour is therefore set by the path the
+\emph{light} travelled, not the path the camera ray travelled, and in an estimator
+that accumulates one throughput along the camera ray those are different numbers. When
+the caustic fan is thrown clear of the glass the camera reaches it through air, so a
+camera-side throughput is approximately unity and the medium cannot act at all ---
+which is the correct behaviour for the camera path and the wrong answer for the
+caustic. A tinted \SI{90}{\milli\meter} water column that should remove about
+ninety percent of the red moved the caustic by \num{0.2}\,\% until the light path was
+carried into the field explicitly; with water set to an opaque
+\SI{500}{\per\meter} the caustic was unchanged. The glass appeared to work only
+because part of the caustic is seen \emph{through} the glass, which is why it moved
+the caustic some \num{21}\,\% and the water \num{10}\,\%.
+
+The medium's own body is a separate quantity and needs a separate mechanism: a volume
+shader, absorbing with the same per-metre coefficients. Setting one and not the other
+yields a tinted caustic inside a colourless glass, or a coloured glass with a neutral
+caustic. We report this because both halves look correct in isolation, and because a
+baked-then-composited effect has two independent places to lose a dependency.
 
 \paragraph{What neither can do.}
 The medium and the source can each tint the caustic and each tint the fringes, and

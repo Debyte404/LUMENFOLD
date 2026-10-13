@@ -29,7 +29,7 @@ _ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
 bl_info = {
     "name": "Wave Caustic Injector",
     "author": "caustics project",
-    "version": (0, 1, 0),
+    "version": (0, 2, 0),
     "blender": (3, 6, 0),
     "location": "View3D > Sidebar > Caustic",
     "description": "Bake wave-corrected caustics and inject them into Cycles "
@@ -81,6 +81,27 @@ class CausticProps(bpy.types.PropertyGroup):
     target: bpy.props.PointerProperty(
         name="Target", type=bpy.types.Object,
         description="Object that receives the caustic (usually the table)")
+    # --- coloured media -----------------------------------------------------
+    # Beer-Lambert, per metre, per channel. Two caveats worth stating where the
+    # user meets them:
+    #  * these are EXPERIMENT PARAMETERS, not measured materials. Cobalt glass is
+    #    (300, 30, 8); a colour that reads correctly is a choice, not a datum.
+    #  * the glass path is only ~3.5 mm (the wall) and the water ~90 mm, so a
+    #    coefficient that looks small for water is large for glass. The defaults
+    #    below are chosen to give a visible red in each.
+    glass_absorb: bpy.props.FloatVectorProperty(
+        name="Glass absorb", size=3, default=(30.0, 344.0, 721.0),
+        min=0.0, max=5000.0, precision=1,
+        description="Beer-Lambert per metre, R,G,B, through ~3.5 mm of glass")
+    water_absorb: bpy.props.FloatVectorProperty(
+        name="Water absorb", size=3, default=(1.17, 21.0, 38.9),
+        min=0.0, max=5000.0, precision=1,
+        description="Beer-Lambert per metre, R,G,B, through ~90 mm of water")
+    medium_objects: bpy.props.PointerProperty(
+        name="Medium objects", type=bpy.types.Object,
+        description="Object whose materials get the volume tint. Run once per "
+                    "object (glass object, then water object)")
+    volumes_on: bpy.props.BoolProperty(default=False)
     image_path: bpy.props.StringProperty(default="")
     status: bpy.props.StringProperty(default="idle")
     last_ms: bpy.props.FloatProperty(default=0.0)
@@ -89,6 +110,29 @@ class CausticProps(bpy.types.PropertyGroup):
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+def _absorb_into_material(mat, mu):
+    """Connect a Volume Absorption node: Blender attenuates as
+    exp(-Density*(1-Color)*L), so a per-channel mu becomes Density = max(mu) and
+    Color = 1 - mu/max(mu). Idempotent: an existing MEDIUM_ node is replaced."""
+    d = max(mu)
+    if d <= 0.0 or not mat.use_nodes:
+        return False
+    nt = mat.node_tree
+    for node in list(nt.nodes):
+        if node.name.startswith("MEDIUM_"):
+            nt.nodes.remove(node)
+    out = nt.nodes.get("Material Output")
+    if out is None:
+        return False
+    va = nt.nodes.new("ShaderNodeVolumeAbsorption")
+    va.name = "MEDIUM_absorb"
+    va.label = "MEDIUM_absorb"
+    va.inputs["Color"].default_value = tuple(1.0 - v / d for v in mu) + (1.0,)
+    va.inputs["Density"].default_value = d
+    nt.links.new(va.outputs["Volume"], out.inputs["Volume"])
+    return True
+
+
 def _run_hidden(cmd, timeout=600):
     """Run the solver without flashing a console window on Windows."""
     kw = {}
@@ -202,6 +246,13 @@ class CAUSTIC_OT_bake(bpy.types.Operator):
                "--dump-caustic", out]
         if p.wave_amp <= 0.0:
             cmd.append("--flat")
+        # A non-zero coefficient tints the BAKED CAUSTIC. The caustic is a
+        # light-side quantity: its colour is set by what the sunlight crossed
+        # before landing, so the bake is the only stage that can tint it.
+        if any(v > 0.0 for v in p.glass_absorb):
+            cmd += ["--glass-abs", ",".join("%.6g" % v for v in p.glass_absorb)]
+        if any(v > 0.0 for v in p.water_absorb):
+            cmd += ["--water-abs", ",".join("%.6g" % v for v in p.water_absorb)]
         t0 = time.time()
         try:
             rc, log = _run_hidden(cmd)
@@ -274,6 +325,65 @@ class CAUSTIC_OT_remove(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class CAUSTIC_OT_tint_medium(bpy.types.Operator):
+    """Give an object's materials Beer-Lambert absorption (a coloured medium)"""
+    bl_idname = "caustic.tint_medium"
+    bl_label = "Tint this object's medium"
+
+    def execute(self, context):
+        p = context.scene.caustic
+        obj = p.medium_objects or context.active_object
+        if obj is None:
+            self.report({"ERROR"}, "no object selected")
+            return {"CANCELLED"}
+        mu = tuple(p.glass_absorb)
+        n = 0
+        for mat in obj.data.materials:
+            if mat and mat.use_nodes and _absorb_into_material(mat, mu):
+                n += 1
+        # The setting that silently defeats all of the above. Cycles defaults
+        # scene.cycles.volume_bounces to 0, and at 0 it IGNORES a connected volume
+        # shader completely: the absorption is in the material, is never
+        # integrated, and the medium renders colourless with no warning anywhere.
+        # Four isolation renders came back pixel-identical before this was found.
+        if context.scene.render.engine == "CYCLES":
+            if context.scene.cycles.volume_bounces < 1:
+                context.scene.cycles.volume_bounces = 8
+        p.volumes_on = True
+        self.report({"INFO"}, "tinted %d material(s); volume bounces = %d"
+                    % (n, context.scene.cycles.volume_bounces
+                       if context.scene.render.engine == "CYCLES" else 0))
+        return {"FINISHED"}
+
+
+class CAUSTIC_OT_untint_medium(bpy.types.Operator):
+    """Remove the volume tint from an object's materials"""
+    bl_idname = "caustic.untint_medium"
+    bl_label = "Remove medium tint"
+
+    def execute(self, context):
+        p = context.scene.caustic
+        obj = p.medium_objects or context.active_object
+        n = 0
+        for mat in (obj.data.materials if obj else []):
+            if not mat or not mat.use_nodes:
+                continue
+            nt = mat.node_tree
+            for node in list(nt.nodes):
+                if node.name.startswith("MEDIUM_"):
+                    nt.nodes.remove(node)
+                    n += 1
+            # A NodeSocketShader has no default_value -- assign to it and Blender
+            # raises. Removing the LINK is what clears a volume socket.
+            out = nt.nodes.get("Material Output")
+            if out is not None and out.inputs["Volume"].is_linked:
+                for lk in list(out.inputs["Volume"].links):
+                    nt.links.remove(lk)
+        p.volumes_on = False
+        self.report({"INFO"}, f"removed {n} volume node(s)")
+        return {"FINISHED"}
+
+
 class CAUSTIC_OT_caustics_off(bpy.types.Operator):
     """Toggle Cycles' own caustics on/off"""
     bl_idname = "caustic.cycles_toggle"
@@ -310,6 +420,16 @@ class CAUSTIC_PT_panel(bpy.types.Panel):
         col.prop(p, "disable_cycles_caustics")
 
         self.layout.separator()
+        box = self.layout.box()
+        box.label(text="Coloured medium (experiment parameters)")
+        box.prop(p, "glass_absorb")
+        box.prop(p, "water_absorb")
+        box.prop(p, "medium_objects")
+        row = box.row(align=True)
+        row.operator("caustic.tint_medium", icon="MOD_FLUID")
+        row.operator("caustic.untint_medium", icon="X")
+
+        self.layout.separator()
         self.layout.operator("caustic.bake", icon="RENDER_STILL")
         self.layout.operator("caustic.inject", icon="NODE_MATERIAL")
         self.layout.operator("caustic.remove", icon="TRASH")
@@ -327,6 +447,7 @@ class CAUSTIC_PT_panel(bpy.types.Panel):
 
 
 CLASSES = (CausticProps, CAUSTIC_OT_bake, CAUSTIC_OT_inject, CAUSTIC_OT_remove,
+           CAUSTIC_OT_tint_medium, CAUSTIC_OT_untint_medium,
            CAUSTIC_OT_caustics_off, CAUSTIC_PT_panel)
 
 

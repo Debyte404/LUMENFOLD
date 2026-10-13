@@ -75,6 +75,7 @@ These share no code with the estimator, which is the point.
 | `colour_study.py` | Caustic + fringe colour over the full 4x5x4 factorial, from the traced ray map (3 traces serve all 80 combinations). |
 | `colour_experiments.py` | The rendered visual proof: medium grid, fixed-camera sun orbit (needs `--cam-fixed`), source sweep as a palindrome. `--mode verify` proves the az/el flags reproduce the default bit-exactly. |
 | `make_colour_figure.py` | Figure 11: mechanism, band colour, the full factorial, and the rotating-source strip. |
+| `addon_bringup.py` | Loads the Blender add-on headless and exercises the coloured-medium path: node built, node LINKED, `volume_bounces` raised off its default 0. A built-but-unlinked node and a linked-but-unintegrated volume both render as nothing, silently — so those two assertions are the point. |
 | `ripple_colour_gifs.py` | The ripple clip through red water, red glass, and both. Sets the medium in BOTH the bake and the Blender volume; needed `volume_bounces`, which Cycles defaults to 0, silently ignoring the volume shader. |
 | `caustic_colour_probe.py` | Where the caustic's colour actually responds to the medium. Ranks by response, not by brightness — a tinted caustic is DIMMER, so luminance-ranking samples the pixels the tint moved least. |
 | `render_vs_computed_colour.py` | Rendered against computed colour, tile by tile. The check that would have caught the missing light-path absorption at the start. |

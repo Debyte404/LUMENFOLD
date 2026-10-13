@@ -273,6 +273,31 @@ Reproduce all of it with `tools/colour_study.py` (numbers) and
 `tools/colour_experiments.py` (renders); `tools/make_colour_figure.py` builds the figure the
 paper uses.
 
+## Blender add-on
+
+The caustic baker ships as a Blender add-on. Instead of letting Cycles path-trace the
+caustics — the noisiest thing in a glass render, and worse as the source shrinks — it bakes
+the wave-corrected caustic deterministically and injects it into a Cycles material as light.
+It can also give the glass and water a **coloured medium**.
+
+**Full instructions: [docs/BLENDER_PLUGIN.md](docs/BLENDER_PLUGIN.md)** — install, every
+control, the scene contract, and troubleshooting.
+
+    Edit > Preferences > Add-ons > Install from Disk…  →  blender_addon/caustic_injector.py
+    N-panel (3D View sidebar) > Caustic tab
+
+Quick start: set **Target**, then **Bake caustic → Inject into material → render**.
+
+Two things the docs exist mainly to prevent, because both fail *silently*:
+
+* A caustic's colour is set by the path the **light** travelled. The bake is what tints
+  it (`Glass absorb` / `Water absorb`); the medium's own body needs a separate volume
+  shader (**Tint this object's medium**). Set one and not the other and you get a red
+  caustic in a clear glass, or a red glass with a neutral caustic.
+* `scene.cycles.volume_bounces` defaults to **0**, and at 0 Cycles ignores a connected
+  volume shader entirely — colourless medium, no warning, nothing in the log. The tint
+  operator raises it for you; if you wire volumes by hand, set it yourself.
+
 ## Repository map
 
 ```
