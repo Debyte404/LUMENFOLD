@@ -369,16 +369,37 @@ def main():
 
     print(f"\n     {'illuminant':>11} {'glass':>8} {'water':>8} "
           f"{'R':>8} {'G':>8} {'B':>8}   {'colour':>8}")
+    # The FULL factorial: every glass x water x source combination, not a sample of
+    # them. 4 x 5 x 4 = 80, and each is only a reweighting of the same three traces,
+    # so the whole sweep costs nothing beyond the traces themselves.
     for ill in ("flat", "solar", "warm", "cool"):
-        for glass, water in (("clear", "clear"), ("cobalt", "clear"),
-                             ("clear", "copper"), ("clear", "tea"),
-                             ("amber", "clear")):
-            rgb, _core = caustic_rgb(chan, glass=glass, water=water, ill=ill)
-            n = rgb / max(rgb.max(), 1e-12)
-            res["caustic"][f"{glass}|{water}|{ill}"] = {
-                "rgb": rgb.tolist(), "norm": n.tolist(), "hue": hue_name(rgb)}
-            print(f"     {ill:>11} {glass:>8} {water:>8} "
-                  f"{n[0]:8.4f} {n[1]:8.4f} {n[2]:8.4f}   {hue_name(rgb):>8}")
+        for glass in GLASS:
+            for water in WATER:
+                rgb, _core = caustic_rgb(chan, glass=glass, water=water, ill=ill)
+                n = rgb / max(rgb.max(), 1e-12)
+                res["caustic"][f"{glass}|{water}|{ill}"] = {
+                    "rgb": np.round(rgb, 6).tolist(),
+                    "norm": np.round(n, 6).tolist(),
+                    "hue": hue_name(rgb),
+                    "chroma": round(chroma(rgb), 6)}
+    print(f"     {len(res['caustic'])} combinations written "
+          f"({len(GLASS)} glass x {len(WATER)} water x {len(ILLUMINANTS)} sources)")
+
+    # ordered reports, so the table in the paper and the text here agree
+    def top(key, n=6, reverse=True):
+        rows = [(k, v) for k, v in res["caustic"].items()]
+        rows.sort(key=lambda kv: kv[1][key], reverse=reverse)
+        return rows[:n]
+
+    print("\n   most saturated caustic (chroma = (max-min)/max):")
+    for k, v in top("chroma", 5):
+        print(f"     {k:28s} chroma {v['chroma']:.3f}  {v['hue']}")
+
+    print("\n   how many of the 80 combinations read as each hue:")
+    from collections import Counter
+    cnt = Counter(v["hue"] for v in res["caustic"].values())
+    for h, c in cnt.most_common():
+        print(f"     {h:10s} {c}")
 
     print("\n   how much of the caustic's colour is the SUN rather than the medium:")
     for glass, water in (("clear", "clear"), ("clear", "copper")):

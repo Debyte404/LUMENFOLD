@@ -257,12 +257,14 @@ band. Figure~\ref{fig:colour}(a,c).
 \includegraphics[width=\textwidth]{figures/fig11_colour.pdf}
 \caption{Colour of the caustic and of its fringes. \textbf{(a)} the three channels
 peak at different positions because the band width goes as $\lambda^{2/3}$; the
-scale ratios are the analytic ones to four decimals. \textbf{(b)} the colour of the
-caustic core for five media against four source spectra, from the traced ray map:
-the medium and the source both act by multiplying the channels, so either can
-produce a given tint. \textbf{(c)} the colour down the band itself. The fringes are
-coloured, and the medium decides which of them survive; the medium cannot move
-them.}
+scale ratios are the analytic ones to four decimals. \textbf{(b)} the colour down
+the band: the fringes are coloured, and the medium decides which survive.
+\textbf{(c)} the complete factorial --- every one of the $4\times5\times4=80$
+glass, water and source combinations, rendered from the traced ray map; the hue
+spread across them is red 20, green 18, yellow 15, blue 14, cyan 11, neutral 2.
+\textbf{(d)} the camera held fixed while the source is rotated about the glass: the
+caustic orbits the glass and the frame does not, which is what makes the motion
+visible rather than cancelled by a following camera.}
 \label{fig:colour}
 \end{figure*}
 
@@ -273,6 +275,31 @@ That is not two effects but one --- both multiply the three channels --- and the
 numbers show how nearly interchangeable they are: moving the source from the
 solar spectrum to \SI{3400}{\kelvin} shifts the core's normalised RGB by
 \num{0.620}, which is comparable to the shift from tinting the glass at all.
+
+\paragraph{The complete factorial.}
+Figure~\ref{fig:colour}(c) is the whole $4\times5\times4=80$ grid rather than a
+sample of it. The sweep costs nothing beyond the three traced ray maps, because the
+geometry does not depend on the medium and every combination is only a reweighting
+of rays already traced. Across the 80 the hue spread is red 20, green 18, yellow
+15, blue 14, cyan 11 and neutral 2; the most saturated are cobalt glass with copper
+water under the cool source (chroma \num{0.987}) and amber glass with tea water
+under the warm one (\num{0.983}). The two neutral cases are the untinted pair under
+the equal-energy source, which is the control.
+
+\paragraph{A source that moves.}
+Rotating the source rather than the camera (Figure~\ref{fig:colour}(d)) is a
+different experiment and it needs a fixed frame. By default the camera follows the
+caustic's centroid, so a rotating source makes the frame pan to follow the caustic
+and the two motions cancel --- the caustic appears static, which is the opposite of
+what is happening. Locking the camera shows it: as the sun's azimuth sweeps
+$360\degree$ the caustic's centroid traces a circle of radius
+\SI{54.2}{\milli\meter} about the glass while the frame stays put. Sampled at
+$90\degree$ intervals the centroid is at $(+47.3,+24.6)$, $(-26.3,+48.5)$,
+$(-48.0,-25.3)$ and $(+24.6,-48.1)$\,mm, whose radii are $53.3$, $55.2$, $54.3$ and
+\SI{54.0}{\milli\meter} --- a circle of \SI{54.2}{\milli\meter} with a standard
+deviation of \SI{0.7}{\milli\meter}, so the orbit is circular rather than merely
+wandering. The caustic is thrown on the far side of the glass from the source, and
+that is a property of the refraction rather than of either medium.
 
 \begin{table}[t]
 \centering

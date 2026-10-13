@@ -21,8 +21,8 @@ documents carry dated scope notes.
 |---|---|
 | `paper/` | The CGF LaTeX source: `main.tex`, `sections/`, `refs.bib` (every entry verified against Crossref), and `figures/` as vector PDF. Compile with `tools/build_paper_pdf.py`. |
 | `figures/` | The earlier raster figures, generated from real artefacts by `tools/make_paper_figures.py`. `figure_data.json` carries the numbers they plot. The paper now uses the vector PDFs in `paper/figures/`. |
-| `media/` | Presentation media: the four clips (ripple, turntable, combined, and Cycles' counterparts), **`ripple_{ours,cycles,spmm}.gif`** — the same ripple animation three ways, one verified camera, physical fringe width, exposure-matched subject (EVIDENCE 14.5f) — contact sheet, comparison figures, showcase stills. |
-| `data/` | Machine-readable artefacts: the baked caustic field (`caustic_wave.npy`) and the efficiency study results. |
+| `media/` | Presentation media: the four clips (ripple, turntable, combined, and Cycles' counterparts), **`ripple_{ours,cycles,spmm}.gif`** — the same ripple animation three ways, one verified camera, physical fringe width, exposure-matched subject (EVIDENCE 14.5f) — contact sheet, comparison figures, showcase stills, and the colour set: **`colour_media_grid.png`** (20 rendered caustics, 4 glass × 5 water), **`colour_sun_orbit.gif`** (camera fixed, sun rotated a full turn) and **`colour_sun_sweep.gif`** (source 2000–12000 K, as a palindrome so the loop does not flash). |
+| `data/` | Machine-readable artefacts: the baked caustic field (`caustic_wave.npy`), the efficiency study results, and **`colour_results.json`** — the full 4×5×4 glass × water × source factorial (80 caustic cases) plus 15 fringe cases. |
 
 ## Where the numbers come from
 

@@ -151,6 +151,62 @@ is below the resolution of the bake anyway (the band is about 2 px at 1024²). T
 same conclusion the paper reaches from the coherence argument: the fringes are the visible
 signature of the correction, not its justification.
 
+## Colour: the caustic, the fringes, and a sun that moves
+
+The fringes are coloured, and the reason is dimensional: the fold band's width goes as
+λ^(2/3), so the three channels put their bright edge in three different places. Measured
+Airy scales are 1.749 / 1.565 / 1.369 µm, whose ratios are 1.1178 / 1.000 / 0.8748 — the
+analytic (λ/550)^(2/3) values to four decimals. The caustic therefore has a coloured edge
+even under a colourless source.
+
+<p align="center">
+  <img src="docs/media/colour_media_grid.png" width="880"
+       alt="20 rendered caustics: 4 glass tints x 5 water tints">
+</p>
+
+Twenty rendered caustics — every tinted glass against every tinted water — from the same
+real-time baker. The numeric side of this is the **complete 4×5×4 factorial** (glass ×
+water × source, 80 combinations) in `docs/data/colour_results.json`, computed from three
+traced ray maps: the geometry does not depend on the medium, so each combination is only a
+reweighting of rays already traced and the whole sweep is nearly free. Across the 80 the
+hue spread is red 20, green 18, yellow 15, blue 14, cyan 11, neutral 2.
+
+Two findings worth stating plainly, because they are easy to get backwards:
+
+* **The medium and the source are interchangeable for tint.** Both act by multiplying the
+  three channels independently, so a blue-tinted water and a cool sun produce a similar
+  core colour by different means. Moving the source from solar to 3400 K shifts the core's
+  normalised RGB by 0.620, comparable to tinting the glass at all.
+* **Neither can move a fringe.** The colour *sequence* across the band only responds to
+  λ^(2/3). So a coloured fringe pattern is evidence of the wave correction specifically,
+  not of coloured media.
+
+<p align="center">
+  <img src="docs/media/colour_sun_orbit.gif" width="880"
+       alt="Camera held fixed while the sun is rotated a full turn about the glass">
+</p>
+
+With the **camera held fixed** and the sun rotated a full turn about the glass, the caustic
+orbits: its centroid traces a circle of 54.2 mm (σ = 0.7 mm) and is thrown on the far side
+of the glass from the source. This needed a code change, and the reason is a trap worth
+recording — by default the camera follows the caustic's centroid, so rotating the source
+makes the frame pan to follow it and **the two motions cancel**; the caustic looks static,
+which is the opposite of what is happening. `--cam-fixed` locks the frame.
+
+<p align="center">
+  <img src="docs/media/colour_sun_sweep.gif" width="620"
+       alt="Source colour swept 2000 K to 12000 K and back">
+</p>
+
+The source spectrum swept from 2000 K to 12000 K. This one is a **palindrome** rather than a
+one-way ramp: a ramp loops with the cool end snapping back to the warm end, which measured
+as a 20× jump at the wrap — a flash, not a sweep. Going up and back makes the wrap an
+ordinary frame step (loop-to-median ratio 0.00).
+
+Reproduce all of it with `tools/colour_study.py` (numbers) and
+`tools/colour_experiments.py` (renders); `tools/make_colour_figure.py` builds the figure the
+paper uses.
+
 ## Repository map
 
 ```
@@ -184,6 +240,8 @@ python tools/spmm_vs_groundtruth.py       # SPPM scored on the same axis
 python tools/analytic_caustic.py          # closed-form cylinder reference
 python tools/energy_audit.py              # Fresnel-weighted energy bookkeeping
 python tools/ensemble_study.py            # robustness across 8 wave phases
+python tools/colour_study.py              # caustic + fringe colour, full 80-combination factorial
+python tools/colour_experiments.py        # rendered media grid, sun orbit, source sweep
 python tools/make_all_figures.py          # all ten paper figures, in order
 python tools/make_hero.py                 # the comparison animation at the top
 python tools/build_paper_pdf.py           # compile the CGF paper

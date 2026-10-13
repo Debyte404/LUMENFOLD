@@ -72,6 +72,9 @@ These share no code with the estimator, which is the point.
 | `scan_ai_tells.py` | AI-writing tells in the manuscript (strips LaTeX comments first; the naive version over-counted em dashes 20x). |
 | `verify_refs.py`, `verify_refs2.py` | Every citation checked against the Crossref API; caught three wrong references. |
 | `airy_honesty_sweep.py` | What narrowing the Airy band to the physical width costs (fringe colour vs aliasing). |
+| `colour_study.py` | Caustic + fringe colour over the full 4x5x4 factorial, from the traced ray map (3 traces serve all 80 combinations). |
+| `colour_experiments.py` | The rendered visual proof: medium grid, fixed-camera sun orbit (needs `--cam-fixed`), source sweep as a palindrome. `--mode verify` proves the az/el flags reproduce the default bit-exactly. |
+| `make_colour_figure.py` | Figure 11: mechanism, band colour, the full factorial, and the rotating-source strip. |
 | `frame_test2.py` | Chooses the GIF camera by measuring the caustic's margin with a differential mask. |
 | `cam_projection_check.py` | Proves the Blender and PBRT cameras agree, analytically, point by point. |
 | `fix_spmm_exposure.py`, `tune_spmm_scale.py` | Calibrate the SPMM clip's exposure to the Blender one. |

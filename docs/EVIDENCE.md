@@ -1392,6 +1392,66 @@ identical. The check now compares only the used range, and all four report a sin
 shared palette. An instrument that flags a defect in correctly-encoded files is
 worth fixing before it sends you chasing a phantom.
 
+### 14.5o Coloured media rendered, and a source that moves (2026-10-13)
+
+14.5n computed the colour from the traced ray map. This renders it, extends the sweep
+to the complete factorial, and adds the experiment the numbers cannot show.
+
+**The full factorial.** 14.5n sampled 20 medium/source combinations. It is now all
+4 glasses x 5 waters x 4 sources = 80, because the geometry does not depend on the
+medium: three traced ray maps serve every combination as a reweighting, so the sweep
+costs nothing beyond the traces (1,164,880 rays land). Hue spread over the 80: red
+20, green 18, yellow 15, blue 14, cyan 11, neutral 2. Most saturated are
+cobalt|copper|cool (chroma 0.987) and amber|tea|warm (0.983); the two neutral cases
+are the untinted pair under equal energy, i.e. the control.
+
+**Rendered proof.** `tools/colour_experiments.py` drives the real renderer (not the
+ray map) for `docs/media/colour_media_grid.png` (20 caustics: 4 glass x 5 water),
+`docs/media/colour_sun_orbit.gif` and `docs/media/colour_sun_sweep.gif`. This needed
+scene state to become parameterised: `--sun-az/--sun-el`, `--sun-rgb`,
+`--glass-abs`, `--water-abs`, `--cam-cx/--cam-cy/--cam-ext`.
+
+**The rotating source, and the trap in it.** With the camera held fixed and the sun
+rotated a full turn, the caustic orbits the glass: centroid radius 54.2 mm, sigma
+0.7 mm, sampled at 90 deg as (+47.3,+24.6), (-26.3,+48.5), (-48.0,-25.3),
+(+24.6,-48.1) mm. It is thrown on the far side from the source.
+
+The trap: by default the camera follows the caustic centroid, so a rotating source
+makes the frame pan to follow the caustic and **the two motions cancel** — the result
+looks static, the opposite of the truth. `--cam-fixed` locks the frame. Note 49.2 mm
+(= extent/2) is NOT the orbit radius; the two are easily confused and the paper
+originally had the wrong one.
+
+**The override must reproduce the default, or every comparison is confounded.**
+`--sun-az 27.699472808054995 --sun-el 25.449840953628105` reproduces the built-in
+{0.80, 0.42, -0.43} direction **bit-identically** (max pixel diff 0, 0.0000% of
+pixels differ, same edge diagnostics 107/105/102). This is asserted by
+`--mode verify`, and it is a real check: at 6-decimal angles the same test gave a
+max diff of 5 levels, and the renderer is deterministic (same command twice ->
+exactly 0), so the residual was genuine rounding, not sampling noise.
+
+**A one-way ramp makes a GIF that flashes.** The source sweep was first rendered as a
+ramp 2000 K -> 12000 K; measured loop-to-median frame difference was 20.2x, because
+the last frame is the cool end and the first is the warm end, so a viewer repeating
+the GIF sees a snap. It is now a palindrome (up and back): loop ratio 0.00, i.e. the
+wrap is an ordinary frame step. The orbit is a true cycle and measured loop ratio
+1.17. Both are smooth otherwise (max/median 1.45 and 1.18).
+
+**Not flicker.** `gif_flicker_audit.py` reports 10.2% exposure / 22.7 crawl on the
+orbit, which for a fixed-camera ripple GIF would be a defect. Here it is content: the
+caustic genuinely sweeps across the frame, and the audit's "flat" regions come from
+the temporal mean, which for moving content is a blur rather than a background. The
+meaningful test for a moving-content GIF is the loop point and the diff distribution,
+both of which are clean.
+
+**Figure 11** is now four panels (mechanism, band colour, the full 80, and a
+six-position strip of the orbit) and is checked for overlap mechanically: the first
+version had panel (a)'s x-label colliding with panel (c)'s title (2 overlapping word
+pairs, found by bounding-box intersection on the extracted words). Fixed by moving
+the source labels below the grid and opening the row spacing; now 0 overlaps. The
+colour strips' labels were moved off the colour into a gutter, because white text on
+the bright end of a band is unreadable.
+
 ### 14.5n Colour of the caustic and the fringes (2026-10-13)
 
 The estimator is three-channel and never asked what colour the light is. This adds

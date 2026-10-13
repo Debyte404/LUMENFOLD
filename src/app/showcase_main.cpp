@@ -163,7 +163,11 @@ constexpr double kFill = 0.66;      // water fills 2/3
 // glass. Measured while bringing this up - the first attempt used a 59 deg sun
 // and produced an empty field. This also matches the reference photograph,
 // where the caustic is a long fan thrown well clear of the glass.
-const V3 kSun = {0.80, 0.42, -0.43};  // direction light TRAVELS (downward)
+// Sun direction. Written as a mutable global so --sun-az/--sun-el can rotate the
+// source about the glass with the camera fixed (see set_sun below); the default
+// reproduces the original {0.80, 0.42, -0.43} exactly, so every existing render is
+// unchanged unless a flag is passed.
+V3 kSun = {0.80, 0.42, -0.43};  // direction light TRAVELS (downward)
 
 // Water index of refraction: Daimon & Masumura (2007), 4-term Sellmeier for
 // HPLC-distilled water at 20.0 C, valid 0.182-1.129 um (the whole visible).
@@ -535,10 +539,17 @@ double medium_index(int m, double lambda) {
   return 1.0;
 }
 
+// Beer-Lambert absorption per metre, per channel. These were hardcoded inside
+// medium_absorb; they are now scene state so the colour experiments can render a
+// tinted medium rather than only compute one. Declared here because
+// medium_absorb below reads them.
+double g_water_abs[3] = {0.35, 0.06, 0.025};   // the renderer's original water
+double g_glass_abs[3] = {0.10, 0.08, 0.07};    // the renderer's original glass
+
 // Beer-Lambert absorption per metre (water is faintly cyan over centimetres).
 void medium_absorb(int m, double dist, double out[3]) {
-  const double aw[3] = {0.35, 0.06, 0.025};
-  const double ag[3] = {0.10, 0.08, 0.07};
+  const double* aw = g_water_abs;
+  const double* ag = g_glass_abs;
   for (int c = 0; c < 3; c++) {
     double s = (m == 2) ? aw[c] : (m == 1 ? ag[c] : 0.0);
     out[c] = std::exp(-s * dist);
@@ -562,7 +573,7 @@ constexpr double kSunAng = 0.021;
 // light and is what shadow rays and mirror reflections must use. Casting the
 // shadow ray along kSun instead tested the wrong side of the glass and
 // registered zero shadows.
-const V3 kSunTo{-kSun.x, -kSun.y, -kSun.z};
+V3 kSunTo{-kSun.x, -kSun.y, -kSun.z};
 
 void sun_dir_sample(int i, int n, V3& out) {
   // concentric-ish disk sample on the sun's angular disk
@@ -696,8 +707,19 @@ const double kCosSun = 0.4296;  // cosine of the sun's elevation
 // it measures mean 108 with p25 79 / p75 129 (a wide mid-tone spread) and R-B
 // warmth 18.5, so the exposure came down and the palette was neutralised (the
 // first pass measured mean 140 and warmth 38.6).
-const double kSunE[3] = {19.0, 17.6, 15.8};
+double kSunE[3] = {19.0, 17.6, 15.8};
 const double kSunOmega = kPi * kSunAng * kSunAng;
+
+// --- settable scene state ---------------------------------------------------
+// Rotate the source about the glass with the camera fixed. kSun is the direction
+// light TRAVELS, so its horizontal component points AWAY from the source azimuth
+// and its z is negative (downward). Keeping this convention is what makes the
+// default reproduce {0.80, 0.42, -0.43} exactly.
+void set_sun(double az_deg, double el_deg) {
+  const double a = az_deg * kPi / 180.0, e = el_deg * kPi / 180.0;
+  kSun = V3{std::cos(e) * std::cos(a), std::cos(e) * std::sin(a), -std::sin(e)};
+  kSunTo = V3{-kSun.x, -kSun.y, -kSun.z};
+}
 constexpr double kCausGain = 1.7;
 constexpr double kExposure = 0.125;  // scene -> film
 
@@ -1023,6 +1045,19 @@ int main(int argc, char** argv) {
   // single-refraction cylinder, which omits the glass entirely.
   bool zero_wave = false;
   double wave_t = 0.0;
+  // Sun rotation is applied after the loop, because set_sun needs azimuth AND
+  // elevation together: calling it on each flag would leave the direction at
+  // whichever of the two was parsed last.
+  bool has_az = false, has_el = false;
+  bool cam_fixed = false;
+  double cam_cx = 0.0, cam_cy = 0.0, cam_ext = 0.0;
+  double sun_az = 0.0, sun_el = 0.0;
+  // "r,g,b" triples, parsed with sscanf so a malformed value is visible rather
+  // than silently leaving the default in place.
+  auto parse_triple = [](const char* s, double o[3], const char* what) {
+    if (std::sscanf(s, "%lf,%lf,%lf", &o[0], &o[1], &o[2]) != 3)
+      std::fprintf(stderr, "[warn] %s expects r,g,b -- got '%s', ignored\n", what, s);
+  };
   for (int i = 1; i < argc; i++) {
     std::string a = argv[i];
     if (a == "--n" && i + 1 < argc) W = std::atoi(argv[++i]);
@@ -1037,9 +1072,28 @@ int main(int argc, char** argv) {
     else if (a == "--legacy-index") g_legacy_index = true;
     else if (a == "--water-index" && i + 1 < argc) g_water_override = std::atof(argv[++i]);
     else if (a == "--glass-index" && i + 1 < argc) g_glass_override = std::atof(argv[++i]);
+    // --- colour experiments -------------------------------------------------
+    else if (a == "--sun-az" && i + 1 < argc) { sun_az = std::atof(argv[++i]); has_az = true; }
+    else if (a == "--sun-el" && i + 1 < argc) { sun_el = std::atof(argv[++i]); has_el = true; }
+    else if (a == "--sun-rgb" && i + 1 < argc) parse_triple(argv[++i], kSunE, "--sun-rgb");
+    else if (a == "--glass-abs" && i + 1 < argc) parse_triple(argv[++i], g_glass_abs, "--glass-abs");
+    else if (a == "--water-abs" && i + 1 < argc) parse_triple(argv[++i], g_water_abs, "--water-abs");
+    else if (a == "--cam-fixed" && i + 3 < argc) {
+      cam_cx = std::atof(argv[++i]); cam_cy = std::atof(argv[++i]);
+      cam_ext = std::atof(argv[++i]); cam_fixed = true; }
     else if (a == "--water-level" && i + 1 < argc) g_water_level = std::atof(argv[++i]);
     else if (a == "--index-match") g_index_match = true;
     else if (a == "--analytic-cylinder") { g_water_level = 10.0; g_index_match = true; }
+  }
+  // Applied once both angles are known. The reference configuration is
+  // az = atan2(0.42, 0.80), el = asin(0.43/|kSun|); passing these reproduces the
+  // default direction to 8 decimals (asserted by tools/colour_experiments.py).
+  if (has_az || has_el) {
+    const double az = has_az ? sun_az : 27.699472808054995;
+    const double el = has_el ? sun_el : 25.449840953628105;
+    set_sun(az, el);
+    std::printf("[sun] az %.2f deg  el %.2f deg  -> travel (%.4f, %.4f, %.4f)\n",
+                az, el, kSun.x, kSun.y, kSun.z);
   }
   const int H = int(W * 0.625);
 
@@ -1232,6 +1286,16 @@ int main(int argc, char** argv) {
     maxr = std::max(maxr, std::hypot(px - cx, py - cy));
   }
   std::printf("[frame] caustic centroid (%.4f, %.4f), extent %.4f m\n", cx, cy, maxr);
+  // A fixed camera, for the rotating-source experiment. Without this the frame
+  // follows the caustic, so a rotating sun would produce an apparently stationary
+  // caustic and the motion being measured would be cancelled by the pan. The
+  // values come from a reference-sun run's [frame] line.
+  if (cam_fixed) {
+    std::printf("[frame] FIXED to (%.4f, %.4f) extent %.4f m\n", cam_cx, cam_cy, cam_ext);
+    cx = cam_cx;
+    cy = cam_cy;
+    maxr = cam_ext;
+  }
 
   const V3 eyeDir = normalize(V3{-0.45, -0.78, 0.44});   // above, looking down-table
   // Frame the glass AND the fan together (the reference photograph shows both):
