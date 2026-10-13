@@ -64,7 +64,8 @@ plt.rcParams.update({
     "axes.axisbelow": True,
     "savefig.bbox": "tight",
     "savefig.pad_inches": 0.01,
-    "figure.dpi": 300,
+    "figure.dpi": 600,
+    "savefig.dpi": 600,
     "pdf.fonttype": 42,
 })
 
@@ -74,6 +75,14 @@ WATER = 0.0594
 SUN = np.array([0.80, 0.42, -0.43]); SUN /= np.linalg.norm(SUN)
 N_WATER = 1.33468      # central channel, Daimon & Masumura 2007
 N_GLASS = 1.52514      # central channel, Rubin 1985
+
+
+# The three render channels. Chosen to separate on hue AND luminance AND dash, so
+# the figures survive greyscale printing and the common red-green confusion: R and G
+# differ in luminance, B is the darkest, and every series carries its own linestyle.
+CH_COLOUR = {0: "#c62828", 1: "#2e7d32", 2: "#1565c0"}
+CH_STYLE = {0: "-", 1: "--", 2: ":"}
+CH_NAME = {0: "R 650 nm", 1: "G 550 nm", 2: "B 450 nm"}
 
 
 def save(fig, name, note=""):
@@ -333,9 +342,9 @@ def fig_field():
     axes[0].grid(False)
     axes[0].text(0.02, 0.96, r"normalised to field max, $\gamma=2.2$",
                  transform=axes[0].transAxes, fontsize=6.5, va="top")
-    for c, (col, ch) in enumerate(zip(["black", "0.45", "0.7"], "RGB")):
-        axes[1].plot(field[:, :, c].mean(axis=0), color=col, lw=0.8,
-                     label=f"{ch}  ({[650,550,450][c]} nm)")
+    for c, ch in enumerate("RGB"):
+        axes[1].plot(field[:, :, c].mean(axis=0), color=CH_COLOUR[c], lw=0.9,
+                     ls=CH_STYLE[c], label=CH_NAME[c])
     axes[1].set_title("(b) horizontal profile, per channel")
     axes[1].set_xlabel("grid $x$ (1024 px)")
     axes[1].set_ylabel(r"intensity, linear (cap $\times$ mean)")
@@ -417,8 +426,20 @@ def fig_dispersion():
     ours = [107, 105, 102]
     sppm = [56, 54, 51]
     x = np.arange(3)
-    ax.bar(x - 0.19, ours, 0.36, color="black", ec="black", lw=0.5, label="ours")
-    ax.bar(x + 0.19, sppm, 0.36, color="0.75", ec="black", lw=0.5, label="SPPM")
+    # Channel identity is the x category, so colour the bars by channel and
+    # separate the two methods by solid fill versus light hatch. Previously both
+    # methods were grey and the channel only lived in the tick labels.
+    from matplotlib.patches import Patch
+    for i in x:
+        ax.bar(i - 0.19, ours[i], 0.36, color=CH_COLOUR[i], ec="black", lw=0.5)
+        # dashed edge rather than a hatch: a hatch is a pattern fill, which
+        # disappears at small print sizes and is invisible to a stroke check.
+        ax.bar(i + 0.19, sppm[i], 0.36, color="white", ec=CH_COLOUR[i], lw=1.0,
+               ls="--")
+    ax.legend(handles=[Patch(facecolor="0.55", edgecolor="black", label="ours, filled"),
+                       Patch(facecolor="white", edgecolor="0.35", ls="--",
+                             label="SPPM, dashed")],
+              frameon=False, loc="upper right")
     for xi, v in zip(x - 0.19, ours):
         ax.text(xi, v + 2, str(v), ha="center", fontsize=6.5)
     for xi, v in zip(x + 0.19, sppm):
@@ -426,7 +447,6 @@ def fig_dispersion():
     ax.set_xticks(x); ax.set_xticklabels(ch)
     ax.set_ylabel("edge radius (mm)")
     ax.set_ylim(0, 122)
-    ax.legend(frameon=False, loc="upper right")
     ax.text(0.02, 0.06, "red$-$blue split $+5.0$ mm in both",
             transform=ax.transAxes, fontsize=6.5)
     save(fig, "fig8_dispersion", "dispersion ordering")

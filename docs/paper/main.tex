@@ -73,6 +73,33 @@ manuscript prepared for COMPUTER GRAPHICS \textit{Forum}, October 2026.%
 \setcounter{secnumdepth}{2}
 
 
+% ---------------------------------------------------------------------------
+% Float placement.
+%
+% Every float in this paper was declared [t] -- top of page only. Three of the
+% full-width figures (9, 10, 11) were queued all the way to the back of the
+% document as a result, leaving pages 25, 27 and 28 with 551 pt, 396 pt and
+% 233 pt of blank space respectively. Measured, not guessed: tools/paper_qa.py
+% reports the blank bands and the page each float lands on.
+%
+% Two changes. Double-column floats (figure*/table*) accept only [t] and [p] in
+% LaTeX, so [t] -> [tp] is the whole of the available freedom there. And the
+% fraction limits below are LaTeX's defaults, which are conservative for a paper
+% with this many wide figures: raising topfraction lets a page hold one big float
+% plus text instead of pushing the float on, and floatpagefraction stops a float
+% page being rejected for being "too full" and cascading.
+% ---------------------------------------------------------------------------
+\renewcommand{\topfraction}{0.92}
+\renewcommand{\bottomfraction}{0.5}
+\renewcommand{\textfraction}{0.06}
+\renewcommand{\floatpagefraction}{0.7}
+\renewcommand{\dbltopfraction}{0.92}
+\renewcommand{\dblfloatpagefraction}{0.7}
+
+% A run-in \paragraph followed by a float should not be split across pages.
+\setlength{\parskip}{0pt}
+
+
 \sisetup{detect-all,group-separator={,},group-minimum-digits=4}
 
 % Theorem-like environments. Everything the paper asserts as a formal

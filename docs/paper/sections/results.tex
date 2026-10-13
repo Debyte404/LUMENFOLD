@@ -17,7 +17,7 @@ them, uses no parametrisation, no Jacobian and no renormalisation. Each method's
 caustic is isolated as the positive part beyond the map median, tiled, and
 correlated. Table~\ref{tab:threeway} gives the result.
 
-\begin{table}[t]
+\begin{table}[tbp]
 \centering
 \caption{Tiled correlation against the independent brute-force trace, at four
 tile sizes, with all three methods on the same axis and the same metric. Tile
@@ -57,7 +57,7 @@ scored $r=+0.932$. It scores $0.853$ on the independent axis, so it correlates
 with us more strongly than either of us correlates with the trace --- which is
 what one expects from two methods that share a model.
 
-\begin{figure*}[t]
+\begin{figure*}[tp]
 \centering
 \includegraphics[width=\textwidth]{figures/fig4_field.pdf}
 \caption{Our baked field. Panel (a) is normalised to its own maximum and shown
@@ -78,7 +78,7 @@ two-dimensional shape of our field and SPPM's agree at $r=+0.932$ on
 quality claim: had the two disagreed on shape while we led on the independent
 axis, the pair of results would have been evidence of a shared error somewhere.
 
-\begin{figure}[t]
+\begin{figure}[tbp]
 \centering
 \includegraphics[width=\linewidth]{figures/fig5_quality.pdf}
 \caption{Correlation against the independent brute-force trace by tile size,
@@ -97,7 +97,7 @@ comparison is cost against accuracy, and it has a regime in which our method is
 the worse choice. Table~\ref{tab:efficiency} reports RMSE against a converged
 wave-corrected reference at matched budgets, with the sample counts stated.
 
-\begin{table*}[t]
+\begin{table*}[tp]
 \centering
 \caption{RMSE against a converged wave-corrected reference
 ($2048^2$, block-averaged to $256^2$), at matched splat budgets. The plain
@@ -140,7 +140,7 @@ geometric sampling is not merely slower, it is unreachable at any budget, and
 above a budget of roughly \num{1000000} splats our method is both cheaper and
 closer. We do not claim to be faster in general.
 
-\begin{figure*}[t]
+\begin{figure*}[tp]
 \centering
 \includegraphics[width=\textwidth]{figures/fig6_fourpanel.pdf}
 \caption{The same caustic four ways: the independent brute-force trace, our
@@ -158,7 +158,7 @@ The fold is where the field is largest, so the tail is where a method's
 treatment of the fold is visible as a statistic. Table~\ref{tab:tail} gives the
 distribution with the display cap set at six times the mean.
 
-\begin{table}[t]
+\begin{table}[tbp]
 \centering
 \caption{Tail statistics, display ceiling at $6\times$ the mean. The converged
 wave truth itself has \SI{0.35}{\percent} above the cap, because bright fringes
@@ -187,7 +187,7 @@ it is blurrier. The \SI{0.35}{\percent} of the truth above the cap are resolved
 bright fringes, and our correction reproduces them at the level the profile
 allows rather than inventing them.
 
-\begin{figure}[t]
+\begin{figure}[tbp]
 \centering
 \includegraphics[width=\linewidth]{figures/fig7_cost.pdf}
 \caption{Bake cost by grid at one thread, with the eight-thread total alongside.
@@ -218,7 +218,7 @@ the \emph{differential} while disagreeing on the absolute extent is what one
 would expect if the fold's width is the disputed quantity and the dispersion is
 not.
 
-\begin{figure}[t]
+\begin{figure}[tbp]
 \centering
 \includegraphics[width=\linewidth]{figures/fig8_dispersion.pdf}
 \caption{Edge radius per channel for both methods, using the estimator of
@@ -252,7 +252,7 @@ displacement between the outer channels is what makes the pattern coloured rathe
 than merely bright, and the chromaticity moves by up to \num{0.95} across the lit
 band. Figure~\ref{fig:colour}(a,c).
 
-\begin{figure*}[t]
+\begin{figure*}[tp]
 \centering
 \includegraphics[width=\textwidth]{figures/fig11_colour.pdf}
 \caption{Colour of the caustic and of its fringes. \textbf{(a)} the three channels
@@ -301,7 +301,7 @@ deviation of \SI{0.7}{\milli\meter}, so the orbit is circular rather than merely
 wandering. The caustic is thrown on the far side of the glass from the source, and
 that is a property of the refraction rather than of either medium.
 
-\begin{table}[t]
+\begin{table}[tbp]
 \centering
 \caption{Colour of the caustic core: the brightest \SI{2}{\percent} of the
 achromatic trace, weighted by the source spectrum and the medium transmission.
@@ -354,6 +354,23 @@ shader, absorbing with the same per-metre coefficients. Setting one and not the 
 yields a tinted caustic inside a colourless glass, or a coloured glass with a neutral
 caustic. We report this because both halves look correct in isolation, and because a
 baked-then-composited effect has two independent places to lose a dependency.
+Figure~\ref{fig:redmedia} renders each case in turn.
+
+\begin{figure*}[tp]
+\centering
+\includegraphics[width=\textwidth]{figures/fig12_red_media.pdf}
+\caption{The tinted medium, one variable at a time. The same animation, camera,
+physical Airy width and frame as Figure~\ref{fig:ripple}; only the medium differs.
+The coefficients are per-metre Beer--Lambert chosen so each medium transmits about
+\num{0.90}, \num{0.15}, \num{0.03} over its real path --- roughly
+\SI{90}{\milli\meter} of water and \SI{3.5}{\milli\meter} of glass. They are
+experiment parameters, not measured materials. Exposure is deliberately not
+re-solved per clip, so a tinted medium is genuinely darker; normalising each clip to
+its own brightness would remove the light loss the medium causes. Measured in the
+glass region, $R$ rises from \num{0.978} to \num{1.000} and $B$ falls from
+\num{1.000} to \num{0.955} against the clear clip.}
+\label{fig:redmedia}
+\end{figure*}
 
 \paragraph{What neither can do.}
 The medium and the source can each tint the caustic and each tint the fringes, and
@@ -381,7 +398,7 @@ flicker, since a viewer integrates over time and a grain pattern that changes
 every frame reads as movement. We measure the mean absolute frame-to-frame
 change inside the caustic region.
 
-\begin{table}[t]
+\begin{table}[tbp]
 \centering
 \caption{Flicker, in 8-bit levels, inside and outside the caustic region. Both
 clips were denoised, which suppresses flicker in both and therefore understates
@@ -404,7 +421,7 @@ our clip, which is the opposite of what a reader might expect and is explained
 by the denoiser behaving differently on the two; it is reported because leaving
 it out would make the caustic numbers look better than they are.
 
-\begin{figure}[t]
+\begin{figure}[tbp]
 \centering
 \includegraphics[width=\linewidth]{figures/fig9_efficiency.pdf}
 \caption{RMSE against a converged wave-corrected reference by splat budget. The
@@ -420,7 +437,7 @@ model. The regime where our method loses is drawn rather than omitted.}
 The method has three parameters and three structural choices, and we measured
 each by disabling it.
 
-\begin{table}[t]
+\begin{table}[tbp]
 \centering
 \caption{Ablations. Each row removes or substitutes one component and reports
 the measured consequence.}
@@ -459,7 +476,7 @@ write and it appears to work: it flags a plausible-looking band and the image
 looks right. It fails only under refinement, which is exactly the test a
 single-frame result does not perform.
 
-\begin{figure*}[t]
+\begin{figure*}[tp]
 \centering
 \includegraphics[width=\textwidth]{figures/fig10_ripple.pdf}
 \caption{Three phases of the animating caustic, one row per method, taken from

@@ -18,7 +18,7 @@ and a matte receiver, lit by a distant source. The parameters are fixed for the
 whole paper and are listed in Table~\ref{tab:scene}; Figure~\ref{fig:scene}
 draws the arrangement to scale.
 
-\begin{table*}[t]
+\begin{table*}[tp]
 \centering
 \caption{Scene parameters. The material models are the measured forms of
 Section~\ref{sec:dispersion}, not fits. The source angular diameter is the true
@@ -43,7 +43,7 @@ Channels                  & \SI{650}{} / \SI{550}{} / \SI{450}{\nano\meter} & R/
 \end{tabular}
 \end{table*}
 
-\begin{figure*}[t]
+\begin{figure*}[tp]
 \centering
 \includegraphics[width=\textwidth]{figures/fig1_scene.pdf}
 \caption{The test scene drawn to scale. The glass body, water column, wall
@@ -228,7 +228,7 @@ receiver core whose apparent radius was set by wherever a ceiling was applied
 rather than by the physics, which is exactly the artefact the estimators of
 Section~\ref{sec:estimators} exist to avoid.
 
-\begin{figure*}[t]
+\begin{figure*}[tp]
 \centering
 \includegraphics[width=\textwidth]{figures/fig2_fold.pdf}
 \caption{The ray map of \eqref{eq:raymap}, computed by the independent
@@ -389,7 +389,7 @@ measured ratio rather than a closed-form constant.
 
 Table~\ref{tab:airyfacts} collects the constants used later, each evaluated
 numerically rather than quoted from a table.
-\begin{table}[t]
+\begin{table}[tbp]
 \centering
 \caption{Airy quantities used in the implementation, all evaluated numerically
 in this work (\texttt{scipy.special.airy}) rather than taken from a printed
@@ -410,7 +410,7 @@ mean tail intensity                 & $(2\pi\sqrt{u})^{-1}$ & Lemma~\ref{lem:not
 \end{tabular}
 \end{table}
 
-\begin{figure*}[t]
+\begin{figure*}[tp]
 \centering
 \includegraphics[width=\textwidth]{figures/fig3_airy.pdf}
 \caption{Panel (a): the fold intensity $|\Ai(-u)|^2$ used by the correction

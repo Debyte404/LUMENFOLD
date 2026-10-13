@@ -48,6 +48,10 @@ plt.rcParams.update({
     "xtick.major.width": 0.6,
     "ytick.major.width": 0.6,
     "pdf.fonttype": 42,
+    # Raster panels need explicit resolution: the rcParam default is 100 dpi,
+    # which is where the orbit strip embedded at 98 dpi came from.
+    "figure.dpi": 400,
+    "savefig.dpi": 400,
 })
 
 STRIP_N = 200          # vector segments per band; the bands are smooth
@@ -86,10 +90,13 @@ def main():
     f = R["fringes"]["clear|flat"]
     x = np.array(f["x_um"])
     rgb = np.array(f["rgb"])
-    for i, (c, name) in enumerate(zip(("#c62828", "#2e7d32", "#1565c0"),
-                                      ("650 nm", "550 nm", "450 nm"))):
+    # hue AND dash: R, G and B cannot all be far apart in luminance while still
+    # reading as red, green and blue, so the pattern carries greyscale separation.
+    for i, (c, name, lsty) in enumerate(zip(("#c62828", "#2e7d32", "#1565c0"),
+                                            ("650 nm", "550 nm", "450 nm"),
+                                            ("-", "--", ":"))):
         v = rgb[i] / rgb[i].max()
-        ax.plot(x, v, color=c, lw=1.2, label=name)
+        ax.plot(x, v, color=c, lw=1.2, ls=lsty, label=name)
         k = int(np.argmax(v))
         ax.plot([x[k]], [v[k]], "o", color=c, ms=4, markeredgecolor="white",
                 markeredgewidth=0.5)
@@ -177,7 +184,7 @@ def main():
             im.seek(int(k))
             # downscale in PIL, not matplotlib: imshow scaling would rasterise at
             # panel resolution anyway and this way the aspect is controlled here
-            t = im.convert("RGB").resize((250, 156), Image.LANCZOS)
+            t = im.convert("RGB").resize((420, 262), Image.LANCZOS)
             ax.imshow(np.asarray(t), extent=[j, j + 1, 0, 1], aspect="auto",
                       interpolation="bilinear")
             ax.text(j + 0.5, -0.13, "%d°" % int(round(360.0 * k / n)),

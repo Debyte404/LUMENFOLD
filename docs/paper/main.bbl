@@ -1,5 +1,5 @@
 \newcommand{\etalchar}[1]{$^{#1}$}
-\begin{thebibliography}{\uppercase{MMRO13}}
+\begin{thebibliography}{\uppercase{CHB{\etalchar{*}}12}}
 
 \bibitem[Air38]{airy1838}
 \textsc{Airy G.~B.}:
