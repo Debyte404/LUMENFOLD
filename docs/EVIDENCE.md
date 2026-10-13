@@ -2344,7 +2344,14 @@ cropped, because the mask was picking up table.
 
     coarse sweep   60 cameras x 8 suns = 480 renders
     result         cropping at zoom 1.0 (2-4 frames); nothing cropped at zoom 1.60
-    refinement     the band 1.30-1.70 searched for the largest safe subject
+    refinement     1.30-1.70 searched for the largest subject that never crops
+    CHOSEN         az -30, el 65, zoom 1.30 -- nothing cropped, and 33% more caustic
+                   than the coarse best (0.0226 vs 0.0170 of frame)
+
+Command actually used:
+
+    python tools/colour_experiments.py --mode sun --frames 72 \
+        --eye-az -30 --eye-el 65 --eye-zoom 1.30
 
 "Not cropped" is a hard constraint and area is maximised subject to it: a rotation that
 loses its subject is worse than one that shows it smaller.
