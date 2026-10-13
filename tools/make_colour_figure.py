@@ -96,17 +96,12 @@ def main():
     ax.legend(frameon=False, ncol=3, loc="upper center",
               bbox_to_anchor=(0.5, 1.02), handlelength=1.2, columnspacing=1.0)
     ax.tick_params(labelsize=6.5)
-    # Opaque white box in the decaying tail (x > 0), which no curve occupies --
-    # the first version put this text straight across the fringes.
-    ax.text(0.97, 0.44,
-            "Airy scale  %.2f / %.2f / %.2f µm\n"
-            "ratio $(\\lambda/550)^{2/3}$\n   %.3f / 1.000 / %.3f"
-            % (R["airy_scales_um"][0], R["airy_scales_um"][1], R["airy_scales_um"][2],
-               (650 / 550) ** (2 / 3), (450 / 550) ** (2 / 3)),
-            transform=ax.transAxes, ha="right", va="center", fontsize=6.2,
-            linespacing=1.5,
-            bbox=dict(facecolor="white", edgecolor="0.75", linewidth=0.5,
-                      boxstyle="round,pad=0.35"))
+    # The Airy scales and the (lambda/550)^(2/3) ratios that explain them are in the
+    # figure CAPTION, not in a box on the panel. Three attempts to place a box here all
+    # failed against something: mid-right it printed across the 450 nm curve, top-right
+    # it collided with the legend. The panel is ~85 mm wide and carries three curves, a
+    # legend and peak markers; a fourth element does not fit, and a caption is where
+    # supporting numbers belong anyway.
 
     # ---- (b) colour down the band, labels OFF the colour ------------------
     ax = fig.add_subplot(gs[0, 1])
@@ -173,7 +168,7 @@ def main():
             im.seek(int(k))
             # downscale in PIL, not matplotlib: imshow scaling would rasterise at
             # panel resolution anyway and this way the aspect is controlled here
-            t = im.convert("RGB").resize((420, 262), Image.LANCZOS)
+            t = im.convert("RGB").resize((640, 400), Image.LANCZOS)
             ax.imshow(np.asarray(t), extent=[j, j + 1, 0, 1], aspect="auto",
                       interpolation="bilinear")
             ax.text(j + 0.5, -0.13, "%d°" % int(round(360.0 * k / n)),

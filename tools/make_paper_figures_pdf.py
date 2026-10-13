@@ -432,22 +432,29 @@ def fig_dispersion():
     # separate the two methods by solid fill versus light hatch. Previously both
     # methods were grey and the channel only lived in the tick labels.
     from matplotlib.patches import Patch
-    for i in x:
-        ax.bar(i - 0.19, ours[i], 0.36, color=CH_COLOUR[i], ec="black", lw=0.5)
-        # dashed edge rather than a hatch: a hatch is a pattern fill, which
-        # disappears at small print sizes and is invisible to a stroke check.
-        ax.bar(i + 0.19, sppm[i], 0.36, color="white", ec=CH_COLOUR[i], lw=1.0,
-               ls="--")
+    for i, nm in enumerate(("R", "G", "B")):
+        col = CH_COLOUR[i]
+        ax.bar(i - 0.19, ours[i], 0.36, color=col, ec="black", lw=0.5)
+        # White fill plus a SOLID edge, with the "dashed" signal carried by the top edge
+        # only. bar(ls="--") dashes all four sides, so every SPPM bar dropped a
+        # horizontal dashed segment along the baseline -- which reads as a stray rule,
+        # not as a bar outline.
+        ax.bar(i + 0.19, sppm[i], 0.36, color="white", ec=col, lw=0.8)
+        ax.plot([i + 0.01, i + 0.37], [sppm[i], sppm[i]], color=col, lw=1.7, ls="--",
+                solid_capstyle="butt", zorder=5)
     ax.legend(handles=[Patch(facecolor="0.55", edgecolor="black", label="ours, filled"),
                        Patch(facecolor="white", edgecolor="0.35", ls="--",
                              label="SPPM, dashed")],
               frameon=False, loc="lower center", ncol=2,
               bbox_to_anchor=(0.5, 1.005), columnspacing=1.8,
               handlelength=1.5, handletextpad=0.5, fontsize=7)
+    # Labels sit clear of the bar tops. The SPPM bar's dashed top edge is a coloured
+    # stroke, so a label 2 units above it leaves under 0.3pt of gap -- tight enough to
+    # read as touching, and enough to fail the text-over-stroke check.
     for xi, v in zip(x - 0.19, ours):
-        ax.text(xi, v + 2, str(v), ha="center", fontsize=6.5)
+        ax.text(xi, v + 5, str(v), ha="center", fontsize=6.5)
     for xi, v in zip(x + 0.19, sppm):
-        ax.text(xi, v + 2, str(v), ha="center", fontsize=6.5)
+        ax.text(xi, v + 5, str(v), ha="center", fontsize=6.5)
     ax.set_xticks(x); ax.set_xticklabels(ch)
     ax.set_ylabel("edge radius (mm)")
     ax.set_ylim(0, 122)

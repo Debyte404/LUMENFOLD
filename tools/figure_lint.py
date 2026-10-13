@@ -207,6 +207,45 @@ def check(path, verbose=False, expect=None):
     if clipped:
         problems.append("text outside canvas: %s" % ", ".join(repr(c) for c in clipped[:5]))
 
+    # --- text drawn over DATA -----------------------------------------------------
+    # A text-over-text check cannot see text sitting on a curve: fig11's annotation box
+    # was printed across the 450 nm curve and every label-vs-label test passed.
+    #
+    # Compare text boxes against SATURATED or DASHED strokes only. Axes, spines and
+    # gridlines are thin and neutral by design and are excluded, so this flags a label
+    # over a data line and not a label over a gridline (which is fine and normal).
+    data_strokes = []
+    for dr in page.get_drawings():
+        col = dr.get("color")
+        if col is None:
+            continue
+        sat = max(col) - min(col)
+        dashed = dr.get("dashes") not in (None, "[] 0", "[]0")
+        if sat < 0.15 and not dashed:
+            continue
+        for item in dr["items"]:
+            if item[0] == "l":
+                data_strokes.append((item[1].x, item[1].y, item[2].x, item[2].y))
+            elif item[0] == "c":
+                pts = [p for p in item[1:] if hasattr(p, "x")]
+                for a, b in zip(pts, pts[1:]):
+                    data_strokes.append((a.x, a.y, b.x, b.y))
+
+    if data_strokes:
+        overlaps = []
+        for w in words:
+            tx0, ty0, tx1, ty1 = w[0], w[1], w[2], w[3]
+            for sx0, sy0, sx1, sy1 in data_strokes:
+                # does the segment's bounding box intersect the text box?
+                if (min(sx0, sx1) < tx1 and max(sx0, sx1) > tx0
+                        and min(sy0, sy1) < ty1 + 1.0 and max(sy0, sy1) > ty0 - 1.0):
+                    overlaps.append(w[4])
+                    break
+        if overlaps:
+            uniq = sorted(set(overlaps))
+            problems.append("%d text span(s) overlap coloured/dashed data strokes: %s"
+                            % (len(uniq), ", ".join(repr(o) for o in uniq[:6])))
+
     # --- rasters: resolution and transparency -------------------------------------
     worst = None
     for xref in range(1, d.xref_length()):

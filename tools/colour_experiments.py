@@ -52,8 +52,18 @@ REF_SUN_RGB = (19.0, 17.6, 15.8)
 
 
 def render(out_png, n=900, sun_az=None, sun_el=None, glass=None, water=None,
-           sun_rgb=None, fixed_cam=False, extra=()):
+           sun_rgb=None, fixed_cam=False, res=None, ssaa=None, extra=()):
+    """One frame.
+
+    `n` is the OUTPUT WIDTH in pixels, not a sample count -- the flag is named that
+    way in the renderer. `res` is the caustic bake resolution: the airy fringe rule
+    wants about 4.8 px per feature at 1024, so a finer bake resolves finer fringes.
+    """
     cmd = [EXE, "--n", str(n), "--out", out_png]
+    if res is not None:
+        cmd += ["--res", str(res)]
+    if ssaa is not None:
+        cmd += ["--ssaa", str(ssaa)]
     if sun_az is not None or sun_el is not None:
         cmd += ["--sun-az", str(REF_AZ if sun_az is None else sun_az),
                 "--sun-el", str(REF_EL if sun_el is None else sun_el)]
@@ -126,7 +136,7 @@ def exp_media(n=1100):
     return out
 
 
-def exp_sun(n=760, frames=48, sweep=360.0):
+def exp_sun(n=1520, frames=96, sweep=360.0, res=2048):
     """Fixed camera, sun swept in azimuth: the caustic orbits the glass."""
     os.makedirs(TMP, exist_ok=True)
     for f in os.listdir(TMP):
@@ -135,7 +145,7 @@ def exp_sun(n=760, frames=48, sweep=360.0):
     for i in range(frames):
         az = REF_AZ + sweep * i / frames
         p = os.path.join(TMP, f"sun_{i:04d}.png")
-        render(p, n=n, sun_az=az, fixed_cam=True)
+        render(p, n=n, sun_az=az, fixed_cam=True, res=res)
         if i % 12 == 0:
             print(f"  frame {i}/{frames}  az={az:.1f}")
     out = os.path.join(MEDIA, "colour_sun_orbit.gif")
@@ -184,17 +194,26 @@ def find_ffmpeg():
     return c[0] if c else "ffmpeg"
 
 
-def _encode(pattern, out):
+def _encode(pattern, out, max_w=900):
+    """Encode frames to a GIF, capped in width.
+
+    The render stays high-resolution because the FIGURE panel needs the pixels, but a
+    showcase GIF does not: raising the orbit render to 1520 px produced a 13.11 MB GIF
+    in a repo that is already ~95% media. Capping the encoded width lets the two
+    concerns be tuned independently.
+    """
     import glob
     ff = find_ffmpeg()
     tmp = os.path.dirname(pattern)
     pal = os.path.join(tmp, "_pal.png")
+    scale = "scale='min(%d,iw)':-1:flags=lanczos" % max_w
     for stage, args in (
         ("palettegen", [ff, "-y", "-loglevel", "error", "-i", pattern,
-                        "-vf", "palettegen=max_colors=128:stats_mode=diff", pal]),
+                        "-vf", "%s,palettegen=max_colors=96:stats_mode=diff" % scale,
+                        pal]),
         ("paletteuse", [ff, "-y", "-loglevel", "error", "-i", pattern, "-i", pal,
-                        "-lavfi", "[0:v][1:v]paletteuse=dither=bayer:bayer_scale=3:"
-                                  "diff_mode=rectangle", "-loop", "0", out]),
+                        "-lavfi", "%s[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=3:"
+                                  "diff_mode=rectangle" % scale, "-loop", "0", out]),
     ):
         r = subprocess.run(args, capture_output=True, text=True)
         if r.returncode != 0:
