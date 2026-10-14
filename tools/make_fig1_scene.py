@@ -104,9 +104,14 @@ def main():
     # ---- traced light path (real rays through the real interfaces)
     bw = (WATER - G.Z_AT_B0) / G.DZ_DB
     bt = (H_GLASS - G.Z_AT_B0) / G.DZ_DB
-    for frac in (0.10, 0.32, 0.55, 0.78, 0.96):
-        b = bw + frac * (bt - bw)
-        pts, _ = G.path(b)
+    bs_dense = np.linspace(bw, bt, 5000)
+    ray_candidates = [(b, G.path(b)) for b in bs_dense]
+    ray_candidates = [(b, pts, r) for b, (pts, r) in ray_candidates if r is not None]
+    # Select 5 rays spanning the measured caustic fold on the receiver
+    chosen_rays = [min(ray_candidates, key=lambda x: abs(x[2] - tr))
+                   for tr in [0.025, 0.036, 0.048, 0.060, 0.072]]
+
+    for b, pts, r in chosen_rays:
         xs = [p[0] for p in pts]; zs = [p[1] for p in pts]
         ax.plot(xs, zs, color="0.15", lw=0.55, zorder=6)
         # incoming sun ray arrow head along the trajectory
@@ -124,7 +129,7 @@ def main():
     ax.text((lo + hi) / 2, -0.0175, f"caustic fold  {abs(hi-lo)*1000:.0f} mm  (measured)",
             ha="center", va="top", fontsize=7, zorder=8)
 
-    # ---- dimension lines, kept clear of the geometry
+    # ---- dimension lines, kept clear of the geometry and rays
     def dim_v(z0, z1, x, label, side="left"):
         ax.annotate("", xy=(x, z0), xytext=(x, z1),
                     arrowprops=dict(arrowstyle="<->", lw=0.5, color="black"))
@@ -135,8 +140,13 @@ def main():
             ax.plot([x, x + (0.003 if side == "left" else -0.003)], [zz, zz],
                     color="black", lw=0.4)
 
-    dim_v(0.0, H_GLASS, -0.056, r"glass height $90$", "left")
-    dim_v(0.0, WATER, -0.044, r"water fill $59.4$", "left")
+    # Left: water fill height (all incoming rays enter above 61 mm, so no collision)
+    dim_v(0.0, WATER, -0.046, r"water fill $59.4$", "left")
+    ax.plot([-R_OUT, -0.046 - 0.003], [WATER, WATER], color="black", lw=0.35, ls="--")
+
+    # Right: total glass height (all caustic rays land by x = 72 mm, so x = 92 mm is clear)
+    dim_v(0.0, H_GLASS, 0.092, r"glass height $90$", "right")
+    ax.plot([R_OUT, 0.092 + 0.003], [H_GLASS, H_GLASS], color="black", lw=0.35, ls="--")
 
     # outer diameter, above cylinder with extension witness lines
     z_dim_d = H_GLASS + 0.007
@@ -153,14 +163,14 @@ def main():
     ax.text(0.0, (WATER + H_GLASS) / 2, "air", ha="center", va="center",
             fontsize=7.5, color="black", zorder=9)
 
-    # Glass and wall thickness called out cleanly on the right
-    ax.text(R_OUT + 0.046, 0.034, "glass\n(wall $3.5$)", ha="center", va="center",
+    # Glass and wall thickness called out cleanly on upper right wall (zero rays)
+    ax.text(R_OUT + 0.024, 0.075, "glass\n(wall $3.5$)", ha="left", va="center",
             fontsize=7.0, color="black")
-    ax.annotate("", xy=((R_OUT + R_IN) / 2, 0.026),
-                xytext=(R_OUT + 0.030, 0.033),
+    ax.annotate("", xy=((R_OUT + R_IN) / 2, 0.075),
+                xytext=(R_OUT + 0.022, 0.075),
                 arrowprops=dict(arrowstyle="->", lw=0.45, color="black"))
 
-    ax.text(-0.055, 0.152, "sun: distant, 0.53\u00b0, elevation 25.4\u00b0",
+    ax.text(-0.055, 0.152, r"sun: distant, $0.53^\circ,\,$elevation $25.4^\circ$",
             fontsize=7.5, ha="left")
 
     # ---- scale bar
