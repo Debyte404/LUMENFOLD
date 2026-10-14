@@ -34,3 +34,4 @@ third_party/luxvenv/
 
 # editor/agent tool scratch (not part of the project)
 .commandcode/
+/LUMENFOLD_*.pdf
