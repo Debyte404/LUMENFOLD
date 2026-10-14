@@ -7,10 +7,17 @@ third_party/filament-*/
 # build output
 build/
 out/
+dist/
+*.egg-info
 # python
 __pycache__/
 *.pyc
 .venv/
+# node
+node_modules/
+# editor
+.vscode/
+*.log
 # stray object files
 *.obj
 # renders / frames

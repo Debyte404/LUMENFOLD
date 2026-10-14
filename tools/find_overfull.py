@@ -1,4 +1,4 @@
-"""find_overfull.py -- identify WHAT is overflowing, not just how much.
+r"""find_overfull.py -- identify WHAT is overflowing, not just how much.
 
 check_layout.py reports magnitudes. That is not enough to fix anything: an
 "Overfull hbox (62.81pt too wide)" with no context is a number, not a defect

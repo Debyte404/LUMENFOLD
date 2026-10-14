@@ -1,4 +1,4 @@
-"""check_layout.py -- find text that runs past the margins.
+r"""check_layout.py -- find text that runs past the margins.
 
 Tectonic does not write a .log file, so the usual `grep Overfull main.log` finds
 nothing and it is tempting to conclude the layout is clean. The warnings are in
