@@ -170,7 +170,7 @@ def main():
                 xytext=(R_OUT + 0.022, 0.075),
                 arrowprops=dict(arrowstyle="->", lw=0.45, color="black"))
 
-    ax.text(-0.055, 0.152, r"sun: distant, $0.53^\circ,\,$elevation $25.4^\circ$",
+    ax.text(-0.055, 0.152, "sun: distant, 0.53\u00b0 (solar), elevation 25.4\u00b0",
             fontsize=7.5, ha="left")
 
     # ---- scale bar
