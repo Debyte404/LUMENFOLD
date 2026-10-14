@@ -41,7 +41,7 @@ SLOPE = D[1] / D[0]
 
 # the wall is the vertical line x = -R_OUT; z_hit is affine in b, which is what
 # the scan range must be derived from rather than guessed
-Z_AT_B0 = -SLOPE * (-R_OUT - 0.0)                       # hit height for b = 0
+Z_AT_B0 = -SLOPE * R_OUT                                # hit height for b = 0
 DZ_DB = NPERP[1] - SLOPE * NPERP[0]
 
 

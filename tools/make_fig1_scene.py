@@ -109,20 +109,19 @@ def main():
         pts, _ = G.path(b)
         xs = [p[0] for p in pts]; zs = [p[1] for p in pts]
         ax.plot(xs, zs, color="0.15", lw=0.55, zorder=6)
-    # incoming sun rays, drawn parallel at the true elevation
-    for frac in (0.10, 0.32, 0.55, 0.78, 0.96):
-        b = bw + frac * (bt - bw)
-        p0 = -0.30 * G.D + b * G.NPERP
-        ax.annotate("", xy=(p0[0] + 0.045 * G.D[0], p0[1] + 0.045 * G.D[1]),
-                    xytext=(p0[0] - 0.02 * G.D[0], p0[1] - 0.02 * G.D[1]),
-                    arrowprops=dict(arrowstyle="->", lw=0.5, color="0.35"))
+        # incoming sun ray arrow head along the trajectory
+        if len(pts) >= 2:
+            p_hit = np.array(pts[1])
+            p_arr = p_hit - 0.055 * G.D
+            ax.annotate("", xy=p_arr + 0.008 * G.D, xytext=p_arr - 0.008 * G.D,
+                        arrowprops=dict(arrowstyle="->", lw=0.5, color="0.35"))
 
     # ---- the measured caustic, drawn where it was measured
     ax.add_patch(Rectangle((lo, -0.0030), hi - lo, 0.0060, fc="0.35",
                            ec="none", zorder=7))
     ax.annotate("", xy=(lo, -0.0135), xytext=(hi, -0.0135),
                 arrowprops=dict(arrowstyle="<->", lw=0.5, color="black", zorder=8))
-    ax.text((lo + hi) / 2, -0.0175, f"caustic  {abs(hi-lo)*1000:.0f} mm  (measured)",
+    ax.text((lo + hi) / 2, -0.0175, f"caustic fold  {abs(hi-lo)*1000:.0f} mm  (measured)",
             ha="center", va="top", fontsize=7, zorder=8)
 
     # ---- dimension lines, kept clear of the geometry
@@ -138,34 +137,27 @@ def main():
 
     dim_v(0.0, H_GLASS, -0.056, r"glass height $90$", "left")
     dim_v(0.0, WATER, -0.044, r"water fill $59.4$", "left")
-    # wall thickness, called out to the right
-    ax.annotate("", xy=(R_OUT, H_GLASS * 1.06), xytext=(-R_OUT, H_GLASS * 1.06),
-                arrowprops=dict(arrowstyle="<->", lw=0.5, color="black"))
-    ax.text(0.0, H_GLASS * 1.06 + 0.006, "\u2300 70 mm",
-            ha="center", va="bottom", fontsize=6.5)
 
-    ax.annotate("", xy=(-R_OUT, 0.072), xytext=(-R_IN, 0.072),
-                arrowprops=dict(arrowstyle="-", lw=0.5, color="black"))
-    ax.annotate("wall 3.5", xy=(-(R_OUT + R_IN) / 2, 0.012),
-                xytext=(-0.104, 0.040), fontsize=6.5, ha="left",
-                arrowprops=dict(arrowstyle="->", lw=0.45, color="black"))
+    # outer diameter, above cylinder with extension witness lines
+    z_dim_d = H_GLASS + 0.007
+    for xx in (-R_OUT, R_OUT):
+        ax.plot([xx, xx], [H_GLASS, z_dim_d + 0.003], color="black", lw=0.4)
+    ax.annotate("", xy=(R_OUT, z_dim_d), xytext=(-R_OUT, z_dim_d),
+                arrowprops=dict(arrowstyle="<->", lw=0.5, color="black"))
+    ax.text(0.0, z_dim_d + 0.002, r"$\varnothing\,70$",
+            ha="center", va="bottom", fontsize=6.5)
 
     # ---- material labels, each with a leader to its own region
     ax.text(0.0, WATER * 0.55, "water", ha="center", va="center", fontsize=7.5,
             color="black", zorder=9)
     ax.text(0.0, (WATER + H_GLASS) / 2, "air", ha="center", va="center",
             fontsize=7.5, color="black", zorder=9)
-    # "glass" sits on the RIGHT of the cylinder. On the left it collided with the
-    # rotated dimension labels: those are drawn right-aligned to their dimension
-    # line and extend leftward, straight over a label placed at x = -0.065.
-    ax.text(R_OUT + 0.046, 0.034, "glass", ha="center", va="center", fontsize=7.5,
-            color="black")
+
+    # Glass and wall thickness called out cleanly on the right
+    ax.text(R_OUT + 0.046, 0.034, "glass\n(wall $3.5$)", ha="center", va="center",
+            fontsize=7.0, color="black")
     ax.annotate("", xy=((R_OUT + R_IN) / 2, 0.026),
                 xytext=(R_OUT + 0.030, 0.033),
-                arrowprops=dict(arrowstyle="->", lw=0.45, color="black"))
-    ax.text(R_OUT + 0.030, H_GLASS - 0.004, "focused\nband", ha="center",
-            va="center", fontsize=6.5)
-    ax.annotate("", xy=(0.016, 0.004), xytext=(R_OUT + 0.030, H_GLASS - 0.026),
                 arrowprops=dict(arrowstyle="->", lw=0.45, color="black"))
 
     ax.text(-0.055, 0.152, "sun: distant, 0.53\u00b0, elevation 25.4\u00b0",
