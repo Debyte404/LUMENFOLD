@@ -16,7 +16,7 @@ import subprocess
 import sys
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 REPO = r"D:/ValueProjects/caustics"
 SRC = os.path.join(REPO, "out", "gif_src")
@@ -28,9 +28,20 @@ PANELS = [
     ("spmm", "PBRT-v4 SPPM — photon mapping", (255, 255, 255)),
 ]
 
-LABEL_H = 26
 BORDER = 3
 BG = (16, 16, 18)
+
+
+def get_font(size, bold=True):
+    """Load a crisp TrueType UI font for label rendering."""
+    candidates = ["segoeuib.ttf", "arialbd.ttf"] if bold else ["segoeui.ttf", "arial.ttf"]
+    candidates += ["DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf", "Helvetica.ttf"]
+    for name in candidates:
+        try:
+            return ImageFont.truetype(name, size)
+        except Exception:
+            pass
+    return ImageFont.load_default()
 
 
 def frames_for(name):
@@ -55,17 +66,18 @@ def frames_for(name):
     return [p for _, p in sorted(out)]
 
 
-def label(im, text):
-    """Return the frame with a caption bar above it."""
+def label(im, text, panel_w=None):
+    """Return the frame with a crisp, antialiased caption bar above it."""
     w = im.size[0]
-    canvas = Image.new("RGB", (w, im.size[1] + LABEL_H), BG)
-    canvas.paste(im, (0, LABEL_H))
+    pw = panel_w or w
+    font_size = max(14, int(round(pw * 0.045))) if pw > 450 else 14
+    label_h = max(34, int(round(font_size * 2.2)))
+
+    canvas = Image.new("RGB", (w, im.size[1] + label_h), BG)
+    canvas.paste(im, (0, label_h))
     d = ImageDraw.Draw(canvas)
-    try:
-        tw = d.textlength(text)
-    except Exception:
-        tw = len(text) * 6
-    d.text(((w - tw) / 2, 7), text, fill=(255, 255, 255))
+    f = get_font(font_size, bold=True)
+    d.text((w / 2, label_h / 2), text, font=f, fill=(255, 255, 255), anchor="mm")
     return canvas
 
 
@@ -84,7 +96,7 @@ def row(idx, panel_w=None):
         if panel_w:
             h = max(1, round(im.size[1] * panel_w / im.size[0]))
             im = im.resize((panel_w, h), Image.LANCZOS)
-        im = label(im, cap)
+        im = label(im, cap, panel_w=panel_w)
         b = Image.new("RGB", (im.size[0] + 2 * BORDER, im.size[1] + 2 * BORDER), (60, 60, 66))
         b.paste(im, (BORDER, BORDER))
         panels.append(b)

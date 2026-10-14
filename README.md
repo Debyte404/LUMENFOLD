@@ -3,7 +3,7 @@
 ### Wave-corrected caustics over photon splatting
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-3DA639.svg)](LICENSE)
-[![Paper](https://img.shields.io/badge/paper-PDF-26%20pages-B31B1B.svg)](docs/paper/main.pdf)
+[![Paper](https://img.shields.io/badge/paper-PDF%20(26%20pages)-B31B1B.svg)](docs/paper/main.pdf)
 [![ORCID](https://img.shields.io/badge/ORCID-0009--0004--2672--3503-A6CE39.svg)](https://orcid.org/0009-0004-2672-3503)
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)](#quickstart)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-success.svg)](#quickstart)
