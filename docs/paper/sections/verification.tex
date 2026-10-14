@@ -237,7 +237,7 @@ The fold's correction is a one-dimensional table of \num{2048} entries built fro
 \texttt{scipy.special.airy} in milliseconds, and costs a lookup per evaluation. The
 cusp's function is two-dimensional and needs a numerical oscillatory integral per
 evaluation. Measured here: \SI{16.9}{\milli\second} for a direct Pearcey
-evaluation against \SI{0.79}{\micro\second} for an Airy lookup, a factor of
+evaluation against $0.79\,\mu\text{s}$ for an Airy lookup, a factor of
 $2.1\times10^{4}$. The only affordable route is a precomputed surface, and that
 route is not cheap either: a $256^2$ table is roughly \SI{35}{\minute} of build
 time, against the fold's milliseconds, for a table that is itself a

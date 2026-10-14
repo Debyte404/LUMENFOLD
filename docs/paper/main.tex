@@ -25,15 +25,15 @@
 
 \makeatletter
 \renewcommand\p@journalSubmissionText[1]{%
-manuscript prepared for COMPUTER GRAPHICS \textit{Forum}, October 2026.%
+Preprint (not peer reviewed), October 2026.%
 }
 \def\ps@titlepage{\let\@mkboth\@gobbletwo
  \def\@oddhead{\raisebox{\z@}[8pt][1pt]{\parbox{\textwidth}{\small
-   \textit{Computer Graphics Forum} (Preprint, October 2026)%
+   \textit{Preprint (not peer reviewed)}, October 2026%
    \hfill
  }}}%
  \def\@oddfoot{{\tiny\raisebox{\z@}[8pt][1pt]{\parbox[t]{18pc}{\sloppy
-  \p@copyrightTextTitPag}}}\hfill}
+  Preprint (not peer reviewed), October 2026.}}}\hfill}
  \let\@evenhead=\@oddhead
  \let\@evenfoot=\@oddfoot
  \let\sectionmark=\EmptySectionmark
@@ -114,7 +114,7 @@ manuscript prepared for COMPUTER GRAPHICS \textit{Forum}, October 2026.%
 \setlength{\parskip}{0pt}
 
 
-\sisetup{detect-all,group-separator={,},group-minimum-digits=4}
+\sisetup{detect-all,group-separator={,},group-minimum-digits=4,math-micro=\mu,text-micro=$\mu$}
 
 % Theorem-like environments. Everything the paper asserts as a formal
 % statement is one of these; the remaining prose is measurement.
@@ -172,12 +172,23 @@ manuscript prepared for COMPUTER GRAPHICS \textit{Forum}, October 2026.%
 
 \input{sections/appendix}
 
-\let\oldbibliography\thebibliography
-\renewcommand{\thebibliography}[1]{%
-  \oldbibliography{#1}%
-  \setlength{\itemsep}{0.2pt plus 0.2pt}%
-  \setlength{\parskip}{0pt}%
+\makeatletter
+\def\thebibliography#1{\subsection*{References}
+ \addcontentsline{toc}{section}{References}
+ \list{\relax}{%
+    \setlength{\itemindent}{0pt}
+    \setlength{\leftmargin}{1em}
+    \setlength{\itemsep}{0pt plus 0.2pt}%
+    \setlength{\parsep}{0pt}%
+    \fontsize{7.5pt}{8.5pt}\selectfont
+ }%
+ \parindent\z@
+ \parskip\z@ plus .1pt\relax
+ \def\newblock{\hskip .11em plus .33em minus .07em}%
+ \sloppy\clubpenalty4000\widowpenalty4000%
+ \sfcode`\.=1000\relax
 }
+\makeatother
 \bibliographystyle{eg-alpha}
 \bibliography{refs}
 

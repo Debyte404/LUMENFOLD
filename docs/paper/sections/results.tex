@@ -260,19 +260,19 @@ Three distinct spatial scales operate in this study and must not be conflated:
 \item \emph{Canonical 1D test scale}: In the canonical 1D fold wave integral
       (Section~\ref{sec:verify-profile}) evaluated with cubic phase parameter
       $c = 10^{-3}\,\si{\meter}$, the Airy scales evaluate to
-      \SI{1.749}{\micro\meter}, \SI{1.565}{\micro\meter}, and \SI{1.369}{\micro\meter}
+      $1.749\,\mu\text{m}$, $1.565\,\mu\text{m}$, and $1.369\,\mu\text{m}$
       at 650, 550, and 450\,nm, reproducing the theoretical $(\lambda/\lambda_0)^{2/3}$
       ratio.
-\item \emph{Physical 3D scene scale}: In the full 3D cylinder-in-water geometry,
-      the third derivative of the ray map ($c_3 \approx \SI{0.08115}{\meter\per\radian\cubed}$) yields a physical fringe width of
-      $w \approx \SI{123}{\micro\meter}$ at \SI{550}{\nano\meter}
+\item \emph{Physical 3D scene scale}: In the full 3D cylinder geometry,
+      the normal-form cubic parameter $c \approx \SI{0.08115}{\meter}$ yields a canonical physical fringe width of
+      $d \approx 6.8\,\mu\text{m}$ at \SI{550}{\nano\meter} via \eqref{eq:scalelaw}
       (Section~\ref{sec:scaling}).
 \item \emph{Visual demonstration scale}: At $1024^2$ resolution across a
-      $\SI{320}{\milli\meter}$ receiver, a physical fringe of \SI{123}{\micro\meter}
-      subtends under half a pixel ($\approx \SI{312}{\micro\meter}/\text{px}$) and
+      $\SI{320}{\milli\meter}$ receiver, a physical fringe of $6.8\,\mu\text{m}$
+      subtends $\approx 1/46$ of a pixel ($\approx 312.5\,\mu\text{m}/\text{px}$) and
       averages out into a smooth band. For visual and artistic demonstration in
       Figures~\ref{fig:colour}(c,d), we provide an interactive parameter set to
-      $w = \SI{1.5}{\milli\meter}$ ($12.2\times$ magnification) to resolve
+      $w = \SI{1.5}{\milli\meter}$ to resolve
       diffraction ripples explicitly on coarse rasters.
 \end{enumerate}
 Across the lit band, the chromatic shift between the outer channels displaces the
@@ -292,11 +292,11 @@ spread across them is red 20, green 18, yellow 15, blue 14, cyan 11, neutral 2.
 caustic orbits the glass and the frame does not, which is what makes the motion
 visible rather than cancelled by a following camera. Panels (c) and (d) are ray-traced
 with the renderer's default fringe width of \SI{0.0015}{\meter}, which is
-\num{12.2}~times the physical Airy scale of \SI{0.000123}{\meter} for this geometry at
-550\,nm; the physical fringe is under two pixels at these resolutions and would not be
-visible, so the width is deliberately exaggerated and the fringe COUNT is not
+exaggerated relative to the physical Airy scale of $d \approx 6.8\,\mu\text{m}$ for this geometry at
+550\,nm; the physical fringe is deeply sub-pixel at these resolutions and would not be
+visible, so the width is deliberately exaggerated for visibility and the fringe COUNT is not
 physical. Panels (a) and (b) are computed from the canonical 1D wave integral at
-unmagnified micro-scale ($w \approx \SI{1.565}{\micro\meter}$ at 550\,nm, scaling strictly as $\lambda^{2/3}$)
+unmagnified micro-scale ($w \approx 1.565\,\mu\text{m}$ at 550\,nm, scaling strictly as $\lambda^{2/3}$)
 to demonstrate the exact chromatic phase shift without artificial broadening.}
 \label{fig:colour}
 \end{figure*}
@@ -512,7 +512,7 @@ a \SI{24.87}{\percent} leakage into the dark geometric shadow, blurring the caus
 whereas the continuous Airy profile leaks only \SI{0.77}{\percent} (exponential wave barrier)
 and correctly displaces the peak into the illuminated region ($u = +1.0188$).
 Inside the discrete renderer pipeline, where $u \ge 0$ is evaluated via the distance transform
-and physical fringes ($123\,\mu\text{m}$) are sub-pixel at standard rasters ($312\,\mu\text{m}$),
+and physical fringes ($d \approx 6.8\,\mu\text{m}$) are sub-pixel at standard rasters ($312.5\,\mu\text{m}$ at $1024^2$),
 a smooth Gaussian redistribution yields a comparable coarse-scale irradiance, demonstrating
 that the renderer's primary numerical stability derives from band-local flux conservation and
 singularity bounding, while the Airy profile specifically supplies physical chromatic fringe
@@ -573,11 +573,9 @@ the reference PBRT scene is bare, not because of an exposure choice.}
 Two further studies bound the result rather than extending it.
 
 \textbf{Resolution.} The apparent breadth of the fold's bright region measures
-$2.30\times$ the independent brute-force ground truth at $1024^2$ ($\approx \SI{1450}{\micro\meter}$ vs $\SI{630}{\micro\meter}$, occupying \SI{9.56}{\percent} vs \SI{4.16}{\percent} of receiver area)
-and contracts to $1.87\times$ at $4096^2$ ($\approx \SI{1180}{\micro\meter}$, \SI{7.80}{\percent} area).
-At both raster grids, the detected fold band spans approximately 2 pixels, indicating that
-on discrete rasters the apparent breadth tracks the pixel grid resolution (analogous to the
-bandwidth dependence of photon-mapping smoothing kernels).
+$2.30\times$ the independent brute-force ground truth at $1024^2$ ($\approx 1450\,\mu\text{m}$ vs $630\,\mu\text{m}$, occupying \SI{9.56}{\percent} vs \SI{4.16}{\percent} of receiver area)
+and contracts to $1.87\times$ at $4096^2$ ($\approx 1180\,\mu\text{m}$, \SI{7.80}{\percent} area).
+In the rendered raster, the apparent visual breadth of the caustic ridge spans approximately 2 pixels at both grids, reflecting the discrete raster filtering floor rather than the underlying physical band, which maintains a fixed physical corridor.
 
 \textbf{Phase.} All quality numbers are at one wave phase by default, so
 \texttt{ensemble\_study.py} repeats the measurement over eight phases of a full

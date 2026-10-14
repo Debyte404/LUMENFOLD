@@ -11,26 +11,7 @@ instrument here.
 
 Equation~\eqref{eq:sellmeier} with the four-term Sellmeier coefficients of
 Daimon and Masumura \cite{daimon2007}, measured on HPLC-distilled water at
-\SI{20.0}{\celsius}. The coefficients as evaluated by the solver are:
-
-\begin{table}[htbp]
-\centering
-\caption{Water Sellmeier coefficients, $\lambda$ in micrometres. These are the
-values in \texttt{src/app/showcase\_main.cpp} and in the Python reference, and
-they agree term for term.}
-\label{tab:sellmeier}
-\small
-\begin{tabular}{@{}rr@{}}
-\toprule
-$j$ & $B_j$ \hspace{3em} $C_j$ \\
-\midrule
-1 & \num{5.684027565e-1} \hspace{3em} \num{5.101829712e-3} \\
-2 & \num{1.726177391e-1} \hspace{3em} \num{1.821153936e-2} \\
-3 & \num{2.086189578e-2} \hspace{3em} \num{2.620722293e-2} \\
-4 & \num{1.130748688e-1} \hspace{3em} \num{1.069792721e1} \\
-\bottomrule
-\end{tabular}
-\end{table}
+$20.0^\circ\text{C}$.
 
 \subsection{Glass}
 
@@ -42,11 +23,22 @@ $\lambda$ in micrometres.
 
 \begin{table}[htbp]
 \centering
-\caption{Indices at the three render channels. Red has the lowest index in both
-media, so red refracts least and lands farthest from the axis; the chromatic
-ordering in every figure follows from this table, and from nothing else.}
+\caption{Material optical parameters: Sellmeier coefficients \cite{daimon2007} for water at $20.0^\circ\text{C}$ (top; agreed term-for-term in \texttt{src/app/showcase\_main.cpp} and Python), and evaluated refractive indices across render channels (bottom; red refracts least and lands farthest from axis).}
+\label{tab:sellmeier}
 \label{tab:indices}
 \small
+\begin{tabular}{@{}rr@{}}
+\toprule
+$j$ & $B_j$ \hspace{3em} $C_j$ \\
+\midrule
+1 & \num{5.684027565e-1} \hspace{3em} \num{5.101829712e-3} \\
+2 & \num{1.726177391e-1} \hspace{3em} \num{1.821153936e-2} \\
+3 & \num{2.086189578e-2} \hspace{3em} \num{2.620722293e-2} \\
+4 & \num{1.130748688e-1} \hspace{3em} \num{1.069792721e1} \\
+\bottomrule
+\end{tabular}
+\vspace{0.8em}
+
 \begin{tabular}{@{}lrrr@{}}
 \toprule
 Channel & $\lambda$ & Water $n$ & Glass $n$ \\
@@ -99,15 +91,9 @@ legitimate precisely in the regime where the profile is used --- near the fold
 applied only inside the band.
 
 \paragraph{The scaling, assembled.} Writing the canonical coordinate from the
-proof of Proposition~\ref{prop:foldnormal} as
-\begin{equation}
-X = -x\,k^{2/3}2^{1/3}c^{-1/3},
-\end{equation}
+proof of Proposition~\ref{prop:foldnormal} as $X = -x\,k^{2/3}2^{1/3}c^{-1/3}$,
 the transverse distance at which $|X| = 1$ is
-\begin{equation}
-d = k^{-2/3}2^{-1/3}c^{1/3}
-  = \frac{\lambda^{2/3}c^{1/3}}{2\pi^{2/3}},
-\end{equation}
+$d = k^{-2/3}2^{-1/3}c^{1/3} = \frac{\lambda^{2/3}c^{1/3}}{2\pi^{2/3}}$,
 which contains $\lambda$ only as $\lambda^{2/3}$. Setting $|X| = 1$ is the
 natural normalisation for a fringe width because it is the position of the
 first Airy zero beyond the peak: the profile has produced its first complete
@@ -125,10 +111,7 @@ here as definitions so the comparison is reproducible without reading the tools.
 For a single-channel image $I$ on a receiver with known centre $\mathbf{0}$,
 let $M = \max I$ and, for $r > 0$, let $\bar I(r)$ be the mean of $I$ over the
 annulus $\{\,r \le \|\mathbf{u}\| < r + \SI{1}{\milli\meter}\,\}$. The edge
-radius is
-\begin{equation}
-r_e \;=\; \sup\{\, r : \bar I(r) > 0.02\,M \,\}.
-\end{equation}
+radius is $r_e = \sup\{\, r : \bar I(r) > 0.02\,M \,\}$.
 Dividing by $M$ makes the statistic invariant to any uniform scale, and taking a
 mean over an annulus rather than a maximum makes it unaffected by a ceiling
 applied to the core.
@@ -155,10 +138,7 @@ large negative component appears that has nothing to do with the caustic.
 \begin{definition}[Temporal flicker]
 \label{def:flicker}
 For a rendered sequence $\{I_t\}$ and a region $R$, the flicker is
-\begin{equation}
-F \;=\; \frac{1}{|R|}\sum_{\mathbf{u} \in R}
-\frac{1}{T-1}\sum_{t=1}^{T-1}\big| I_{t+1}(\mathbf{u}) - I_t(\mathbf{u}) \big| ,
-\end{equation}
+$F = \frac{1}{|R|}\sum_{\mathbf{u} \in R} \frac{1}{T-1}\sum_{t=1}^{T-1}\big| I_{t+1}(\mathbf{u}) - I_t(\mathbf{u}) \big|$,
 in units of the 8-bit quantisation step.
 \end{definition}
 
@@ -169,8 +149,9 @@ in units of the 8-bit quantisation step.
 
 \begin{table}[htbp]
 \centering
-\caption{Symbols used throughout.}
+\caption{Symbols used throughout (top) and bake parameters for all results (bottom).}
 \label{tab:notation}
+\label{tab:manifest}
 \footnotesize
 \begin{tabular}{@{}ll@{}}
 \toprule
@@ -186,13 +167,8 @@ $\Ai, X, b(s)$ & Airy function, canonical coordinate \eqref{eq:canonical}, profi
 $\kappa, k^{*}$ & display ceiling, band flux ratio \eqref{eq:kstar} \\
 \bottomrule
 \end{tabular}
-\end{table}
+\vspace{0.8em}
 
-\begin{table}[htbp]
-\centering
-\caption{Bake parameters used for all results in this paper.}
-\label{tab:manifest}
-\footnotesize
 \begin{tabular}{@{}ll@{}}
 \toprule
 Parameter & Value \\
@@ -203,13 +179,13 @@ Surface amplitudes $A_i$    & \num{0.65}, \num{0.40}, \num{0.25}, \num{0.15} \si
 Surface wavelengths $\Lambda_i$ & 42, 27, 17, 11 \si{\milli\meter} \\
 Source & distant, $0.53^\circ$, direction \eqref{eq:snell} \\
 Detector threshold $\epsilon$ & $\num{0.0592}$ ($\approx 2\%$ at $1024^2$) \\
-Reference width $w_{\text{ref}}$ & \SI{123.1}{\micro\meter} (physical), 2048-LUT on $[0,8]$ \\
+Reference width $w_{\text{ref}}$ & $\approx 6.8\,\mu\text{m}$ (physical \eqref{eq:scalelaw}), 2048-LUT on $[0,8]$ \\
 Profile floor \& ceiling & floor \num{0.15}, ceiling $1.35\,\kappa$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 The reference width is the physical fringe scale for this geometry, derived
-from \eqref{eq:scalelaw} as \SI{123.1}{\micro\meter}. It is deliberately not
-inflated for visibility in the full-receiver renders: the renders use exclusively
-this physical scale, showing true chromatic dispersion rather than decorative fringes.
+from \eqref{eq:scalelaw} as $d \approx 6.8\,\mu\text{m}$ (first zero at $15.8\,\mu\text{m}$).
+It is deliberately not inflated for visibility in full-receiver physical renders:
+the renders use this physical scale, showing true chromatic dispersion rather than decorative fringes.

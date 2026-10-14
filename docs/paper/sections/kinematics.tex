@@ -319,8 +319,7 @@ the phase $\Phi(\rho)$ in \eqref{eq:phase} and the fold parameter $c$ both have
 dimensions of length ($\si{\meter}$). Consequently, $d(\lambda,c)$ has dimensions
 of length ($\si{\meter}^{2/3} \times \si{\meter}^{1/3} = \si{\meter}$).
 
-In our physical reference scene of a solid refracting cylinder (radius $R = \SI{35}{\milli\meter}$, glass index $n = 1.5251$), the ray map $\mathbf{x}(\phi)$ near the fold locus ($\phi_f \approx 207.70^\circ$) admits the local Taylor expansion $x(t) \approx x_f + a_1 t + \frac{1}{6} c_3 t^3$, where $t = \phi - \phi_f$ and bisection yields $c_3 \approx \SI{0.08115}{\meter\per\radian\cubed}$. The resulting transverse diffraction width evaluated via \eqref{eq:scalelaw} gives
-$w_{\text{ref}} = (\lambda^2 / 2 |c_3|)^{1/3} \approx \SI{123.1}{\micro\meter}$ at $\lambda = \SI{550}{\nano\meter}$. This physically derives the baseline width $w_{\text{ref}} = \SI{123}{\micro\meter}$ directly from the geometry of the optic.
+In our physical reference scene of a solid refracting cylinder (radius $R = \SI{35}{\milli\meter}$, glass index $n = 1.5251$), the ray map $\mathbf{x}(\phi)$ near the fold locus ($\phi_f \approx 207.70^\circ$) exhibits a cubic wavefront parameter $c \approx \SI{0.08115}{\meter}$ (transverse curvature $C_{\text{angle}} \approx \SI{0.01561}{\meter}$). Evaluating \eqref{eq:scalelaw} with $c = \SI{0.08115}{\meter}$ yields the canonical transverse fringe scale $d(\lambda,c) \approx 6.78\,\mu\text{m}$ at $\lambda = \SI{550}{\nano\meter}$, with the first Airy zero ($|X| = 2.3381$) located at $15.84\,\mu\text{m}$. An earlier draft evaluated an unnormalized expression $(\lambda^2 / 2 c_3)^{1/3}$ yielding $123.1\,\mu\text{m}$, which we withdraw as dimensionally mismatched; the true diffraction scale is $\approx 6.8\,\mu\text{m}$. Because a standard $1024^2$ raster pixel ($312.5\,\mu\text{m}$) is $\approx 46\times$ larger than $d$, physical fringes are deeply sub-pixel in full-receiver renders.
 
 \begin{corollary}[Wavelength scaling]
 \label{cor:scaling}
@@ -460,7 +459,7 @@ Both media are evaluated from measured refractive-index data rather than from
 fitted dispersion formulas, for a reason that Section~\ref{sec:verify-index}
 documents: a fitted curve is where this project's one physical error hid.
 Water uses the four-term Sellmeier form of Daimon and Masumura
-\cite{daimon2007} for HPLC-distilled water at \SI{20.0}{\celsius},
+\cite{daimon2007} for HPLC-distilled water at $20.0^\circ\text{C}$,
 \begin{equation}
 n^2(\lambda) \;=\; 1 + \sum_{j=1}^{4} \frac{B_j\,\lambda^2}{\lambda^2 - C_j},
 \label{eq:sellmeier}
@@ -479,9 +478,9 @@ figure of this paper is a consequence of \eqref{eq:sellmeier}, \eqref{eq:rubin}
 and \eqref{eq:perchannel}, not an effect we added.
 
 The source subtends $0.53^\circ$, which at the receiver distance of this
-scene corresponds to a geometric blur of roughly \SI{925}{\micro\meter}. The
+scene corresponds to a geometric blur of roughly $925\,\mu\text{m}$. The
 physical fringe spacing implied by \eqref{eq:scalelaw} for this geometry is
-\SI{123}{\micro\meter}, about \num{7.5} times smaller. A fully incoherent
+$d \approx 6.8\,\mu\text{m}$, about \num{136} times smaller. A fully incoherent
 treatment would therefore wash the fringes out; the fringes in this paper
 represent a \emph{resolvable wave feature of the coherent-limit model},
 not a prediction of what a photograph under the sun would show.

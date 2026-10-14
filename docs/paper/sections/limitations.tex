@@ -31,9 +31,9 @@ Swallowtails and umbilic points remain untested.
 
 This is the most serious physical limitation. The source in this scene subtends
 $0.53^\circ$, and at the receiver distance that corresponds to a geometric
-blur of roughly \SI{925}{\micro\meter}. The physical fringe spacing implied by
-\eqref{eq:scalelaw} for this geometry is \SI{123}{\micro\meter}, about
-\num{7.5} times smaller. A fully incoherent treatment would therefore wash the
+blur of roughly $925\,\mu\text{m}$. The physical fringe spacing implied by
+\eqref{eq:scalelaw} for this geometry is $d \approx 6.8\,\mu\text{m}$, about
+\num{136} times smaller. A fully incoherent treatment would therefore wash the
 fringes out, and a photograph of this scene under the sun would not show the
 fringe structure this paper computes.
 
@@ -55,12 +55,9 @@ depend on the coherence ratio; the fringe pattern does.
 \label{sec:limits-resolution}
 
 The fold's apparent breadth measures $2.30\times$ the independent brute-force ground truth
-at $1024^2$ ($\approx \SI{1450}{\micro\meter}$ vs $\SI{630}{\micro\meter}$, occupying \SI{9.56}{\percent} vs \SI{4.16}{\percent} of receiver area)
-and $1.87\times$ at $4096^2$ ($\approx \SI{1180}{\micro\meter}$, \SI{7.80}{\percent} area).
-At both raster grids, the detected fold band spans approximately 2 pixels, indicating that
-on discrete rasters the apparent breadth tracks the pixel grid resolution (analogous to the
-bandwidth dependence of photon-mapping smoothing kernels).
-Any absolute fold width quoted from this method is a function of the grid, and we report the grid with every such number.
+at $1024^2$ ($\approx 1450\,\mu\text{m}$ vs $630\,\mu\text{m}$, occupying \SI{9.56}{\percent} vs \SI{4.16}{\percent} of receiver area)
+and $1.87\times$ at $4096^2$ ($\approx 1180\,\mu\text{m}$, \SI{7.80}{\percent} area).
+In the rendered output, the apparent visual peak of the caustic ridge spans approximately 2 pixels across both rasters, demonstrating that discrete pixel filtering sets a visual floor on ridge sharpness (analogous to kernel bandwidth floors in density estimation), even as the physical detector isolates a resolution-independent domain fraction.
 
 \subsection{The ceiling is a safeguard}
 \label{sec:limits-ceiling}
@@ -107,6 +104,15 @@ covers a large fraction of the receiver, the wave term --- already two thirds of
 a bake on this scene --- would grow. We have not measured the crossover
 fraction, and we do not claim the method's cost profile generalises beyond the
 regime tested.
+
+\subsection{Known solver and experimental limitations}
+\label{sec:limits-solvers}
+
+Four experimental qualifications should be made explicit:
+\textbf{(1)}~\emph{Mitsuba~3}: Mitsuba was utilized as a qualitative spectral sanity check; it is not quantitatively compared in Table~\ref{tab:threeway}.
+\textbf{(2)}~\emph{Caustic morphology in Figure~\ref{fig:fourpanel}}: In Figure~\ref{fig:fourpanel}, our regularized field retains a wider branching fan across the receiver resulting from the full geometric pupil, whereas the independent brute-force trace concentrates into a thinner ridge.
+\textbf{(3)}~\emph{Confidence intervals}: The single-pass correlation ($r = 0.917$) is reported without bootstrap confidence intervals; SPPM and Cycles are likewise scored on single matched-budget runs rather than multi-seed ensembles.
+\textbf{(4)}~\emph{Cycles directional lighting}: In Blender Cycles, the MNEE shadow-caustics feature is designed primarily for localized point and spot sources; whether its manifold walker fully optimizes transport under an ideal distant directional sun lamp remains unconfirmed by upstream documentation.
 
 \subsection{What would falsify the approach}
 \label{sec:limits-falsify}

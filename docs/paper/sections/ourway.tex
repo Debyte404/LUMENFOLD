@@ -65,10 +65,11 @@ transverse boundary in the surface domain is $|x_{\perp}| \lesssim \sqrt{2 C_w w
 Hence, the Jacobian threshold isolating the diffraction band is
 $\epsilon = |\nabla_{\perp}(\detJ)|\,\sqrt{2 C_w w / C_{\text{map}}} \propto \lambda^{1/3}$.
 Crucially, for a given scene and physical wavelength $\lambda$, $\epsilon$ is a \emph{fixed physical threshold}.
-Holding $\epsilon$ fixed as the computational grid resolution $N$ increases ($N = 256 \to 2048$):
-the physical area of the detected band stabilizes at $\operatorname{area}(B) \approx \SI{1.87}{\percent}$ of the receiver,
-while the number of discrete grid cells inside the band grows quadratically ($1{,}311 \to 78{,}495$ cells),
-accurately sampling the interior diffraction profile.
+Holding $\epsilon = 0.0592$ fixed as the computational grid resolution $N$ increases ($N = 256 \to 2048$):
+the cell count scales from $1{,}311$ cells at $256^2$ ($\SI{2.00}{\percent}$ of grid, due to coarse discrete cell quantization)
+to $19{,}600$ at $1024^2$ ($\SI{1.87}{\percent}$) and $78{,}495$ at $2048^2$ ($\SI{1.87}{\percent}$),
+converging to a stable physical area fraction of $\approx \SI{1.87}{\percent}$ of the receiver domain
+and accurately sampling the interior diffraction profile.
 Conversely, in the geometric limit $\lambda \to 0$ (or $w \to 0$), the physical threshold $\epsilon \to 0$,
 contracting the physical band area $\operatorname{area}(B) \to 0$ onto the measure-zero fold curve $\Hm(\fold)$.
 
@@ -265,10 +266,10 @@ measures the sensitivity to each rather than asserting a value.
       the band width; too small and the band fails to cover the fold, too large
       and the correction is applied where the geometry was correct.
 \item \textbf{Reference width $w_{\text{ref}}$.} The fringe scale
-      \eqref{eq:scalelaw} for the geometry. Its physically meaningful value for
-      this scene is \SI{123}{\micro\meter}
-      (Sections~\ref{sec:estimators} and~\ref{sec:dispersion}), and using a
-      larger value for visibility is exactly the exaggeration this paper avoids.
+      \eqref{eq:scalelaw} for the geometry. Its physical value for
+      this scene is $d \approx 6.8\,\mu\text{m}$ (Section~\ref{sec:scaling});
+      for visibility and raster demonstration an operational scale may be specified,
+      while physical evaluations retain the uninflated value.
 \item \textbf{Ceiling $\kappa$.} Bounds the field. It interacts with
       Lemma~\ref{lem:flux} as described, and the audit of
       Section~\ref{sec:verify-energy} quantifies the interaction.

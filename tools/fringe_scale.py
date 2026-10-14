@@ -60,36 +60,39 @@ def main():
     print()
     print(f"  fold at phi = {np.degrees(phf):.2f} deg")
     print(f"  local map: linear {a1:+.4e} m/rad, cubic c3 = {c3:+.4e} m/rad^3")
-    if abs(c3) < 1e-30:
-        print("  cubic term vanished - cannot estimate the diffraction width")
-        return
-    delta = (LAM ** 2 / (2.0 * abs(c3))) ** (1.0 / 3.0)
+    # Eq. 14 normal-form diffraction width: d = (lambda^(2/3) * c^(1/3)) / (2 * pi^(2/3))
+    # where c is the wavefront cubic curvature parameter in metres.
+    c = abs(c3)
+    d_eq14 = (LAM ** (2.0 / 3.0) * c ** (1.0 / 3.0)) / (2.0 * np.pi ** (2.0 / 3.0))
+    # Transverse quadratic acceleration across the fold
+    transverse = q @ vt[1]
+    poly_trans = np.polyfit(t, transverse, 2)
+    C_angle = abs(2.0 * poly_trans[0])
+    d_trans = (LAM ** (2.0 / 3.0) * C_angle ** (1.0 / 3.0)) / (2.0 * np.pi ** (2.0 / 3.0))
+
+    # The withdrawn heuristic formula from early drafts:
+    delta_withdrawn = (LAM ** 2 / (2.0 * abs(c3))) ** (1.0 / 3.0)
+
     print()
-    print(f"  PHYSICAL diffraction width  delta = {delta*1e6:8.1f} um "
-          f"({delta*1000:.4f} mm)")
-    print(f"  what the renderer uses      airy_scale = {AIRED*1e6:8.1f} um "
-          f"({AIRED*1000:.4f} mm)")
-    print(f"  ratio                                   {AIRED/delta:8.1f}x wider "
-          f"than physical")
+    print(f"  PHYSICAL scale via Eq. 14 (c = {c:.5f} m):    d = {d_eq14*1e6:8.2f} um ({d_eq14*1000:.4f} mm)")
+    print(f"  Transverse scale (C_angle = {C_angle:.5f} m):  d = {d_trans*1e6:8.2f} um ({d_trans*1000:.4f} mm)")
+    print(f"  First Airy zero (|X| = 2.3381):                z1 = {2.3381*d_eq14*1e6:7.2f} um")
+    print(f"  Withdrawn heuristic formula (early draft):    delta = {delta_withdrawn*1e6:8.1f} um")
+    print(f"  What renderer uses for visibility:            airy_scale = {AIRED*1e6:8.1f} um")
 
     # Does the fringe pattern survive the source's angular size at all?
     SUN_ANGLE = np.radians(0.53)      # the real sun
     L_TO_CAUSTIC = 0.10               # glass to where the caustic forms, m
     blur = SUN_ANGLE * L_TO_CAUSTIC
     print()
-    print("  ...but under a real sun it does not matter, because the fringes do")
-    print("     not exist in the first place:")
+    print("  ...under a real sun, fringes do not exist:")
     print(f"     source angular size 0.53 deg at {L_TO_CAUSTIC*1000:.0f} mm "
-          f"blurs the pattern by {blur*1e6:.0f} um")
-    print(f"     that is {blur/delta:.1f}x the fringe spacing -> washed out "
-          f"entirely")
+          f"blurs by {blur*1e6:.0f} um")
+    print(f"     that is {blur/d_eq14:.1f}x the physical fringe spacing -> completely washed out")
     print()
-    print("  CONCLUSION: under this illumination the caustic has no visible")
-    print("  fringes. The fold is a smooth bright ridge. So the fringe structure")
-    print("  our renderer draws (1.5 mm) is neither the physical scale (0.12 mm)")
-    print("  nor something a camera could see - it is a VISIBILITY CHOICE, and")
-    print("  the honest position is that it makes the wave correction legible")
-    print("  rather than depicting reality.")
+    print("  CONCLUSION: under solar illumination, the caustic has no visible fringes;")
+    print("  the fold is a smooth bounded ridge. The visible fringes (1.5 mm) are")
+    print("  chosen for VISIBILITY, not to depict real sunlight.")
     print()
     print("  What the wave model does predict PHYSICALLY, and a photograph can")
     print("  test, is that the intensity stays FINITE at the fold instead of")
