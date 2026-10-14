@@ -40,6 +40,8 @@ These share no code with the estimator, which is the point.
 | `clip_flicker.py` | Temporal flicker of the clips, caustic region vs control region. |
 | `pearcey_cusp.py` | Higher-order cusp catastrophe evaluation via the Pearcey integral ($O(N^4)$ comparison vs Airy table, measuring $-0.3333$ divergence exponent vs analytic $-1/3$). |
 | `airy_facts.py` | Numeric verification of Airy Ai function zeros, peak values, and asymptotic decay rates. |
+| `ablation_profile_control.py` | Profile control ablation: Airy vs Gaussian vs box profile with identical band flux and width. |
+| `parameter_sensitivity_study.py` | Sensitivity sweep over fold detection threshold, band width scale, and gain multiplier. |
 
 ## Reference renderers
 

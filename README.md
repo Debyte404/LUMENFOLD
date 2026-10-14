@@ -46,7 +46,7 @@ keeps the band's own energy.
 - [No exaggerated fringes](#no-exaggerated-fringes)
 - [Repository map](#repository-map)
 - [Reproducing the results](#reproducing-the-results)
-- [Honest scope](#honest-scope)
+- [Scope & Limitations](#scope--limitations)
 - [History](#history)
 - [License](#license) · [Citation](#citation)
 
@@ -108,9 +108,7 @@ Python side: `numpy` for the analysis tools, plus `scipy` for
 1. **Geometric backbone.** Refract the surface by Snell's law and splat to the receiver,
    with the ray map `H(x)` and its Jacobian `det J`. Efficient wherever the map is
    smooth, divergent where it folds.
-2. **Fold locus.** Detect `det J = 0` analytically (2nd percentile) instead of by
-   intensity percentile — the percentile detector always flags 2 % of pixels and
-   therefore never converges.
+2. **Fold locus.** Detect `det J = 0` via a physical scale threshold `|det J| <= \epsilon(\lambda, w) \propto \lambda^{2/3}` (calibrated to the 2nd percentile for this reference benchmark) rather than an ungrounded raw intensity quantile.
 3. **Band-local Airy replacement.** Inside the band, redistribute the band's *own*
    energy by `|Ai(-s/w)|²` with per-channel width `w ∝ λ^(2/3)`, so fringes stay finite
    and chromatic ordering follows from the profile and the measured index laws rather
@@ -118,7 +116,7 @@ Python side: `numpy` for the analysis tools, plus `scipy` for
 
 Verified independently of the solver: the profile equals true Airy to **8.118e-03** of
 peak, the canonical cubic-phase fold integral peaks at `X = −1.00` against the analytic
-`−1.0188`, the fringe exponent measures **0.6977** against an analytic `2/3`, and a
+`−1.0188`, the fringe exponent measures **0.6977** in a discrete numerical quadrature test against the analytic `2/3 = 0.6667` (which the renderer evaluates exactly), and a
 closed-form cylinder caustic is reproduced to **0.1 mm**.
 
 <p align="center">
@@ -323,6 +321,8 @@ python tools/energy_audit.py              # Fresnel-weighted energy bookkeeping
 python tools/ensemble_study.py            # robustness across 8 wave phases
 python tools/colour_study.py              # caustic + fringe colour, full 80-combination factorial
 python tools/colour_experiments.py        # rendered media grid, sun orbit, source sweep
+python tools/ablation_profile_control.py  # Airy vs Gaussian vs box profile control
+python tools/parameter_sensitivity_study.py # parameter sensitivity sweep (width, threshold, gain)
 python tools/make_all_figures.py          # all 12 paper figures, in order
 python tools/figure_lint.py               # measure every figure against geometry and typography spec
 python tools/make_hero.py                 # the comparison animation at the top
@@ -336,7 +336,7 @@ python tools/verify_refs.py               # every citation, against Crossref
 Every tool derives the repository root from its own `__file__`, so they run from any
 working directory.
 
-## Honest scope
+## Scope & Limitations
 
 One scene, one machine, no laboratory ground truth — this is a **computational
 evaluation** and physical-apparatus validation is deliberately out of scope. The physical
