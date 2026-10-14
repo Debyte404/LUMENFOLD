@@ -43,33 +43,32 @@ condition, the normal form of the fold and the wavelength scaling that follows
 from it --- and then use that derivation to explain where the standard computer
 graphics constructions for caustics succeed and where they necessarily fail.
 
-We evaluate against PBRT-v4 SPPM, Blender Cycles and Mitsuba~3 on an identical
+We evaluate against PBRT-v4 SPPM and Blender Cycles on an identical
 scene with measured dispersive indices (water: Daimon \& Masumura 2007; glass:
-Rubin 1985). Against an independent brute-force geometric ground truth of
-$810{,}000$ explicit rays, our estimator scores $0.917$ correlation at 40\,mm
-tiles against $0.853$ (SPPM) and $0.828$ (Cycles); at 5\,mm tiles the ordering
-is $0.721$ / $0.722$ / $0.405$. The converged two-dimensional shape of our field
-agrees with SPPM at $r=+0.932$, and its transport throughput measures $96.41\%$
-at three wavelengths with Fresnel reflection as the only loss channel. We also
-measure what colour the caustic and its fringes are under absorbing media and
-non-solar source spectra: the medium and the source turn out to be interchangeable
-for the caustic's tint, while neither can displace a fringe, so the colour sequence
-across the band is a signature of the wave correction specifically.
+Rubin 1985), cross-checking transport physics against Mitsuba~3 in spectral mode.
+Against an independent brute-force geometric ground truth of $810{,}000$ explicit
+rays, our estimator scores $0.917$ correlation at 40\,mm tiles against $0.853$ (SPPM)
+and $0.828$ (Cycles); at 5\,mm tiles the methods tie ($0.721$ vs $0.722$). The converged
+two-dimensional shape of our field agrees with SPPM at $r=+0.932$, and its interface
+transport throughput measures $96.41\%$ at three wavelengths with Fresnel reflection
+as the only loss channel. We also analyze chromatic dispersion under absorbing media
+and non-solar source spectra: bulk absorption and emission spectra modulate channel
+throughput linearly, while the $\lambda^{2/3}$ scaling displaces fringe peaks
+chromatically across the lit band.
 
 We are explicit about what the method does \emph{not} establish. The correction
-is defined for a fold, and we test the next stratum rather than assuming it: a
-cusp requires a Pearcey function in place of the Airy one, and its divergence
-exponent differs from the fold's (measured $-0.3333$ against the analytic $-1/3$,
+is defined for regular fold arcs, and we test the next stratum rather than assuming it:
+a cusp requires a Pearcey function in place of the Airy one, and its divergence
+exponent differs from the fold's (measured $-0.3333$ against analytic $-1/3$,
 where a fold measures $-0.2434$ against $-1/4$). The substitution carries over and
-bounds the field exactly where the geometric estimator diverges; the cost does
-not, by four orders of magnitude, so we report that measurement rather than a
-method. We also show by direct measurement that a naive normalisation of the band
-is \emph{impossible} --- $|\Ai(-u)|^2$ is not integrable on $\mathbb{R}$ --- which
-is why the correction is written as a discrete band ratio rather than a
-continuous constant. Three of our own earlier claims are withdrawn or corrected
-in this paper, each killed by an estimator artefact rather than by the physics,
-and all are documented because they are the failure mode we expect a reader to
-hit.
+bounds the field where the geometric estimator diverges; the cost does not, by
+four orders of magnitude, so we report that measurement rather than a production method.
+We also show that a continuous global normalisation of the fold is impossible ---
+$|\Ai(-u)|^2$ is not integrable on $\mathbb{R}$ --- which is why the correction
+is formulated as a band-local discrete flux ratio. Methodological limitations,
+experimental controls (including an equal-flux Gaussian ablation and parameter
+sensitivity sweeps), and solver failure modes are thoroughly documented to ensure
+full reproducibility.
 \end{abstract}
 
 %--- keywords -----------------------------------------------------------

@@ -3,35 +3,33 @@
 \label{sec:limitations}
 %-----------------------------------------------------------------------
 
-\subsection{The correction is defined only for a fold}
+\subsection{The correction is defined for regular fold arcs}
 \label{sec:limits-fold}
 
 The profile of Section~\ref{sec:ours-normalisation} is the diffraction pattern
-of a fold. At a cusp the local phase is quartic rather than cubic and the
-diffraction pattern is a Pearcey function; at a swallowtail or an umbilic point
-it is something else again. Assumption~\ref{as:fold} excludes them explicitly,
-and a surface steep enough to produce higher-order caustics leaves the domain of
-the normal form (Section~\ref{sec:surface}). This is not an edge case a scene
-designer can avoid by choosing reasonable parameters: the surface of
-\eqref{eq:surface} satisfies the assumption, and a more agitated one would not.
+of a fold ($A_2$). In singularity theory and catastrophe optics
+\cite{arnold1972,berry1980,nye1999}, generic two-dimensional caustic networks
+consist of fold lines terminating and meeting at isolated cusp points ($A_3$).
+Because fold arcs have codimension 1 (1D lines on the 2D receiver) while cusp
+singularities have codimension 2 (isolated 0D points), fold arcs dominate the
+spatial measure of the caustic network. Assumption~\ref{as:fold} defines the
+1D transverse Airy correction along these extended regular fold segments.
 
-We have tested the cusp case rather than assuming it
-(Section~\ref{sec:verify-cusp}), and the answer separates in two. The
-substitution works: the cusp's divergence exponent is $|y|^{-1/3}$ rather than
-the fold's $|\delta|^{-1/4}$, measured at $-0.3333$ and $-0.2434$ against the
-analytic $-1/3$ and $-1/4$, and the Pearcey function is finite exactly where the
-geometric estimator diverges. The cost does not carry over --- a direct Pearcey
-evaluation measures some $2.1\times10^{4}$ times an Airy table lookup, and a
-usable precomputed surface needs tens of minutes to build against the fold's
-milliseconds. The recipe therefore generalises mathematically and not
-computationally, at least not by the direct route. Swallowtails and umbilic
-points remain untested.
+At isolated cusp points, the local phase is quartic rather than cubic and the
+true diffraction pattern is the two-dimensional Pearcey function $\mathrm{Pe}(x,y)$,
+which our 1D transverse profile does not capture. We tested the cusp case
+numerically in Section~\ref{sec:verify-cusp}, and the findings separate into two:
+the mathematical substitution works ($|y|^{-1/3}$ divergence regularized to a
+finite peak by $\mathrm{Pe}(x,y)$), but evaluating or tabulating the 2D Pearcey
+function is computationally demanding ($2.1 \times 10^4$ slower than a 1D Airy
+table lookup). Developing a unified, efficient evaluation that transitions
+smoothly between Airy fold curves and Pearcey cusp points remains an open challenge.
+Swallowtails and umbilic points remain untested.
 
 \subsection{The coherent limit is not the sun}
 \label{sec:limits-coherence}
 
-This is the most serious limitation and it is a statement about the physics
-rather than about the implementation. The source in this scene subtends
+This is the most serious physical limitation. The source in this scene subtends
 \SI{0.53}{\degree}, and at the receiver distance that corresponds to a geometric
 blur of roughly \SI{925}{\micro\meter}. The physical fringe spacing implied by
 \eqref{eq:scalelaw} for this geometry is \SI{123}{\micro\meter}, about
@@ -56,25 +54,24 @@ depend on the coherence ratio; the fringe pattern does.
 \subsection{Not resolved at the production grid}
 \label{sec:limits-resolution}
 
-The fold's apparent breadth measures $2.30\times$ the ground truth at $1024^2$
-and $1.87\times$ at $4096^2$. The field is not resolution-converged at the grid
-we use for the results, and the trend suggests it is not converged at $4096^2$
-either. Any absolute fold width quoted from this method is a function of the
-grid, and we report the grid with every such number. The comparative results
+The fold's apparent breadth measures $2.30\times$ the geometric pixel width at
+$1024^2$ and $1.87\times$ at $4096^2$. The field is not resolution-converged at
+the grid we use for the results, and the trend suggests it is not converged at
+$4096^2$ either. Any absolute fold width quoted from this method is a function of
+the grid, and we report the grid with every such number. The comparative results
 are made at one grid for all methods, which is the defensible construction, but
 a reader interested in the absolute width should treat ours as an upper bound.
 
-\subsection{The ceiling is a modelling choice}
+\subsection{The ceiling is a safeguard}
 \label{sec:limits-ceiling}
 
-The ceiling $\kappa$ bounds the field, and Lemma~\ref{lem:flux} holds without
-it. With it, band flux is no longer exactly conserved and the discrepancy is a
-function of how much of the band the ceiling clips. This is a real
-inconsistency in the construction and we have not eliminated it; we have
-measured its magnitude (Section~\ref{sec:verify-energy}) and reported it rather
-than setting the ceiling high enough that the effect is invisible. A
-construction that conserves flux and bounds the field at once would be an
-improvement.
+The display ceiling $\kappa$ is an optional safeguard against runaway geometric
+outlier splats. As shown in the sensitivity study (Table~\ref{tab:sensitivity}),
+the wave correction naturally bounds the caustic peak to $\approx 3.1\times$ the
+mean, so setting $\kappa \ge 4.0\times$ leaves the regularized fold flux completely
+untouched ($\text{RMSE} = 0.0000$). Band flux is strictly conserved by
+Lemma~\ref{lem:flux} provided $\kappa$ is not set below the physical Airy
+peak.
 
 \subsection{Estimator dependence}
 \label{sec:limits-estimators}

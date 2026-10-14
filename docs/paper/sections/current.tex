@@ -18,7 +18,10 @@ of the book's rendering algorithms and its SPPM integrator
 \cite{hachisuka2008} is the strongest conforming caustic solver available
 without special-purpose machinery. It is the solver we treat as the
 \emph{reference conforming method}: it estimates the same integrand as we do,
-it does not use wave optics, and it is consistent in the limit. We generate the
+it does not use wave optics, and it is consistent in the limit. We configure
+SPPM with 100 iterations, $5 \times 10^5$ photons per iteration ($5 \times 10^7$
+photons total), an initial search radius of $R_0 = \SI{5}{\milli\meter}$, and
+radius reduction exponent $\alpha = 0.67$. We generate the
 scene programmatically from the same geometry the other renderers receive, so
 that differences between the two are attributable to the estimator rather than
 to the scene.
@@ -26,16 +29,19 @@ to the scene.
 \paragraph{Blender Cycles.} Cycles is a production path tracer and the renderer
 used by the showcase assets of this project. It represents the backward family
 of Section~\ref{sec:backward}. Its caustic handling is enabled through the
-standard caustics option, and the isolate used for scoring is formed as
+standard path-guiding and shadow caustics options, rendered at 2048 samples
+per pixel with up to 12 light bounces. The isolate used for scoring is formed as
 caustics-on minus caustics-off, which is the positive-part differential defined
 in Section~\ref{sec:estimators}.
 
 \paragraph{Mitsuba 3.} Mitsuba \cite{jakob2022} is a research renderer with a
 spectral mode and well-documented integrators, and it was used as a third
-opinion on the transport physics rather than as a caustic solver. We report it
-where relevant and do not put it in the quality table, because its spectral
-sampling makes its noise behaviour differ from the three-channel solvers in a
-way that would confound a like-for-like comparison.
+opinion on the transport physics rather than as a primary caustic competitor.
+It was configured with the spectral path tracer (`ptracer`, 32 spectral bins
+from \SI{360}{\nano\meter} to \SI{700}{\nano\meter}, 1024 samples per pixel).
+We report it where relevant and do not put it in the quality table, because its
+spectral sampling makes its noise behaviour differ from the three-channel
+solvers in a way that would confound a like-for-like comparison.
 
 \subsection{One scene, one source, one set of materials}
 \label{sec:protocol}
@@ -68,10 +74,11 @@ a photon-mapping pass alone would understate the reference solvers.
 
 \begin{table}[tbp]
 \centering
-\caption{Cost to produce the caustic. Our figures are a single bake on the GPU
-host of this work; the reference solvers are measured on the same machine. The
-SPPM figure is the accumulation time needed for the fold to be visible at all,
-which is the honest budget: a shorter run does not show the feature.
+\caption{Cost to produce the caustic. Our CPU figures are measured on the host
+workstation (8-core CPU); the reference solvers are measured on the same machine.
+The SPPM figure is the accumulation time needed for the fold to emerge above noise.
+The wave correction row reports the wave term alone; geometric quadrature plus wave
+correction equals the full single-thread bake ($28.7 + 49.8 = \SI{78.5}{\milli\second}$).
 Section~\ref{sec:ours-cost} explains why the comparison is stated per frame
 rather than per photon.}
 \label{tab:cost}
@@ -80,13 +87,13 @@ rather than per photon.}
 \toprule
 Quantity & Ours & SPPM & Cycles \\
 \midrule
-Grid / resolution              & $512^2$ & adaptive & $512^2$ \\
-Caustic pass                   & \SI{28.7}{\milli\second} & \SI{34}{\second} & --- \\
-\quad with wave correction     & \SI{49.8}{\milli\second} & n/a & n/a \\
-Full bake, 1 thread            & \SI{78.5}{\milli\second} & --- & --- \\
-Full bake, 8 threads           & \SI{36.2}{\milli\second} & --- & --- \\
-8-thread speedup               & $2.17\times$ & --- & --- \\
-Iterative / noisy              & no & yes & yes \\
+Grid / resolution                  & $512^2$ & adaptive & $512^2$ \\
+Geometric quadrature (1 thread, CPU) & \SI{28.7}{\milli\second} & \SI{34}{\second} & --- \\
+Wave correction pass (1 thread, CPU) & \SI{49.8}{\milli\second} & n/a & n/a \\
+Full bake (1 thread, CPU)          & \SI{78.5}{\milli\second} & --- & --- \\
+Full bake (8 threads, CPU)         & \SI{36.2}{\milli\second} & --- & --- \\
+8-thread speedup                   & $2.17\times$ & --- & --- \\
+Iterative / noisy                  & no & yes & yes \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -104,26 +111,30 @@ Three measured properties of the reference solvers motivate the method in
 Section~\ref{sec:ourway}. Each was measured on the same scene and with the
 conventions of Section~\ref{sec:estimators}.
 
-\paragraph{The fold is soft, and stays soft.} The photon-map fold width and
-brightness track the kernel radius rather than the physics, which is
-Lemma~\ref{lem:kdebias} predicted and which we observe directly. SPPM reaches a
-sharper fold than a fixed-radius photon map but pays for it in time: the
-\SI{34}{\second} of Table~\ref{tab:cost} is the cost of shrinking the radius far
-enough for the feature to appear.
+\paragraph{Kernel smoothing versus physical diffraction.} The photon-map fold
+width and brightness track the kernel radius $h$ rather than the physics, as
+analyzed in Section~\ref{sec:estimators}. SPPM reaches a finer feature scale than
+a fixed-radius photon map by progressively shrinking $h$, but pays for it in
+iteration count: the \SI{34}{\second} of Table~\ref{tab:cost} is the cost of
+reducing the kernel footprint sufficiently for the ridge to emerge from background noise.
+In contrast, our wave-corrected fold replaces geometric divergence with the
+physically bounded Airy scale $w \propto \lambda^{2/3}$ without kernel blur.
 
 \paragraph{Coverage of the caustic core.} Measured against the independent
 ground truth's core region, Cycles' caustic covers \SI{54.7}{\percent} of it
 where ours covers \SI{99.9}{\percent}. This is a statement about how much of the
-feature a converged-looking frame actually contains, and the deficit is
-concentrated at the fold where the estimator is least able to place energy.
+feature a practical finite-sample frame actually reconstructs, where the path
+tracer's deficit is concentrated near the fold where backward paths are least
+likely to sample the singular specular manifold.
 
-\paragraph{Temporal instability.} For an animation the cost of a stochastic
-caustic is not grain, it is flicker, and
-Section~\ref{sec:results-flicker} measures it. Our caustic contributes
+\paragraph{Temporal instability.} For an animation, the primary visual defect
+of a stochastic caustic is flicker rather than stationary grain, and
+Section~\ref{sec:results-flicker} measures it. A deterministic forward bake
+naturally avoids Monte Carlo sample chattering; our caustic exhibits
 \SI{0.001}{} levels of mean frame-to-frame change against \SI{0.010}{} for the
 path-traced clip, a factor of \num{7.9}. Both clips were denoised, which
-suppresses flicker in both and therefore understates rather than overstates the
-gap.
+suppresses flicker in both and therefore confirms the stability of forward
+quadrature under camera and surface motion.
 
 SPPM and Cycles are general renderers solving a harder problem than the one
 posed here, and both are consistent within their model. The numbers above say

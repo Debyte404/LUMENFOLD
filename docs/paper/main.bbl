@@ -8,6 +8,13 @@
   379--402.
 \newblock Conventional citation; pre-DOI literature.
 
+\bibitem[Arn72]{arnold1972}
+\textsc{Arnol'd V.~I.}:
+\newblock Normal forms of functions near degenerate critical points, the {W}eyl
+  groups $a_k, d_k, e_k$ and {L}agrangian singularities.
+\newblock \emph{Functional Analysis and Its Applications 6}, 4 (1972),
+  254--272.
+
 \bibitem[Arv94]{arvo1994}
 \textsc{Arvo J.}:
 \newblock The irradiance jacobian for partially occluded polyhedral sources.
@@ -29,6 +36,11 @@
 \newblock Measurement of the refractive index of distilled water from the
   near-infrared region to the ultraviolet region.
 \newblock \emph{Applied Optics 46}, 18 (2007), 3811--3820.
+
+\bibitem[FH12]{felzenszwalb2012}
+\textsc{Felzenszwalb P.~F., Huttenlocher D.~P.}:
+\newblock Distance transforms of sampled functions.
+\newblock \emph{Theory of Computing 8}, 19 (2012), 415--428.
 
 \bibitem[GG86]{golubitsky1986}
 \textsc{Golubitsky M., Guillemin V.}:
@@ -86,6 +98,12 @@
 \newblock Full wave modelling of light propagation and reflection.
 \newblock \emph{Computer Graphics Forum 32}, 6 (2013), 24--37.
 
+\bibitem[Nye99]{nye1999}
+\textsc{Nye J.~F.}:
+\newblock \emph{Natural Focusing and Fine Structure of Light: Caustics and Wave
+  Dislocations}.
+\newblock Institute of Physics Publishing, 1999.
+
 \bibitem[PJH23]{pharr2023}
 \textsc{Pharr M., Jakob W., Humphreys G.}:
 \newblock \emph{Physically Based Rendering: From Theory to Implementation},
@@ -104,6 +122,17 @@
 \newblock \emph{Density Estimation for Statistics and Data Analysis}.
 \newblock Chapman and Hall, London, 1986.
 \newblock Conventional citation; source of the kernel bias expansion.
+
+\bibitem[Sta99]{stam1999}
+\textsc{Stam J.}:
+\newblock Diffraction shaders.
+\newblock In \emph{Proceedings of the 26th Annual Conference on Computer
+  Graphics and Interactive Techniques} (1999), SIGGRAPH '99, pp.~101--110.
+
+\bibitem[SY21]{steinberg2021}
+\textsc{Steinberg S., Yan L.-Q.}:
+\newblock A generic framework for physical light transport.
+\newblock \emph{ACM Transactions on Graphics 40}, 4 (2021), 1--20.
 
 \bibitem[Vea97]{veach1997}
 \textsc{Veach E.}:

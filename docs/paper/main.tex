@@ -158,6 +158,12 @@ manuscript prepared for COMPUTER GRAPHICS \textit{Forum}, October 2026.%
 
 \input{sections/appendix}
 
+\let\oldbibliography\thebibliography
+\renewcommand{\thebibliography}[1]{%
+  \oldbibliography{#1}%
+  \setlength{\itemsep}{1.5pt plus 0.5pt}%
+  \setlength{\parskip}{0pt}%
+}
 \bibliographystyle{eg-alpha}
 \bibliography{refs}
 

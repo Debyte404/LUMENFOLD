@@ -163,68 +163,48 @@ in units of the 8-bit quantisation step.
 \end{definition}
 
 %-----------------------------------------------------------------------
-\section{Notation}
+\section{Notation and reproducibility manifest}
 \label{app:notation}
+\label{app:manifest}
 
 \begin{table}[htbp]
 \centering
 \caption{Symbols used throughout.}
 \label{tab:notation}
-\small
+\footnotesize
 \begin{tabular}{@{}ll@{}}
 \toprule
 Symbol & Meaning \\
 \midrule
-$\mathbf{x} = (x,y)$ & surface coordinate \\
-$h(\mathbf{x},t)$ & water-surface height field \eqref{eq:surface} \\
-$\nrm$ & surface unit normal \eqref{eq:normal} \\
-$\dir$ & distant-source unit direction, along propagation \\
-$\trn$ & refracted unit direction \eqref{eq:snell} \\
-$\eta$ & index ratio $n_1/n_2$ at an interface \\
-$c_i$, $c_t$ & cosines of incidence and transmission \\
-$\Hm$ & surface-to-receiver ray map \eqref{eq:raymap} \\
-$\Jm$, $\detJ$ & its Jacobian and determinant \\
-$\fold$ & the fold locus $\{\detJ = 0\}$ \\
-$\recv$ & receiver footprint \\
-$I$ & receiver irradiance \eqref{eq:irradiance} \\
-$B$ & detected fold band \\
-$s$ & signed distance to $B$ \\
-$w$, $w_c$ & fold fringe width, per channel \eqref{eq:perchannel} \\
-$\Ai$ & Airy function of the first kind \\
-$X$ & canonical fold coordinate \eqref{eq:canonical} \\
-$b(s)$ & band modulation profile \eqref{eq:profile} \\
-$\kappa$ & display ceiling \\
-$k^{*}$ & band flux ratio \eqref{eq:kstar} \\
-$T$ & Fresnel power transmission \eqref{eq:fresnel} \\
+$\mathbf{x}, h, \nrm$ & surface coordinate, height field \eqref{eq:surface}, normal \eqref{eq:normal} \\
+$\dir, \trn, \eta$ & source direction, refracted direction \eqref{eq:snell}, index ratio \\
+$c_i, c_t, T$ & cosines of incidence/transmission, Fresnel power \eqref{eq:fresnel} \\
+$\Hm, \Jm, \detJ$ & ray map \eqref{eq:raymap}, Jacobian, and determinant \\
+$\fold, \recv, I$ & fold locus $\{\detJ = 0\}$, receiver footprint, irradiance \eqref{eq:irradiance} \\
+$B, s, w_c$ & detected fold band, signed distance, fringe width \eqref{eq:perchannel} \\
+$\Ai, X, b(s)$ & Airy function, canonical coordinate \eqref{eq:canonical}, profile \eqref{eq:profile} \\
+$\kappa, k^{*}$ & display ceiling, band flux ratio \eqref{eq:kstar} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-%-----------------------------------------------------------------------
-\section{Reproducibility manifest}
-\label{app:manifest}
-
 \begin{table}[htbp]
 \centering
-\caption{The bake's parameters as used for every result in this paper.}
+\caption{Bake parameters used for all results in this paper.}
 \label{tab:manifest}
-\small
+\footnotesize
 \begin{tabular}{@{}ll@{}}
 \toprule
 Parameter & Value \\
 \midrule
-Bake grid (results)      & $1024^2$ \\
-Bake grid (efficiency study) & $256^2$--$1024^2$ \\
-Spatial extent           & \SI{\pm 160}{\milli\meter} \\
-Surface amplitudes $A_i$ & \num{0.65}, \num{0.40}, \num{0.25}, \num{0.15} \si{\milli\meter} \\
+Bake grid (results / study) & $1024^2$ / $256^2$--$1024^2$ \\
+Spatial extent \& receiver  & \SI{\pm 160}{\milli\meter}, \SI{320}{\milli\meter} square patch \\
+Surface amplitudes $A_i$    & \num{0.65}, \num{0.40}, \num{0.25}, \num{0.15} \si{\milli\meter} \\
 Surface wavelengths $\Lambda_i$ & 42, 27, 17, 11 \si{\milli\meter} \\
-Source                   & distant, \SI{0.53}{\degree}, direction \eqref{eq:snell} \\
-Receiver                 & \SI{320}{\milli\meter} square, Lambertian \\
-Detector percentile      & 2nd percentile of $|\detJ|$ \\
-Reference width $w_{\text{ref}}$ & \SI{123}{\micro\meter} (physical) \\
-Airy table               & 2048 entries, $u \in [0,8]$, linear interpolation \\
-Profile floor            & \num{0.15} \\
-Ceiling multiplier       & $1.35\,\kappa$ \\
+Source & distant, \SI{0.53}{\degree}, direction \eqref{eq:snell} \\
+Detector threshold & 2nd percentile of $|\detJ|$ \\
+Reference width $w_{\text{ref}}$ & \SI{123}{\micro\meter} (physical), 2048-LUT on $[0,8]$ \\
+Profile floor \& ceiling & floor \num{0.15}, ceiling $1.35\,\kappa$ \\
 \bottomrule
 \end{tabular}
 \end{table}

@@ -93,6 +93,8 @@ Command & Produces \\
 \texttt{tools/spmm\_vs\_groundtruth.py} & the three-way ranking, one axis \\
 \texttt{tools/metric\_parity\_check.py} & both estimator conventions \\
 \texttt{tools/accuracy\_vs\_ground\_truth.py} & the headline accuracy \\
+\texttt{tools/ablation\_profile\_control.py} & Airy vs equal-flux Gaussian control \\
+\texttt{tools/parameter\_sensitivity\_study.py} & parameter sensitivity study ($p, w, \text{ceiling}$) \\
 \texttt{tools/energy\_audit.py} & Fresnel throughput \\
 \texttt{tools/efficiency\_study.py} & RMSE against splat budget \\
 \texttt{tools/ensemble\_study.py} & the eight-phase ensemble \\
@@ -118,3 +120,11 @@ measured dispersion rather than decorative fringes. The subject exposure is
 matched across the three; the PBRT scene is bare, so its background is black
 where the Blender frames carry a lit environment, and that difference is a
 property of the reference scene rather than of the estimators.
+
+\section*{Acknowledgements and Disclosure}
+
+The author thanks the open-source computer graphics community and the developers
+of PBRT-v4, Blender Cycles, and Mitsuba~3. Generative AI tools were utilized during
+this research for literature exploration, script scaffolding, and manuscript proofreading;
+all theoretical derivations, experimental protocols, numerical simulations, and final
+manuscript texts were verified, validated, and approved by the author.

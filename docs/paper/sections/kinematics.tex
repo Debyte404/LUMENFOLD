@@ -34,7 +34,7 @@ Glass outer radius        & \SI{35}{\milli\meter}       & cylinder \\
 Glass wall thickness      & \SI{3.5}{\milli\meter}      & \\
 Glass height              & \SI{90}{\milli\meter}       & \\
 Water fill height         & \SI{59.4}{\milli\meter}     & \\
-Receiver                  & \SI{320}{\milli\meter}$^2$ patch & matte, Lambertian \\
+Receiver                  & \SI{320}{\milli\meter} $\times$ \SI{320}{\milli\meter} patch & matte, Lambertian \\
 Source                    & \SI{0.53}{\degree}          & distant, solar \\
 Water index               & \num{1.33167} / \num{1.33468} / \num{1.33961} & R/G/B \\
 Glass index               & \num{1.52104} / \num{1.52514} / \num{1.53192} & R/G/B \\
@@ -150,12 +150,15 @@ $\fold = \{\,\mathbf{x} : \detJ(\mathbf{x}) = 0\,\}$, and its image
 $\Hm(\fold)$ is the caustic curve on the receiver.
 \end{definition}
 
-\begin{assumption}[Generic fold]
+\begin{assumption}[Regular fold arcs]
 \label{as:fold}
-Throughout, we assume the degenerate points of $\Hm$ are folds: that
-$\detJ = 0$ on $\fold$, that $\nabla \detJ \neq 0$ there, and that
-$\operatorname{rank} \Jm = 1$ on $\fold$. Cusps, where $\nabla \detJ$ also
-vanishes, are excluded and are discussed in Section~\ref{sec:limits-fold}.
+Throughout our derivations, we analyse the local geometry along regular fold arcs of $\Hm$:
+points where $\detJ = 0$, $\nabla \detJ \neq 0$, and $\operatorname{rank} \Jm = 1$.
+Under Whitney's singularity theory of plane mappings \cite{whitney1955,golubitsky1986,berry1980,nye1999},
+generic 2D caustic networks consist of stable fold curves ($A_2$ singularities) that
+terminate or intersect at isolated cusps ($A_3$ singularities, where $\nabla \detJ = 0$).
+Our local 1D transverse correction addresses the dominant fold lines; isolated cusp
+singularities are discussed in Section~\ref{sec:limits-fold}.
 \end{assumption}
 
 \begin{lemma}[The fold density is unbounded]
@@ -339,52 +342,52 @@ so chromatic separation in the fold is carried by the measured index
 nothing else. We verify the exponent numerically against an independent
 computation in Section~\ref{sec:verify-scaling}.
 
-\subsection{The Airy intensity cannot be normalised by a constant}
+\subsection{Asymptotic correspondence and band-local normalisation}
 \label{sec:notintegrable}
 
-The correction replaces a divergent density with a profile, and the obvious way
-to make that substitution conservative is to multiply by the ratio of the
-integrals. That is impossible here, and the reason is a property of
-$|\Ai|^2$ itself.
+To substitute the geometric singularity with a wave profile while conserving energy,
+one might hope to evaluate a closed-form global normalisation constant.
+However, because $|\Ai|^2$ asymptotically tracks the geometric $b^{-1/2}$ tail,
+such a global constant cannot exist on $\mathbb{R}$.
 
-\begin{lemma}[The Airy intensity is not integrable on $\mathbb{R}$]
+\begin{lemma}[Asymptotic divergence of the Airy tail]
 \label{lem:notl1}
-$\int_{\mathbb{R}} |\Ai(-u)|^2 \dd u$ diverges. Over a truncated band
-$[-L,L]$ the integral grows as $\frac{1}{\pi}\sqrt{L}$.
+$\int_{\mathbb{R}} |\Ai(-u)|^2 \dd u$ diverges. Over a truncated domain
+$[-L,L]$, the integral grows as $\frac{1}{\pi}\sqrt{L} + \order{1}$.
 \end{lemma}
 
 \begin{proof}
-For $u \to +\infty$ the Airy function on the negative argument has the
+For $u \to +\infty$ on the illuminated side, $\Ai(-u)$ has the
 oscillatory asymptotic
 \begin{equation}
 \Ai(-u) \;\sim\; \frac{1}{\sqrt{\pi}\,u^{1/4}}
 \sin\!\Big(\frac{2}{3}u^{3/2} + \frac{\pi}{4}\Big) ,
 \end{equation}
-so that
+giving the squared amplitude
 \begin{equation}
 |\Ai(-u)|^2 \;\sim\; \frac{1}{\pi\sqrt{u}}\,
 \sin^2\!\Big(\frac{2}{3}u^{3/2} + \frac{\pi}{4}\Big) .
 \end{equation}
-The phase advances rapidly relative to the envelope, so the mean of the
-oscillating factor is $1/2$, giving a mean intensity
-$\sim (2\pi\sqrt{u})^{-1}$. Hence
+Averaging over rapid phase cycles yields a mean intensity of
+$\sim (2\pi\sqrt{u})^{-1}$. Integrating from $u = 1$ to $L$ gives
 \begin{equation}
-\int_{1}^{L} \frac{\dd u}{2\pi\sqrt{u}} \;=\; \frac{\sqrt{L}-1}{\pi}
-\;=\; \frac{1}{\pi}\sqrt{L} + \order{1} ,
+\int_{1}^{L} \frac{\dd u}{2\pi\sqrt{u}} \;=\; \frac{1}{\pi}\sqrt{L} + \order{1} ,
 \end{equation}
-which is unbounded as $L \to \infty$.
+which diverges as $L \to \infty$.
 \end{proof}
 
-\begin{corollary}[No normalising constant exists]
+\begin{corollary}[Correspondence principle and band-local normalisation]
 \label{cor:norm}
-Lemma~\ref{lem:notl1} rules out the natural construction. There is no constant
-$Z$ with $\frac{1}{Z}|\Ai(-u)|^2$ a probability density on $\mathbb{R}$, so a
-band correction cannot be written as a profile times a global constant. What
-\emph{can} be done is to conserve the band's own flux discretely, because
-Corollary~\ref{cor:integrable} guarantees the band holds finite power. That is
-the construction we use
-(Section~\ref{sec:ours-normalisation}) and it is why the correction carries a
-measured ratio rather than a closed-form constant.
+The $\sqrt{L}$ tail divergence of Lemma~\ref{lem:notl1} exactly reproduces the
+$\sqrt{L}$ growth of the geometric tail $\int_0^L (2\sqrt{b})^{-1}\dd b = \sqrt{L}$.
+Far from the fold, the wave intensity naturally converges to the classical geometric
+ray density. Because the geometric model carries infinite power over an unbounded domain,
+the wave profile is likewise not normalisable on $\mathbb{R}$.
+Therefore, energy conservation cannot be defined globally; it must be defined
+\emph{locally within a bounded band}, where both the geometric flux and the Airy
+integral are strictly finite (Corollary~\ref{cor:integrable}).
+This establishes the necessity of the band-local flux ratio constructed in
+Section~\ref{sec:ours-normalisation}.
 \end{corollary}
 
 Table~\ref{tab:airyfacts} collects the constants used later, each evaluated
@@ -472,11 +475,10 @@ The source subtends \SI{0.53}{\degree}, which at the receiver distance of this
 scene corresponds to a geometric blur of roughly \SI{925}{\micro\meter}. The
 physical fringe spacing implied by \eqref{eq:scalelaw} for this geometry is
 \SI{123}{\micro\meter}, about \num{7.5} times smaller. A fully incoherent
-treatment would therefore wash the fringes out, and the honest statement about
-the fringes in this paper is that they are a \emph{resolvable wave feature of
-the coherent-limit model}, not a prediction of what a photograph under the sun
-would show. Section~\ref{sec:limits-coherence} treats this as the method's principal
-limitation.
+treatment would therefore wash the fringes out; the fringes in this paper
+represent a \emph{resolvable wave feature of the coherent-limit model},
+not a prediction of what a photograph under the sun would show.
+Section~\ref{sec:limits-coherence} treats this as the method's principal limitation.
 
 \subsection{Fresnel transport}
 \label{sec:fresnel}

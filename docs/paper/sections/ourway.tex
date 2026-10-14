@@ -30,32 +30,55 @@ and cannot introduce energy at all.
 The detector matters as much as the correction, and a careless one will appear
 to work while being unable to converge.
 
-\begin{lemma}[A quantile detector cannot converge]
+\begin{lemma}[Fixed-quantile detectors cannot converge]
 \label{lem:quantiledetector}
-Let the detector be ``flag the brightest $p$ percent of pixels''. Then the
-flagged fraction is $p/100$ of the image by construction, independent of the
-true fraction of the receiver occupied by the fold, and the flagged set does not
-converge to $\Hm(\fold)$ under refinement.
+Let a detector flag a fixed quantile $p \in (0, 1)$ of any scalar field (whether image
+radiance or Jacobian determinant $|\detJ|$). Then the measure of the flagged set is
+fixed at $p \cdot \operatorname{area}(\recv)$ for all resolutions, independent of the
+physical wavelength $\lambda$ or local wavefront curvature. Under mesh refinement,
+the flagged set cannot contract to the true caustic curve $\Hm(\fold)$ (which has
+Lebesgue measure zero).
 \end{lemma}
 
 \begin{proof}
-The flagged set is defined by the order statistic of the image, so its measure
-is fixed at $p/100$ of the receiver for every image. As the surface sampling
-refines the image changes but the flagged measure does not, so the limit, if it
-exists, still has measure $p/100$ rather than the measure of $\Hm(\fold)$, which
-is generically a curve of measure zero.
+By definition of the order statistic, the measure of the set where the field is below
+its $p$-th quantile is $p \cdot \operatorname{area}(\recv)$ identically.
+As the sampling resolution $N \to \infty$, the measure of the flagged domain remains
+constant at $p$, rather than shrinking to zero as required for an asymptotic neighbourhood
+of the 1D fold curve.
 \end{proof}
 
-We therefore threshold the analytic $|\detJ|$ rather than the image. The
-threshold is taken at the second percentile of $|\detJ|$ over the receiver
-domain, which flags the band without reference to brightness. Under refinement
-this set converges to the neighbourhood of the fold, and its measure is a
-property of the geometry rather than of the choice of statistic.
+Consequently, a physically consistent detector must threshold a geometric quantity
+against a physical scale parameter:
+\begin{equation}
+B \;=\; \big\{\,\mathbf{x} \in \recv : |\detJ(\mathbf{x})| \le \epsilon\,\big\},
+\label{eq:physicaldetector}
+\end{equation}
+where $\epsilon = \epsilon(w, \lambda) \propto \lambda^{2/3}$ contracts toward the fold
+as wavelength $\lambda \to 0$ (the geometric optics limit). 
+
+In our discrete reference solver on the fixed benchmark scene, we calibrate $\epsilon$
+empirically using the 2nd percentile of $|\detJ|$ on the base grid ($p = 0.02$), which
+reliably isolates the singular fold corridor across the receiver without referencing
+image brightness. However, as Lemma~\ref{lem:quantiledetector} establishes, generalisation
+to arbitrary scenes requires evaluating the absolute scale threshold \eqref{eq:physicaldetector}.
 
 Section~\ref{sec:results-ablation} measures the alternative directly: swapping
-the $|\detJ|$ detector for a brightest-percentile detector degrades the
-convergence of the result, because the flagged set stops tracking the geometry.
-The measured difference is reported there rather than asserted here.
+the $|\detJ|$ detector for an image-brightness percentile detector degrades the
+convergence of the result, because bright non-caustic glints are falsely flagged
+while dimmer caustic fringes are missed.
+
+\subsection{Distance transform and domain mapping}
+\label{sec:ours-distance}
+
+Once the fold band $B$ is flagged, we compute the distance $s$ using an exact
+Euclidean distance transform (EDT) \cite{felzenszwalb2012}. 
+Here, $s_i \ge 0$ is measured inwards from the non-band boundary toward the caustic core.
+Because geometric transport carries essentially zero flux into the shadow zone ($G_i \approx 0$),
+the wave correction inside $B$ maps $s_i$ to the illuminated oscillatory side of the
+canonical fold profile, $u = s_i / w_c \ge 0$. The evaluation table spans $u \in [0, 8]$,
+encompassing the primary caustic peak at $u = 1.0188$ and the first several diffraction fringes.
+Outside $B$, the uncorrected geometric splat field is preserved unmodified.
 
 \subsection{Normalisation, and why it is a discrete ratio}
 \label{sec:ours-normalisation}
