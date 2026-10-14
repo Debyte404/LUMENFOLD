@@ -222,10 +222,10 @@ exceeds $2\%$ of that channel's peak) measures
 $R \approx \SI{104}{\milli\meter} > G \approx \SI{102}{\milli\meter} > B \approx \SI{99}{\milli\meter}$
 (with the same $+\SI{5.0}{\milli\meter}$ red--blue split), confirming that our
 field's boundary ($\SI{107}{\milli\meter}$) accurately tracks the true geometric
-caustic extent (within $3\%$). In contrast, SPPM's smaller radius
-($\SI{56}{\milli\meter}$) is an artifact of density estimation: because the peripheral
+caustic extent (within $3\%$). In contrast, we hypothesise that SPPM's smaller radius
+($\SI{56}{\milli\meter}$) is an artifact of progressive kernel shrinkage under finite photon budgets: because the peripheral
 caustic fan carries low ray density, SPPM's progressive kernel radius shrinkage
-($r_{i+1}^2 = r_i^2 (i + \alpha) / (i + 1)$ with $\alpha = 2/3$) leaves peripheral bins
+($r_{i+1}^2 = r_i^2 (i + \alpha) / (i + 1)$ with $\alpha = 2/3$) may leave peripheral bins
 underexposed, causing the outermost radius crossing the $2\%$ threshold to contract inward.
 Both methods agree on the red--blue differential split ($+\SI{5.0}{\milli\meter}$),
 which is governed by the dispersion relation rather than the detector threshold.
@@ -292,7 +292,7 @@ spread across them is red 20, green 18, yellow 15, blue 14, cyan 11, neutral 2.
 caustic orbits the glass and the frame does not, which is what makes the motion
 visible rather than cancelled by a following camera. Panels (c) and (d) are ray-traced
 with the renderer's default fringe width of \SI{0.0015}{\meter}, which is
-exaggerated relative to the physical Airy scale of $d \approx 6.8\,\mu\text{m}$ for this geometry at
+$\approx 220\times$ the physical Airy scale of $d \approx 6.8\,\mu\text{m}$ for this geometry at
 550\,nm; the physical fringe is deeply sub-pixel at these resolutions and would not be
 visible, so the width is deliberately exaggerated for visibility and the fringe COUNT is not
 physical. Panels (a) and (b) are computed from the canonical 1D wave integral at
@@ -520,10 +520,10 @@ separation and exact boundary matching.
 
 \begin{table}[tbp]
 \centering
-\caption{Parameter sensitivity study. Measured across variations in fold-detector
+\caption{Parameter sensitivity study on a $256^2$ grid. Measured across variations in fold-detector
 threshold percentile $p$, Airy fringe scale multiplier $w$, and display ceiling cap on the
 benchmark scene. Response is quantified by fold-band area fraction, maximum peak
-intensity, and RMSE relative to baseline ($p=2.0\%$, $w=1.0\times$ of $w_{\text{base}}=\SI{0.02}{\meter}$,
+intensity, and RMSE relative to baseline ($p=2.0\%$, operational visibility width $w_{\text{base}}=\SI{0.02}{\meter}$,
 $\kappa=6.0\times$).}
 \label{tab:sensitivity}
 \small
@@ -546,13 +546,7 @@ Ceiling $= 8.0\times$ & \SI{2.00}{\percent} & 7.549 & 0.0000 \\
 \end{tabular*}
 \end{table}
 
-Table~\ref{tab:sensitivity} reports the sensitivity of the bake to its three
-user-facing parameters. Varying the detector threshold across a $4\times$ range
-produces controlled variations ($\text{RMSE} < 0.58$), confirming stability against
-threshold selection. The display ceiling between $4\times$ and $8\times$ leaves the
-wave-corrected field completely unaltered ($\text{RMSE} = 0.0000$), demonstrating
-that the Airy profile naturally bounds peak radiance (peak $\approx 7.55\times$ mean at $256^2$,
-and $7.71\times$ at $512^2$, matching Table~\ref{tab:tail}) without artificial clipping.
+Table~\ref{tab:sensitivity} reports sensitivity across a $256^2$ grid at an operational visibility width ($w_{\text{base}} = \SI{0.02}{\meter}$, vs physical $d \approx 6.8\,\mu\text{m}$). The estimator is sensitive: varying the detector percentile across $4\times$ shifts the field by $\text{RMSE} \approx 0.51$--$0.57$, and fringe scale by $\text{RMSE} \approx 0.76$--$0.82$ (measured against our own baseline, not external ground truth). Conversely, the display ceiling between $4\times$ and $8\times$ leaves the field unaltered ($\text{RMSE} = 0.0000$): the ceiling acts only on the band profile ($\bar G \le \kappa$, Airy $\le 1.35\kappa$), where the smoothed base reaches $2.94\times$ and the wave peak reaches $5.10\times$ ($< 1.35 \times 4.0 = 5.40\times$), while the global peak ($7.55\times$) sits outside the band in the geometric core.
 
 \begin{figure*}[tp]
 \centering

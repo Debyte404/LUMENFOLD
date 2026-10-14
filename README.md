@@ -127,19 +127,18 @@ closed-form cylinder caustic is reproduced to **0.1 mm**.
 ## No exaggerated fringes
 
 Earlier versions of this repo baked the fold band at `airy_scale = 1.5 mm` so the fringes
-would be visible on screen. That value is **12.2× the physical fringe width** for this
-geometry (0.123 mm), and the real-time baker's own default of 20 mm is 163×. Those
-renders are honest pictures of a model that is not this one, and every result in the
-paper now uses the physical width.
+would be visible on screen. That value is exaggerated ($\approx 220\times$) relative to the
+physical fringe width derived from Eq. 14 for this geometry ($d \approx 6.8\,\mu\text{m}$, first zero at $15.8\,\mu\text{m}$).
+At physical scale on a 1024² raster, fringes are deeply sub-pixel and average into a smooth bright ridge,
+so the visible fringes are an operational choice for raster demonstration rather than solar reality.
 
 <p align="center">
   <img src="docs/media/no_exaggeration.png" width="880"
-       alt="Physical fringe width, the same band stretched 12.2x, and the difference between them">
+       alt="Physical fringe width, the same band stretched for visibility, and the difference between them">
 </p>
 
-Left: our solution at the **physical** fringe width — what the paper and the GIFs use.
-Middle: the same band stretched 12.2× for visibility, which is what the older stills in
-`out/` show and what no result is quoted from. Right: the difference.
+Left: our solution at the **physical** fringe scale ($d \approx 6.8\,\mu\text{m}$) — what the physical paper results use.
+Middle: the band expanded for visibility, which is what the visual demo stills show. Right: the difference.
 
 Worth noticing from the difference panel: exaggeration changes the *fringe structure*
 inside the band, not the position or the extent of the caustic — the bright region keeps

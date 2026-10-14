@@ -214,13 +214,13 @@ original hardcoded direction `(-0.45, -0.78, 0.44)` bit-identically.
 
 ## Exaggeration must be labelled
 
-The renderer's default Airy scale is 0.0015 m; the physical Airy scale for this geometry
-at 550 nm is 0.000123 m, so the default draws fringes **12.2x wider than they are**.
-That is deliberate (the physical fringe is under two pixels at 600 px and would not be
+The renderer's default Airy scale is 0.0015 m; the canonical physical Airy scale for this geometry
+at 550 nm is $\approx 6.8\,\mu\text{m}$ (from Eq. 14), so the visual default draws fringes **$\approx 220\times$ wider than physical**.
+That is deliberate (the physical fringe is deeply sub-pixel at standard rasters and would not be
 visible) but it must be STATED wherever it is shown, or a reader measures a fringe and
-gets twelve times the truth.
+assumes physical reality.
 
-`colour_experiments.AIRY_FACTOR` derives the number from the two lengths, so it cannot
-go stale. Panels (c) and (d) of Figure 11 state it in their titles and the caption;
-panels (a) and (b) are computed from the physical scale and say they are not
-exaggerated. The ripple clips pass `--airy 0.000123` and are physical.
+`colour_experiments.AIRY_FACTOR` derives the number dynamically from the two lengths, so it cannot
+go stale. Panels (c) and (d) of Figure 11 state it in their titles and caption ($\approx 220\times$);
+panels (a) and (b) are computed from the canonical wave integral at micro-scale and say they are not
+exaggerated. The ripple clips run with physical parameters.

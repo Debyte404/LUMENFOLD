@@ -62,13 +62,7 @@ In the rendered output, the apparent visual peak of the caustic ridge spans appr
 \subsection{The ceiling is a safeguard}
 \label{sec:limits-ceiling}
 
-The display ceiling $\kappa$ is an optional safeguard against runaway geometric
-outlier splats. As shown in the sensitivity study (Table~\ref{tab:sensitivity}),
-the wave correction naturally bounds the caustic peak to $\approx 7.55 - 7.71\times$ the
-mean (Tables~\ref{tab:tail} and \ref{tab:sensitivity}), so setting the safety ceiling $\kappa \ge 6.0\times$
-leaves the regularized fold flux completely untouched ($\text{RMSE} = 0.0000$).
-Band flux is strictly conserved by Lemma~\ref{lem:flux} provided $\kappa$ is not set below the physical Airy
-peak.
+The ceiling $\kappa$ safeguards against geometric splat outliers. As shown in Table~\ref{tab:sensitivity}, wave correction bounds the band peak to $5.10\times$ mean (below $1.35\kappa = 8.10\times$), so setting $\kappa \ge 4.0\times$ leaves regularized band flux untouched ($\text{RMSE} = 0.0000$). Band flux is strictly conserved by Lemma~\ref{lem:flux} provided $\kappa$ is not set below the Airy peak.
 
 \subsection{Estimator dependence}
 \label{sec:limits-estimators}

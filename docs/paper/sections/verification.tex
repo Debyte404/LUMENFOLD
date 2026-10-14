@@ -91,7 +91,8 @@ the refractive cylinder interfaces with the Fresnel weights of \eqref{eq:fresnel
 accounts for where the incident flux went. Following rays after transmission
 into the outer glass wall across the internal interfaces to the receiver patch yields
 a net transmission of \SI{96.41}{\percent} across the three wavelengths, with the
-\SI{3.59}{\percent} loss fully accounted for by internal Fresnel reflections.
+\SI{3.59}{\percent} loss attributable primarily to internal Fresnel reflections
+(dominated by the glass--air exit interface).
 When all four air--glass and glass--water interfaces are accounted for starting from
 the distant source, normal-incidence Fresnel losses total $\approx \SI{8.5}{\percent}$,
 yielding an absolute four-interface transmission of $\approx \SI{91.5}{\percent}$.
@@ -101,14 +102,11 @@ correction preserves \SI{100}{\percent} of the incident geometric flux
 ($\int_{\mathcal{B}} I_{\text{wave}} = \int_{\mathcal{B}} I_{\text{geom}}$,
 Lemma~\ref{lem:flux}).
 
-\paragraph{Receiver energy conservation.} Outside the fold band $B$, the wave
-correction leaves the geometric field completely unmodified ($I_i = G_i$).
-Inside the band, the Airy profile redistributes energy according to \eqref{eq:kstar},
-which Lemma~\ref{lem:flux} proves is strictly flux-neutral ($\sum_{i \in B} I_i = \sum_{i \in B} G_i$).
-When evaluated across the entire receiver grid, the wave-corrected field carries
-over \SI{99.999}{\percent} of the total geometric energy (ratio $\num{0.999996}$ at $512^2$);
-the minor deficit of less than \SI{0.001}{\percent} is accounted for entirely
-by the upper safety ceiling ($1.35\,\kappa = 8.10$) clipping the highest fringe peak.
+\paragraph{Receiver energy conservation.} Outside the band $B$, the wave
+correction leaves geometric flux unmodified ($I_i = G_i$).
+Inside the band, Lemma~\ref{lem:flux} proves the Airy redistribution \eqref{eq:kstar} is strictly flux-neutral ($\sum_{i \in B} I_i = \sum_{i \in B} G_i$).
+Across the receiver grid, the corrected field carries \SI{100.000}{\percent} of total geometric energy in double precision ($\num{1.000000}$, and $> \SI{99.999}{\percent}$ in 32-bit accumulation).
+Inside the band, the smoothed base reaches $2.94\times$ and the wave profile reaches $5.10\times$ ($< 1.35\kappa = 8.10\times$), so the ceiling is non-binding and causes no loss. The peak ($7.55\times$) occurs outside the band in the geometric core.
 This confirms that the wave correction strictly redistributes energy rather than creating
 or destroying it.
 

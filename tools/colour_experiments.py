@@ -50,14 +50,12 @@ REF_AZ, REF_EL = 27.699472808054995, 25.449840953628105
 # The renderer's own sun irradiance, used as the reference when no --sun-rgb is given.
 REF_SUN_RGB = (19.0, 17.6, 15.8)
 
-# The renderer's default fringe width, and the physical Airy scale for this geometry at
-# 550 nm. The default is 12.2x the physical value: at 600 px the physical fringe is
-# under two pixels and would not be visible, so the exaggeration is deliberate -- but it
-# must be STATED wherever it is shown, or a reader measures a fringe and gets 12x the
-# truth. Ripple clips and the no-exaggeration figure pass --airy 0.000123 explicitly.
+# The renderer's default fringe width (1.5 mm for visibility) and the physical
+# Airy scale for this geometry at 550 nm (d ~ 6.77 um via Eq. 14). The render scale
+# is ~220x the physical value so fringes are legible on discrete rasters.
 AIRY_RENDER = 0.0015
-AIRY_PHYSICAL = 0.000123
-AIRY_FACTOR = AIRY_RENDER / AIRY_PHYSICAL
+AIRY_PHYSICAL = 6.77e-6
+AIRY_FACTOR = AIRY_RENDER / AIRY_PHYSICAL  # ~221.5x (approx 220x)
 
 
 def render(out_png, n=900, sun_az=None, sun_el=None, glass=None, water=None,

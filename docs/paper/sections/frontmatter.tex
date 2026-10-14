@@ -45,16 +45,20 @@ graphics constructions for caustics succeed and where they necessarily fail.
 
 We evaluate against PBRT-v4 SPPM and Blender Cycles on an identical
 scene with measured dispersive indices (water: Daimon \& Masumura 2007; glass:
-Rubin 1985), cross-checking transport physics against Mitsuba~3 in spectral mode.
+Rubin 1985), using Mitsuba~3 for qualitative spectral verification.
 Against an independent brute-force geometric ground truth of $810{,}000$ explicit
 rays, our estimator scores $0.917$ correlation at 40\,mm tiles against $0.853$ (SPPM)
-and $0.828$ (Cycles); at 5\,mm tiles the methods tie ($0.721$ vs $0.722$). The converged
-two-dimensional shape of our field agrees with SPPM at $r=+0.932$, and its interface
-transport throughput measures $96.41\%$ at three wavelengths with Fresnel reflection
-as the only loss channel. We also analyze chromatic dispersion under absorbing media
-and non-solar source spectra: bulk absorption and emission spectra modulate channel
-throughput linearly, while the $\lambda^{2/3}$ scaling displaces fringe peaks
-chromatically across the lit band.
+and $0.828$ (Cycles); at 5\,mm tiles the methods tie ($0.721$ vs $0.722$). An
+equal-flux Gaussian control demonstrates that coarse-scale correlation is governed
+by band-local flux regularisation and energy bounding, while the Airy profile
+governs fine sub-pixel chromatic fringes. Internal convergence sweeps show
+quadratic grid scaling against our own converged $2048^2$ wave-corrected pass,
+while its interface transport throughput measures $\approx 96.4\%$ across internal
+refractive interfaces (dominated by Fresnel exit reflection, noting that band-local
+flux conservation redistributes the band's own measured energy by construction).
+We also analyze chromatic dispersion under absorbing media and non-solar source
+spectra: bulk absorption and emission spectra modulate channel throughput linearly,
+while the $\lambda^{2/3}$ scaling displaces fringe peaks chromatically across the lit band.
 
 We are explicit about what the method does \emph{not} establish. The correction
 is defined for regular fold arcs, and we test the next stratum rather than assuming it:

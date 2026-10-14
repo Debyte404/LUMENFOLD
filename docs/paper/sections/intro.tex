@@ -110,12 +110,13 @@ rather than asserting a value.
       the flux-conserving correction to be formulated as a band-local discrete
       flux ratio rather than an unphysical global constant (Lemma~\ref{lem:notl1},
       Section~\ref{sec:ours-normalisation}).
-\item A hybrid estimator follows, verified through an equal-flux Gaussian ablation
-      control and a parameter sensitivity study over detector threshold, fringe width,
-      and ceiling (Sections~\ref{sec:ourway}, \ref{sec:results-ablation}).
+\item A hybrid estimator follows, examined through an equal-flux Gaussian ablation
+      control (confirming that coarse correlation is driven by band flux bounding,
+      while Airy physics controls chromatic fringe structure) and a parameter sensitivity
+      study (Sections~\ref{sec:ourway}, \ref{sec:results-ablation}).
 \item We evaluate like-for-like against PBRT-v4 SPPM and Blender Cycles on measured
-      dispersive materials, cross-checking transport physics against Mitsuba~3 in
-      spectral mode, and documenting estimator conventions and limitations
+      dispersive materials, with qualitative spectral verification against Mitsuba~3,
+      and documenting estimator conventions and limitations
       (Sections~\ref{sec:results}, \ref{sec:verify}).
 \item We analyze the colour of the caustic and its fringes under absorbing media
       and non-solar source spectra. Bulk absorption and emission spectra modulate
@@ -153,5 +154,5 @@ that someone may make it.
 Section~\ref{sec:kinematics} is self-contained and can be read as a short
 treatment of fold optics for graphics. Readers who want only the method should
 read Section~\ref{sec:ourway} after Section~\ref{sec:cg}; readers who question
-the numbers should read Section~\ref{sec:estimators} first, because two of our
+the numbers should read Section~\ref{sec:estimators} first, because three of our
 earlier errors lived there and not in the physics.
