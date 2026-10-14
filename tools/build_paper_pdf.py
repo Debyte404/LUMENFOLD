@@ -12,7 +12,7 @@ differently:
              Requires MiKTeX plus the class's dependencies (see
              tools/pdftex_bringup.py, which resolves them automatically).
 
-Both produce 23 pages with no unresolved references and no overfull boxes, so
+Both produce 26 pages with no unresolved references and no overfull boxes, so
 the choice is operational rather than editorial.
 
 Run:  <system python> tools/build_paper_pdf.py [--engine tectonic|pdflatex] [--keep]

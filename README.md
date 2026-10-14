@@ -3,7 +3,7 @@
 ### Wave-corrected caustics over photon splatting
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-3DA639.svg)](LICENSE)
-[![Paper](https://img.shields.io/badge/paper-PDF-23%20pages-B31B1B.svg)](docs/paper/main.pdf)
+[![Paper](https://img.shields.io/badge/paper-PDF-26%20pages-B31B1B.svg)](docs/paper/main.pdf)
 [![ORCID](https://img.shields.io/badge/ORCID-0009--0004--2672--3503-A6CE39.svg)](https://orcid.org/0009-0004-2672-3503)
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)](#quickstart)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-success.svg)](#quickstart)
@@ -29,7 +29,7 @@ geometry rather than of the discretisation, and applies the wave-optical correct
 only inside a narrowly detected band — where it is cheap, physically motivated, and
 keeps the band's own energy.
 
-- 📄 **[Read the paper](docs/paper/main.pdf)** — 23 pages, official Eurographics /
+- 📄 **[Read the paper](docs/paper/main.pdf)** — 26 pages, official Eurographics /
   *Computer Graphics Forum* class (`egpubl.cls`). Section 11 is the full reproduction list.
 - 🔬 **[Every number, traced](docs/EVIDENCE.md)** — the measurement log, including the
   results that went against us.
@@ -333,11 +333,13 @@ python tools/energy_audit.py              # Fresnel-weighted energy bookkeeping
 python tools/ensemble_study.py            # robustness across 8 wave phases
 python tools/colour_study.py              # caustic + fringe colour, full 80-combination factorial
 python tools/colour_experiments.py        # rendered media grid, sun orbit, source sweep
-python tools/make_all_figures.py          # all ten paper figures, in order
+python tools/make_all_figures.py          # all 12 paper figures, in order
+python tools/figure_lint.py               # measure every figure against geometry and typography spec
 python tools/make_hero.py                 # the comparison animation at the top
 python tools/build_paper_pdf.py           # compile the CGF paper
 python tools/check_paper.py               # dangling refs, title page, flattened files
 python tools/scan_ai_tells.py             # AI-writing tells in the manuscript
+python tools/paper_forensics.py           # stylometry, control corpus, and literature overlap audit
 python tools/verify_refs.py               # every citation, against Crossref
 ```
 

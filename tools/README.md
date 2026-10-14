@@ -38,6 +38,8 @@ These share no code with the estimator, which is the point.
 | `physical_predictions.py` | Prints the falsifiable predictions from a bake, in camera-independent units. |
 | `verify_against_photo.py` | Measures those same quantities from a photograph. **Appendix only** — see `docs/PHYSICAL_TEST.md`. |
 | `clip_flicker.py` | Temporal flicker of the clips, caustic region vs control region. |
+| `pearcey_cusp.py` | Higher-order cusp catastrophe evaluation via the Pearcey integral ($O(N^4)$ comparison vs Airy table, measuring $-0.3333$ divergence exponent vs analytic $-1/3$). |
+| `airy_facts.py` | Numeric verification of Airy Ai function zeros, peak values, and asymptotic decay rates. |
 
 ## Reference renderers
 
@@ -86,6 +88,29 @@ These share no code with the estimator, which is the point.
 | `airy_caustic.py` | Python reference baker for the pool scene, and its comparison image. |
 | `efficiency_study.py` | Accuracy vs splat budget: Monte-Carlo against the deterministic pass. |
 | `gen_lut.py` | Regenerate the Airy LUT header from its `.npz` source. |
+| `make_hero.py` | 3-way animated hero comparison (ours vs Cycles vs SPPM) for repository and documentation. |
+| `make_all_figures.py` | Runs all figure producers in sequence and gates on `figure_lint.py`. |
+
+## Manuscript QA, forensics, and compilation
+
+| Tool | Purpose |
+|---|---|
+| `paper_forensics.py` | Pattern scan, stylometry vs control, internal duplication, and literature/self-plagiarism checks. |
+| `control_corpus.py` | Builds the 156-abstract human control corpus from Crossref and OpenAlex. |
+| `make_detector_sample.py` | Strips LaTeX markup to emit clean plain text for AI detector input. |
+| `make_detector_pdf.py` | Generates a paginated text-only PDF for file-based detection tools. |
+| `paper_qa.py` | Verifies placed raster DPI (≥300), vertical whitespace bands, and bibliography citation syntax. |
+| `figure_lint.py` | Measures every figure against type size, margins, font face, and dimensions. |
+| `figure_colour_audit.py` | Audits figure colours against the unified palette spec. |
+| `figure_greyscale_check.py` | Verifies figure contrast and readability in black and white. |
+| `figure_overlap_check.py` | Bounding-box overlap and occlusion diagnostics for figures. |
+| `check_text_overlap.py` | Ink collision detection for labels and text elements. |
+| `check_layout.py` | Margin intrusions and page budget consistency check. |
+| `find_overfull.py` | Scans TeX logs for overfull `\hbox` and `\vbox` warnings. |
+| `check_control_chars.py` | Checks manuscript sources for invisible control characters or rogue unicode. |
+| `gif_flicker_audit.py` | Measures frame-to-frame luminance variance across animated GIFs. |
+| `pdftex_bringup.py` | MiKTeX environment verification and package installation automation. |
+| `insert_paper_figures.py` | Helper script migrating figures into LaTeX section templates. |
 
 ## archive/
 
@@ -124,7 +149,7 @@ against it, and the measurement gates the build.
 Producers (one writer per figure -- never two tools to the same file):
 
     make_paper_figures_pdf.py   figs 2, 4, 5, 6, 7, 8, 9, 10
-    make_fig1_scene.py          fig 1   (scene section, geometry, light path)
+    make_fig1_scene.py          fig 1   (scene section, geometry, light path; uses fig1_geometry.py)
     fix_fig3_airy.py            fig 3   (Airy profile and its divergence)
     make_colour_figure.py       fig 11  (colour: channels, medium, sun)
     make_red_media_figure.py    fig 12  (tinted-medium renders)
