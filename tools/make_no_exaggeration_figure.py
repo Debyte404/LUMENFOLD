@@ -62,15 +62,19 @@ def render(caustic, path, samples=1024):
 
 
 def main():
+    force = "--force" in sys.argv
     jobs = [("phys", PHYS, f"{OUT}/caustic_phys.png", f"{OUT}/readme_ours_physical.png"),
             ("exag", EXAG, f"{OUT}/caustic_exag.png", f"{OUT}/readme_ours_exaggerated.png")]
     meta = {}
     for name, airy, cpath, rpath in jobs:
-        tb = bake(airy, cpath)
-        tr = render(cpath, rpath)
-        a = np.asarray(Image.open(rpath).convert("RGB")).astype(np.float32)
-        meta[name] = dict(airy=airy, bake=tb, render=tr, mean=float(a.mean()))
-        print(f"  {name}: airy {airy:.6f} m  bake {tb:.2f}s  render {tr:.1f}s  mean {a.mean():.1f}")
+        if force or not os.path.exists(rpath):
+            tb = bake(airy, cpath)
+            tr = render(cpath, rpath)
+            a = np.asarray(Image.open(rpath).convert("RGB")).astype(np.float32)
+            meta[name] = dict(airy=airy, bake=tb, render=tr, mean=float(a.mean()))
+            print(f"  {name}: airy {airy:.6f} m  bake {tb:.2f}s  render {tr:.1f}s  mean {a.mean():.1f}")
+        else:
+            print(f"  {name}: reusing existing {rpath}")
 
     import matplotlib
     matplotlib.use("Agg")
@@ -81,20 +85,20 @@ def main():
 
     a = np.asarray(Image.open(jobs[0][3]).convert("RGB"))
     b = np.asarray(Image.open(jobs[1][3]).convert("RGB"))
-    fig, axes = plt.subplots(1, 3, figsize=(11.0, 4.0))
+    fig, axes = plt.subplots(1, 3, figsize=(11.0, 4.3))
     axes[0].imshow(a); axes[0].set_title(
-        f"(a) physical fringe width\n{PHYS*1e3:.3f} mm  (no exaggeration)", fontsize=9)
+        f"(a) physical fringe width\n{PHYS*1e3:.3f} mm  (no exaggeration)", fontsize=9, pad=8)
     axes[1].imshow(b); axes[1].set_title(
-        f"(b) exaggerated {EXAG/PHYS:.1f}x\n{EXAG*1e3:.1f} mm  (old stills; not used)", fontsize=9)
+        f"(b) exaggerated {EXAG/PHYS:.1f}x\n{EXAG*1e3:.1f} mm  (old stills; not used)", fontsize=9, pad=8)
     d = np.abs(a.astype(np.int16) - b.astype(np.int16)).sum(axis=2)
     im = axes[2].imshow(d, cmap="inferno")
-    axes[2].set_title("(c) absolute difference\n(sum over channels, 8-bit)", fontsize=9)
+    axes[2].set_title("(c) absolute difference\n(sum over channels, 8-bit)", fontsize=9, pad=8)
     fig.colorbar(im, ax=axes[2], fraction=0.046, pad=0.02)
     for ax in axes:
         ax.set_xticks([]); ax.set_yticks([]); ax.grid(False)
     fig.suptitle("Our solution: the fold band at the physical fringe width, and the "
-                 "same band stretched 12.2x for visibility", fontsize=10)
-    fig.tight_layout()
+                 "same band stretched 12.2x for visibility", fontsize=10, y=0.98)
+    fig.tight_layout(rect=[0, 0, 1, 0.90])
     p = f"{ROOT}/docs/media/no_exaggeration.png"
     fig.savefig(p, bbox_inches="tight")
     plt.close(fig)

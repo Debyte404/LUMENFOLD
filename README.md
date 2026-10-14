@@ -212,16 +212,6 @@ recording — by default the camera follows the caustic's centroid, so rotating 
 makes the frame pan to follow it and **the two motions cancel**; the caustic looks static,
 which is the opposite of what is happening. `--cam-fixed` locks the frame.
 
-<p align="center">
-  <img src="docs/media/colour_sun_sweep.gif" width="620"
-       alt="Source colour swept 2000 K to 12000 K and back">
-</p>
-
-The source spectrum swept from 2000 K to 12000 K. This one is a **palindrome** rather than a
-one-way ramp: a ramp loops with the cool end snapping back to the warm end, which measured
-as a 20× jump at the wrap — a flash, not a sweep. Going up and back makes the wrap an
-ordinary frame step (loop-to-median ratio 0.00).
-
 ### Red medium, one variable at a time
 
 The same ripple animation as `ripple_ours.gif` — same camera, same physical Airy width,
