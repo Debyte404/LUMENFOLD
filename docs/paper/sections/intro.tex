@@ -103,37 +103,34 @@ rather than asserting a value.
 \label{sec:contributions}
 
 \begin{itemize}
-\item A kinematic account of the caustic fold that connects the rendering
-      estimator to the fold's normal form, with the $\lambda^{2/3}$ fringe
-      scaling derived rather than fitted
-      (Section~\ref{sec:kinematics}).
-\item The observation, proved and measured, that the Airy fold intensity is not
-      integrable, so a flux-conserving correction must be formulated as a
-      discrete band ratio; a normalisation constant does not exist
+\item We derive the fold's kinematics from the ray map. That derivation connects the
+      rendering estimator to the fold's normal form and yields the $\lambda^{2/3}$
+      fringe scaling as a consequence (Section~\ref{sec:kinematics}).
+\item The Airy fold intensity diverges. We give both the proof and the measurement of
+      it, and the divergence forces a flux-conserving correction into the form of a
+      discrete band ratio, because no normalisation constant exists
       (Lemma~\ref{lem:notl1}, Section~\ref{sec:ours-normalisation}).
-\item A hybrid estimator, its implementation, and an ablation over its three
-      parameters (Sections~\ref{sec:ourway}, \ref{sec:results-ablation}).
-\item A like-for-like evaluation against PBRT-v4 SPPM, Blender Cycles and
-      Mitsuba~3 on measured dispersive materials, with the estimator
-      conventions stated and the losses reported
+\item A hybrid estimator follows, with an ablation over its three parameters
+      (Sections~\ref{sec:ourway}, \ref{sec:results-ablation}).
+\item We evaluate like-for-like against PBRT-v4 SPPM, Blender Cycles and
+      Mitsuba~3 on measured dispersive materials, stating the estimator convention
+      each side uses and reporting where we lose
       (Sections~\ref{sec:results}, \ref{sec:verify}).
-\item A measurement of what colour the caustic and its fringes are, over the
-      complete $4\times5\times4$ factorial of absorbing media and non-solar source
-      spectra, rendered as well as computed: the medium and the source are shown to
-      be interchangeable for the caustic's tint, while neither can displace a
-      fringe, so the colour sequence across the band is a signature of the wave
-      correction specifically. With the camera held fixed and the source rotated
-      about the glass, the caustic orbits on a \SI{54.2}{\milli\meter} circle while
-      the frame does not (Section~\ref{sec:results-colour}).
-\item A test of the next stratum rather than a conjecture about it. The cusp case
-      is built and measured: its Pearcey function is validated against a closed
-      form, it inherits neither the fold's divergence exponent nor its cost, and
-      we report both halves because they point opposite ways
-      (Section~\ref{sec:verify-cusp}).
-\item Three claims from our own earlier drafts that are withdrawn or corrected,
-      each traced to a measurable estimator artefact, documented so the failure
-      mode is reproducible (Sections~\ref{sec:verify-index},
-      \ref{sec:verify-metric}).
+\item We measure the colour of the caustic and its fringes over the complete
+      $4\times5\times4$ factorial of absorbing media and non-solar source spectra,
+      rendered as well as computed. The medium and the source turn out to be
+      interchangeable for the tint, and neither can displace a fringe, so the colour
+      sequence across the band is a signature of the wave correction specifically.
+      With the camera fixed and the source rotating about the glass, the caustic orbits
+      on a \SI{54.2}{\milli\meter} circle while the frame does not
+      (Section~\ref{sec:results-colour}).
+\item We test the next stratum. The cusp case is built and measured: its Pearcey
+      function is validated against a closed form, it inherits neither the fold's
+      divergence exponent nor its cost, and both halves are reported because they point
+      opposite ways (Section~\ref{sec:verify-cusp}).
+\item Three claims from our own earlier drafts are withdrawn or corrected, each traced
+      to a measurable estimator artefact and documented so the failure mode is
+      reproducible (Sections~\ref{sec:verify-index}, \ref{sec:verify-metric}).
 \end{itemize}
 
 \subsection{What this paper does not claim}
