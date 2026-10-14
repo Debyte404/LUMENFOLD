@@ -64,48 +64,28 @@ is transcribed by hand.
 
 \begin{table*}[tp]
 \centering
-\small
-% Sized against \textwidth, not \columnwidth: the longest command is about
-% 170 pt in \small typewriter and a single column here is only 240 pt, so a
-% \columnwidth-relative split overflowed the command column into this one.
-\begin{tabular}{@{}p{0.38\textwidth}p{0.56\textwidth}@{}}
+\scriptsize
+\renewcommand{\arraystretch}{0.88}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}p{0.23\textwidth}p{0.21\textwidth}p{0.23\textwidth}p{0.21\textwidth}@{}}
 \toprule
-Command & Produces \\
+Command & Produces & Command & Produces \\
 \midrule
-\texttt{tools/airy\_facts.py} & Airy peak, and the divergence of its intensity \\
-\texttt{tools/verify\_refs.py} & citation check against Crossref \\
-\midrule
-\texttt{tools/verify\_wave\_correction.py} & profile vs \texttt{scipy.special.airy} \\
-\texttt{tools/verify\_ray\_map.py} & the independent brute-force trace \\
-\texttt{tools/fig1\_geometry.py} & Figure~\ref{fig:scene} geometry and light path \\
-\texttt{tools/cam\_projection\_check.py} & the camera match of Figure~\ref{fig:ripple} \\
-\texttt{tools/fold\_diag.py} & fold locus, flux, boundary ablations \\
-\texttt{tools/pearcey\_cusp.py} & the cusp case, its exponents and its cost \\
-\texttt{tools/colour\_study.py} & caustic and fringe colour, full $4\times5\times4$ factorial \\
-\texttt{tools/colour\_experiments.py} & the rendered media grid, sun orbit and source sweep \\
-\texttt{tools/ripple\_colour\_gifs.py} & the red-water, red-glass and both-red ripple clips \\
-\texttt{tools/addon\_bringup.py} & the Blender add-on's coloured-medium path (node built, linked, volume bounces raised) \\
-\texttt{tools/caustic\_colour\_probe.py} & where the caustic's colour responds to the medium, and by how much \\
-\texttt{tools/render\_vs\_computed\_colour.py} & rendered against computed colour, tile by tile \\
-\texttt{tools/make\_colour\_figure.py} & Figure~\ref{fig:colour} \\
-\texttt{tools/parity\_cpp\_vs\_py.py} & C++ against the Python reference \\
-\midrule
-\texttt{tools/spmm\_vs\_groundtruth.py} & the three-way ranking, one axis \\
-\texttt{tools/metric\_parity\_check.py} & both estimator conventions \\
-\texttt{tools/accuracy\_vs\_ground\_truth.py} & the headline accuracy \\
-\texttt{tools/ablation\_profile\_control.py} & Airy vs equal-flux Gaussian control \\
-\texttt{tools/parameter\_sensitivity\_study.py} & parameter sensitivity study ($p, w, \text{ceiling}$) \\
-\texttt{tools/energy\_audit.py} & Fresnel throughput \\
-\texttt{tools/efficiency\_study.py} & RMSE against splat budget \\
-\texttt{tools/ensemble\_study.py} & the eight-phase ensemble \\
-\midrule
-\texttt{bench.exe 512 1}, \texttt{512 8} & bake timing, one and eight threads \\
-\midrule
-\texttt{tools/make\_all\_figures.py} & all ten figures, in order \\
-\texttt{tools/ripple\_gifs.py} & the three ripple GIFs \\
-\texttt{tools/build\_paper\_pdf.py} & this document \\
+\path{tools/airy_facts.py} & Airy peak, intensity divergence & \path{tools/make_colour_figure.py} & Figure~\ref{fig:colour} \\
+\path{tools/verify_refs.py} & citation check against Crossref & \path{tools/parity_cpp_vs_py.py} & C++ vs Python reference \\
+\path{tools/verify_wave_correction.py} & profile vs \texttt{scipy.special.airy} & \path{tools/spmm_vs_groundtruth.py} & three-way ranking, one axis \\
+\path{tools/verify_ray_map.py} & independent brute-force trace & \path{tools/metric_parity_check.py} & both estimator conventions \\
+\path{tools/fig1_geometry.py} & Figure~\ref{fig:scene} geometry and path & \path{tools/accuracy_vs_ground_truth.py} & headline accuracy vs GT \\
+\path{tools/cam_projection_check.py} & camera match of Figure~\ref{fig:ripple} & \path{tools/ablation_profile_control.py} & Airy vs equal-flux Gaussian \\
+\path{tools/fold_diag.py} & fold locus, flux, boundary ablations & \path{tools/parameter_sensitivity_study.py} & sensitivity ($p, w, \text{ceiling}$) \\
+\path{tools/pearcey_cusp.py} & cusp case, exponents and cost & \path{tools/energy_audit.py} & Fresnel throughput audit \\
+\path{tools/colour_study.py} & colour factorial ($4\times5\times4$) & \path{tools/efficiency_study.py} & RMSE vs splat budget \\
+\path{tools/colour_experiments.py} & media grid, orbit/source sweep & \path{tools/ensemble_study.py} & eight-phase ensemble \\
+\path{tools/ripple_colour_gifs.py} & red-water/glass ripple clips & \texttt{bench.exe 512 1}, \texttt{512 8} & bake timing, 1 and 8 threads \\
+\path{tools/addon_bringup.py} & Blender add-on coloured medium & \path{tools/make_all_figures.py} & all figures, in order \\
+\path{tools/caustic_colour_probe.py} & caustic colour response to medium & \path{tools/ripple_gifs.py} & three ripple GIFs \\
+\path{tools/render_vs_computed_colour.py} & rendered vs computed colour tiles & \path{tools/build_paper_pdf.py} & this document \\
 \bottomrule
-\end{tabular}
+\end{tabular*}
 \caption{The commands that produce every artefact in this paper.}
 \label{tab:commands}
 \end{table*}

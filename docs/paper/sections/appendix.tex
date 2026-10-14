@@ -201,17 +201,15 @@ Bake grid (results / study) & $1024^2$ / $256^2$--$1024^2$ \\
 Spatial extent \& receiver  & \SI{\pm 160}{\milli\meter}, \SI{320}{\milli\meter} square patch \\
 Surface amplitudes $A_i$    & \num{0.65}, \num{0.40}, \num{0.25}, \num{0.15} \si{\milli\meter} \\
 Surface wavelengths $\Lambda_i$ & 42, 27, 17, 11 \si{\milli\meter} \\
-Source & distant, \SI{0.53}{\degree}, direction \eqref{eq:snell} \\
-Detector threshold & 2nd percentile of $|\detJ|$ \\
-Reference width $w_{\text{ref}}$ & \SI{123}{\micro\meter} (physical), 2048-LUT on $[0,8]$ \\
+Source & distant, $0.53^\circ$, direction \eqref{eq:snell} \\
+Detector threshold $\epsilon$ & $\num{0.0592}$ ($\approx 2\%$ at $1024^2$) \\
+Reference width $w_{\text{ref}}$ & \SI{123.1}{\micro\meter} (physical), 2048-LUT on $[0,8]$ \\
 Profile floor \& ceiling & floor \num{0.15}, ceiling $1.35\,\kappa$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The reference width is the physical fringe scale for this geometry, obtained
-independently by \texttt{tools/fringe\_scale.py}. It is deliberately not
-inflated for visibility: an earlier version of this work used \SI{1.5}{}
-\si{\milli\meter}, which is \num{12.2} times the physical value, and the
-difference between the two is the difference between showing a measured
-dispersion and drawing decorative fringes.
+The reference width is the physical fringe scale for this geometry, derived
+from \eqref{eq:scalelaw} as \SI{123.1}{\micro\meter}. It is deliberately not
+inflated for visibility in the full-receiver renders: the renders use exclusively
+this physical scale, showing true chromatic dispersion rather than decorative fringes.

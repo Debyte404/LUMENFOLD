@@ -30,7 +30,7 @@ Swallowtails and umbilic points remain untested.
 \label{sec:limits-coherence}
 
 This is the most serious physical limitation. The source in this scene subtends
-\SI{0.53}{\degree}, and at the receiver distance that corresponds to a geometric
+$0.53^\circ$, and at the receiver distance that corresponds to a geometric
 blur of roughly \SI{925}{\micro\meter}. The physical fringe spacing implied by
 \eqref{eq:scalelaw} for this geometry is \SI{123}{\micro\meter}, about
 \num{7.5} times smaller. A fully incoherent treatment would therefore wash the
@@ -54,23 +54,23 @@ depend on the coherence ratio; the fringe pattern does.
 \subsection{Not resolved at the production grid}
 \label{sec:limits-resolution}
 
-The fold's apparent breadth measures $2.30\times$ the geometric pixel width at
-$1024^2$ and $1.87\times$ at $4096^2$. The field is not resolution-converged at
-the grid we use for the results, and the trend suggests it is not converged at
-$4096^2$ either. Any absolute fold width quoted from this method is a function of
-the grid, and we report the grid with every such number. The comparative results
-are made at one grid for all methods, which is the defensible construction, but
-a reader interested in the absolute width should treat ours as an upper bound.
+The fold's apparent breadth measures $2.30\times$ the independent brute-force ground truth
+at $1024^2$ ($\approx \SI{1450}{\micro\meter}$ vs $\SI{630}{\micro\meter}$, occupying \SI{9.56}{\percent} vs \SI{4.16}{\percent} of receiver area)
+and $1.87\times$ at $4096^2$ ($\approx \SI{1180}{\micro\meter}$, \SI{7.80}{\percent} area).
+At both raster grids, the detected fold band spans approximately 2 pixels, indicating that
+on discrete rasters the apparent breadth tracks the pixel grid resolution (analogous to the
+bandwidth dependence of photon-mapping smoothing kernels).
+Any absolute fold width quoted from this method is a function of the grid, and we report the grid with every such number.
 
 \subsection{The ceiling is a safeguard}
 \label{sec:limits-ceiling}
 
 The display ceiling $\kappa$ is an optional safeguard against runaway geometric
 outlier splats. As shown in the sensitivity study (Table~\ref{tab:sensitivity}),
-the wave correction naturally bounds the caustic peak to $\approx 3.1\times$ the
-mean, so setting $\kappa \ge 4.0\times$ leaves the regularized fold flux completely
-untouched ($\text{RMSE} = 0.0000$). Band flux is strictly conserved by
-Lemma~\ref{lem:flux} provided $\kappa$ is not set below the physical Airy
+the wave correction naturally bounds the caustic peak to $\approx 7.55 - 7.71\times$ the
+mean (Tables~\ref{tab:tail} and \ref{tab:sensitivity}), so setting the safety ceiling $\kappa \ge 6.0\times$
+leaves the regularized fold flux completely untouched ($\text{RMSE} = 0.0000$).
+Band flux is strictly conserved by Lemma~\ref{lem:flux} provided $\kappa$ is not set below the physical Airy
 peak.
 
 \subsection{Estimator dependence}

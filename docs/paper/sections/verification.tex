@@ -6,7 +6,7 @@
 A method built on a normal form should be checked against the normal form, and
 a method whose numbers are produced by its own estimators should be checked by
 estimators it does not control. This section does both, and then reports the
-two errors in our own earlier work that the checks exposed.
+three errors in our own earlier work that the checks exposed.
 
 \subsection{The profile is the true Airy function}
 \label{sec:verify-profile}
@@ -87,26 +87,30 @@ The energy audit distinguishes physical radiometric throughput across scene
 interfaces from the mathematical boundedness of the caustic field:
 
 \paragraph{Interface transport throughput.} Following the light path through
-every refractive interface with the Fresnel weights of \eqref{eq:fresnel}
-accounts for where the incident flux went. The result is a net transmission of
-\SI{96.41}{\percent} at the three wavelengths, with Fresnel reflection as the only
-loss channel: no energy is created or destroyed during transport, and the
-\SI{3.59}{\percent} loss is fully accounted for by Fresnel reflections.
+the refractive cylinder interfaces with the Fresnel weights of \eqref{eq:fresnel}
+accounts for where the incident flux went. Following rays after transmission
+into the outer glass wall across the internal interfaces to the receiver patch yields
+a net transmission of \SI{96.41}{\percent} across the three wavelengths, with the
+\SI{3.59}{\percent} loss fully accounted for by internal Fresnel reflections.
+When all four air--glass and glass--water interfaces are accounted for starting from
+the distant source, normal-incidence Fresnel losses total $\approx \SI{8.5}{\percent}$,
+yielding an absolute four-interface transmission of $\approx \SI{91.5}{\percent}$.
 
 \paragraph{Band-local conservation.} Within the detected fold band, the wave
 correction preserves \SI{100}{\percent} of the incident geometric flux
 ($\int_{\mathcal{B}} I_{\text{wave}} = \int_{\mathcal{B}} I_{\text{geom}}$,
 Lemma~\ref{lem:flux}).
 
-\paragraph{Display ceiling and singular tails.} In an ideal continuous geometric
-field, ray density near a fold diverges as $b^{-1/2}$, causing fine-grid rasterization
-to accumulate large, resolution-dependent energy spikes at the singularity.
-When evaluated across the entire receiver against an unbounded geometric grid
-capped at a display ceiling of $6\times$ the mean, the wave-regularized field
-(which naturally bounds peak radiance to $\approx 3.1\times$ the mean) carries
-approximately \SI{28}{\percent} of the singular peak-dominated geometric sum.
-This reflects the physical redistribution of singular spikes into bounded
-diffraction fringes rather than an unphysical energy leak.
+\paragraph{Receiver energy conservation.} Outside the fold band $B$, the wave
+correction leaves the geometric field completely unmodified ($I_i = G_i$).
+Inside the band, the Airy profile redistributes energy according to \eqref{eq:kstar},
+which Lemma~\ref{lem:flux} proves is strictly flux-neutral ($\sum_{i \in B} I_i = \sum_{i \in B} G_i$).
+When evaluated across the entire receiver grid, the wave-corrected field carries
+over \SI{99.999}{\percent} of the total geometric energy (ratio $\num{0.999996}$ at $512^2$);
+the minor deficit of less than \SI{0.001}{\percent} is accounted for entirely
+by the upper safety ceiling ($1.35\,\kappa = 8.10$) clipping the highest fringe peak.
+This confirms that the wave correction strictly redistributes energy rather than creating
+or destroying it.
 
 \subsection{An index model that was wrong}
 \label{sec:verify-index}

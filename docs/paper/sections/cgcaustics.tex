@@ -138,11 +138,12 @@ Collecting the two families, the situation is the following. Away from $\fold$
 the map is a local diffeomorphism, $\detJ$ is bounded away from zero, and both
 families are exact in the limit and cheap in practice; this is the regime in
 which caustic rendering is a solved problem. On $\fold$ the density is
-unbounded (Lemma~\ref{lem:diverge}), the forward estimator's bias is unbounded
-for every bandwidth (Lemma~\ref{lem:kdebias}), and the backward estimator's
-connection weight is unbounded. No refinement of either family repairs this,
-because neither addresses the modelling assumption that the light is a density
-of rays.
+unbounded (Lemma~\ref{lem:diverge}), the forward estimator's boundary bias
+fails to follow the standard $O(h^2)$ Taylor expansion due to non-smoothness
+of the $b^{-1/2}$ singularity (Lemma~\ref{lem:kdebias}), and the backward
+estimator's connection weight is unbounded. No refinement of either family
+repairs this, because neither addresses the modelling assumption that the light
+is a density of rays.
 
 \begin{table}[tbp]
 \centering

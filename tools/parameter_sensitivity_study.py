@@ -30,16 +30,32 @@ def main():
     det = fd.jacobian_det(Hx, Hy, N)
     abs_det = np.abs(det)
 
-    # Baseline
+    # Operational baseline matching Table 7 (tail_study.py)
     p_base = 2.0
-    w_base = 1.0
+    w_base = 0.02
     cap_base = 6.0
 
     def bake(p, w, cap):
-        fold = abs_det < np.percentile(abs_det, p)
-        rgb = bft.correct_bandlocal(g, w, fold)
-        # apply cap
-        rgb = np.minimum(rgb, cap)
+        thr = np.percentile(abs_det, p)
+        fold = abs_det < thr
+        # Pass cap to correct_bandlocal
+        dx = fd.SIZE / N
+        s = fd.ndimage.distance_transform_edt(~fold) * dx
+        smooth = fd.ndimage.gaussian_filter(g, sigma=3.0)
+        rgb = np.zeros(g.shape + (3,))
+        for c in range(3):
+            wc = w * (fd.LAMBDAS[c] / 550e-9) ** (2.0 / 3.0)
+            prof = fd.airy_profile(s, wc)
+            band = s < 5 * wc
+            ch = g.copy()
+            if band.any():
+                base = np.minimum(smooth, cap)[band]
+                shape = 0.15 + 0.85 * prof[band]
+                want = g[band].sum()
+                got = float((base * shape).sum())
+                k = (want / got) if got > 0 else 0.0
+                ch[band] = np.minimum(base * shape * k, cap * 1.35)
+            rgb[..., c] = ch
         return fold, rgb
 
     fold_base, rgb_base = bake(p_base, w_base, cap_base)
@@ -52,15 +68,16 @@ def main():
     for p in [1.0, 2.0, 4.0]:
         f, rgb = bake(p, w_base, cap_base)
         rmse = np.sqrt(np.mean((rgb - rgb_base)**2))
-        lbl = f"detector p = {p:.1f}%"
+        lbl = f"threshold p = {p:.1f}%"
         print(f"{lbl:<22} | {f.mean()*100:6.2f}% | {rgb.max():6.3f}   | {rmse:10.5f}")
 
     print("-" * 56)
     # 2. Airy width scale
-    for w in [0.5, 1.0, 2.0]:
+    for mult in [0.5, 1.0, 2.0]:
+        w = w_base * mult
         f, rgb = bake(p_base, w, cap_base)
         rmse = np.sqrt(np.mean((rgb - rgb_base)**2))
-        lbl = f"airy_scale w = {w:.1f}x"
+        lbl = f"scale w = {mult:.1f}x"
         print(f"{lbl:<22} | {f.mean()*100:6.2f}% | {rgb.max():6.3f}   | {rmse:10.5f}")
 
     print("-" * 56)

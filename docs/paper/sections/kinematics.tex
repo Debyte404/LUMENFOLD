@@ -35,7 +35,7 @@ Glass wall thickness      & \SI{3.5}{\milli\meter}      & \\
 Glass height              & \SI{90}{\milli\meter}       & \\
 Water fill height         & \SI{59.4}{\milli\meter}     & \\
 Receiver                  & \SI{320}{\milli\meter} $\times$ \SI{320}{\milli\meter} patch & matte, Lambertian \\
-Source                    & \SI{0.53}{\degree}          & distant, solar \\
+Source                    & $0.53^\circ$          & distant, solar \\
 Water index               & \num{1.33167} / \num{1.33468} / \num{1.33961} & R/G/B \\
 Glass index               & \num{1.52104} / \num{1.52514} / \num{1.53192} & R/G/B \\
 Channels                  & \SI{650}{} / \SI{550}{} / \SI{450}{\nano\meter} & R/G/B \\
@@ -314,6 +314,13 @@ d(\lambda,c) \;=\; k^{-2/3}\,2^{-1/3}\,c^{1/3}
 \;=\; \frac{\lambda^{2/3}c^{1/3}}{2\,\pi^{2/3}} .
 \label{eq:scalelaw}
 \end{equation}
+Here, because the normalized pupil coordinate $\rho \in [-1,1]$ is dimensionless,
+the phase $\Phi(\rho)$ in \eqref{eq:phase} and the fold parameter $c$ both have
+dimensions of length ($\si{\meter}$). Consequently, $d(\lambda,c)$ has dimensions
+of length ($\si{\meter}^{2/3} \times \si{\meter}^{1/3} = \si{\meter}$).
+
+In our physical reference scene of a solid refracting cylinder (radius $R = \SI{35}{\milli\meter}$, glass index $n = 1.5251$), the ray map $\mathbf{x}(\phi)$ near the fold locus ($\phi_f \approx 207.70^\circ$) admits the local Taylor expansion $x(t) \approx x_f + a_1 t + \frac{1}{6} c_3 t^3$, where $t = \phi - \phi_f$ and bisection yields $c_3 \approx \SI{0.08115}{\meter\per\radian\cubed}$. The resulting transverse diffraction width evaluated via \eqref{eq:scalelaw} gives
+$w_{\text{ref}} = (\lambda^2 / 2 |c_3|)^{1/3} \approx \SI{123.1}{\micro\meter}$ at $\lambda = \SI{550}{\nano\meter}$. This physically derives the baseline width $w_{\text{ref}} = \SI{123}{\micro\meter}$ directly from the geometry of the optic.
 
 \begin{corollary}[Wavelength scaling]
 \label{cor:scaling}
@@ -471,7 +478,7 @@ least, so red must land farthest from the axis. The chromatic ordering in every
 figure of this paper is a consequence of \eqref{eq:sellmeier}, \eqref{eq:rubin}
 and \eqref{eq:perchannel}, not an effect we added.
 
-The source subtends \SI{0.53}{\degree}, which at the receiver distance of this
+The source subtends $0.53^\circ$, which at the receiver distance of this
 scene corresponds to a geometric blur of roughly \SI{925}{\micro\meter}. The
 physical fringe spacing implied by \eqref{eq:scalelaw} for this geometry is
 \SI{123}{\micro\meter}, about \num{7.5} times smaller. A fully incoherent
@@ -504,8 +511,8 @@ supply on its own.
 \label{sec:estimators}
 
 The caustic is a thin, high-dynamic-range feature, so the statistic used to
-compare two renderings decides the answer. Two of our own earlier claims died
-here rather than in the physics, and both are reported in
+compare two renderings decides the answer. Three of our own earlier claims died
+here or in the optics rather than in the core theory, and all are reported in
 Section~\ref{sec:verify}. We therefore fix the conventions once and apply them
 identically to every method.
 

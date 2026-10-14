@@ -54,14 +54,29 @@ against a physical scale parameter:
 B \;=\; \big\{\,\mathbf{x} \in \recv : |\detJ(\mathbf{x})| \le \epsilon\,\big\},
 \label{eq:physicaldetector}
 \end{equation}
-where $\epsilon = \epsilon(w, \lambda) \propto \lambda^{2/3}$ contracts toward the fold
-as wavelength $\lambda \to 0$ (the geometric optics limit). 
+where the threshold $\epsilon$ relates directly to the physical fringe width $w \propto \lambda^{2/3}$.
+Transverse to the fold curve $\fold$ in the surface domain, let $x_{\perp}$ denote the
+normal distance. By Taylor expansion around the critical set, the Jacobian determinant
+scales as $|\detJ(\mathbf{x})| \approx |\nabla_{\perp}(\detJ)|\,|x_{\perp}|$.
+On the receiver plane, the transverse distance from the caustic fold edge scales quadratically,
+$b \approx \frac{1}{2} C_{\text{map}} x_{\perp}^2$. Because the physical Airy diffraction corridor
+extends across receiver distance $b \lesssim C_w w \propto \lambda^{2/3}$, the corresponding
+transverse boundary in the surface domain is $|x_{\perp}| \lesssim \sqrt{2 C_w w / C_{\text{map}}} \propto \lambda^{1/3}$.
+Hence, the Jacobian threshold isolating the diffraction band is
+$\epsilon = |\nabla_{\perp}(\detJ)|\,\sqrt{2 C_w w / C_{\text{map}}} \propto \lambda^{1/3}$.
+Crucially, for a given scene and physical wavelength $\lambda$, $\epsilon$ is a \emph{fixed physical threshold}.
+Holding $\epsilon$ fixed as the computational grid resolution $N$ increases ($N = 256 \to 2048$):
+the physical area of the detected band stabilizes at $\operatorname{area}(B) \approx \SI{1.87}{\percent}$ of the receiver,
+while the number of discrete grid cells inside the band grows quadratically ($1{,}311 \to 78{,}495$ cells),
+accurately sampling the interior diffraction profile.
+Conversely, in the geometric limit $\lambda \to 0$ (or $w \to 0$), the physical threshold $\epsilon \to 0$,
+contracting the physical band area $\operatorname{area}(B) \to 0$ onto the measure-zero fold curve $\Hm(\fold)$.
 
-In our discrete reference solver on the fixed benchmark scene, we calibrate $\epsilon$
-empirically using the 2nd percentile of $|\detJ|$ on the base grid ($p = 0.02$), which
+In our discrete solver on the reference benchmark scene, we calibrate $\epsilon_0 = 0.0592$
+from the 2nd percentile of $|\detJ|$ on the base grid ($p = 0.02$), which
 reliably isolates the singular fold corridor across the receiver without referencing
 image brightness. However, as Lemma~\ref{lem:quantiledetector} establishes, generalisation
-to arbitrary scenes requires evaluating the absolute scale threshold \eqref{eq:physicaldetector}.
+to arbitrary scenes and scaling limits requires evaluating the absolute scale threshold \eqref{eq:physicaldetector}.
 
 Section~\ref{sec:results-ablation} measures the alternative directly: swapping
 the $|\detJ|$ detector for an image-brightness percentile detector degrades the
@@ -150,10 +165,9 @@ follows the light through every interface with the Fresnel weights of
 \subsection{The algorithm}
 \label{sec:ours-algorithm}
 
-Algorithm~\ref{alg:bake} states the bake. The pass structure matters for cost:
-the surface evaluation, the refraction and the splat are fused into one pass,
-which was worth a factor of \num{2.95} on its own at $512^2$
-(Section~\ref{sec:results-cost}).
+Algorithm~\ref{alg:bake} states the bake. The pass structure optimizes cost:
+the surface evaluation, Snell refraction, and splatting are fused into one pass,
+evaluating surface cells in a single cache-local sweep.
 
 \begin{algorithm}[t]
 \caption{The wave-corrected bake}
@@ -161,7 +175,7 @@ which was worth a factor of \num{2.95} on its own at $512^2$
 \begin{algorithmic}[1]
 \Require surface $h$ \eqref{eq:surface}, source $\dir$, media $n(\lambda)$
          \eqref{eq:sellmeier}--\eqref{eq:rubin}, grid $N$, width $w_{\text{ref}}$,
-         ceiling $\kappa$
+         ceiling $\kappa$, threshold $\epsilon$
 \Ensure field $I$ on the receiver
 \Statex
 \Statex \textbf{Pass 1 --- geometric backbone (fused)}
@@ -174,13 +188,12 @@ which was worth a factor of \num{2.95} on its own at $512^2$
     \If{$\mathbf{u} \notin \recv$} \textbf{continue} \Comment{discard, do not clamp
         (Section~\ref{sec:ours-boundary})}
     \EndIf
-    \State accumulate weight $1/|\detJ|$ into $I$ at $\mathbf{u}$
+    \State accumulate ray flux $\Delta\Phi$ (bilinear splat) into $G$ at $\mathbf{u}$
 \EndFor
 \Statex
 \Statex \textbf{Pass 2 --- Jacobian and band}
 \State $\detJ \gets$ finite differences of $\Hm$ \Comment{\eqref{eq:raymap}}
-\State $B \gets \{\,i : |{\detJ}_i| \le q_2(|\detJ|)\,\}$ \Comment{2nd percentile,
-       Lemma~\ref{lem:quantiledetector}}
+\State $B \gets \{\,i : |{\detJ}_i| \le \epsilon\,\}$ \Comment{Physical threshold \eqref{eq:physicaldetector}, calibrated to $\epsilon_0 = 0.0592$}
 \State $s \gets$ Euclidean distance transform of $B$
 \Statex
 \Statex \textbf{Pass 3 --- per-channel Airy replacement}

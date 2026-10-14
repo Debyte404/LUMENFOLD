@@ -15,20 +15,22 @@ geometric estimator wins outright, as
 Table~\ref{tab:efficiency} shows, and on the finest scale measured SPPM ties us.
 
 The defensible statement is narrower and, we think, more interesting. The
-geometric estimator's error converges to a floor, and the floor exists because
-it converges to a different model. Rays carry no energy into the fringe skirt, so
-no sample budget reaches the wave-corrected target. Refining a sampler changes
-the estimate of the geometric integral and cannot change which integral it is.
-That is a statement about reachability rather than about speed, and it is the
-one the data supports.
+geometric estimator's error relative to the wave-corrected reference plateaus at an
+asymptotic floor, and the floor exists because it converges to a different physical model.
+Rays carry zero energy into wave diffraction fringes, so no geometric sampling budget
+reaches the wave-regularized target. Refining a sampler converges the estimate of the
+geometric integral and cannot change which physical model is being evaluated.
+That is a statement about cross-model reachability rather than about solver speed,
+and it is the one the data supports.
 
 \subsection{The estimator keeps being the problem}
 \label{sec:disc-estimator}
 
-The two results we withdrew from earlier drafts were both killed by statistics,
-not by physics. One was a correlation that flipped sign under a change of sign
-convention, the other a dispersion model that had been fitted rather than
-measured. Both are reported in full because they share a structure that a reader
+The three results we withdrew or corrected from earlier drafts were all killed by
+estimators rather than by core physics: a correlation that was an artefact of a
+sign convention and a tile-naming inversion, a dispersion model that had been fitted
+rather than measured, and a flux-conservation figure that was circular by construction.
+All are reported in full because they share a structure that a reader
 reproducing this work will meet.
 
 In each case the measurement was internally consistent, reproducible, and wrong:
