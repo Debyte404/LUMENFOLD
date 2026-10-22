@@ -62,6 +62,9 @@ Preprint (not peer reviewed), October 2026.%
 
 \usepackage{egweblnk}
 
+% IEEE compatibility fallbacks when compiling with egpubl
+\providecommand{\IEEEPARstart}[2]{#1#2}
+
 % --- additions for this paper -------------------------------------------
 \usepackage{amsmath}
 \usepackage{amssymb}
@@ -145,6 +148,11 @@ Preprint (not peer reviewed), October 2026.%
 \newcommand{\dd}{\mathrm{d}}
 \newcommand{\order}[1]{\mathcal{O}\!\left(#1\right)}
 \DeclareMathOperator{\sinc}{sinc}
+
+% Gap between a table body and a caption that follows it. The CGF class already
+% inserts its own; IEEEtran's table* captions sit flush against the body, so the
+% IEEE edition supplies the missing space (see docs/paper-ieee/main.tex).
+\newcommand{\tablecapgap}{}
 
 \begin{document}
 

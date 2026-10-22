@@ -20,9 +20,7 @@ correlated. Table~\ref{tab:threeway} gives the result.
 \begin{table}[tbp]
 \centering
 \caption{Tiled correlation against the independent brute-force trace, at four
-tile sizes, with all three methods on the same axis and the same metric. Tile
-size in millimetres, not tile count: the opposite convention inverted this trend
-in an earlier draft (Section~\ref{sec:verify-metric}).}
+tile sizes, with all three methods on the same axis and the same metric. Tile size in millimetres. The opposite convention, tile count, inverted this trend in an earlier draft (Section~\ref{sec:verify-metric}).}
 \label{tab:threeway}
 \small
 \begin{tabular}{@{}rrrr@{}}
@@ -53,8 +51,8 @@ a method that cannot place energy at the fold loses its correlation first.
 The three-way result also reconciles an earlier two-way one. Before this
 measurement SPPM had only ever been compared against \emph{our} field, where it
 scored $r=+0.932$. It scores $0.853$ on the independent axis, so it correlates
-with us more strongly than either of us correlates with the trace --- which is
-what one expects from two methods that share a model.
+with us more strongly than either correlates with the trace. Two methods that
+share a model should behave that way.
 
 \begin{figure*}[tp]
 \centering
@@ -63,8 +61,7 @@ what one expects from two methods that share a model.
 at $\gamma = 2.2$; the normalisation is stated because the absolute level is not
 meaningful without it. Panel (b) is a horizontal cut per channel at the linear
 level. The channels separate because \eqref{eq:sellmeier} and
-\eqref{eq:perchannel} give them different indices and widths, not because any
-effect was added on top.}
+\eqref{eq:perchannel} give them different indices and widths. We added no effect on top.}
 \label{fig:field}
 \end{figure*}
 
@@ -73,8 +70,7 @@ effect was added on top.}
 
 Figure~\ref{fig:fourpanel} shows the four fields side by side. The converged
 two-dimensional shape of our field and SPPM's agree at $r=+0.932$ on
-\SI{40}{\milli\meter} tiles. This is a consistency requirement rather than a
-quality claim: had the two disagreed on shape while we led on the independent
+\SI{40}{\milli\meter} tiles. This is a consistency requirement; quality is a separate question: had the two disagreed on shape while we led on the independent
 axis, the pair of results would have been evidence of a shared error somewhere.
 
 \begin{figure}[tbp]
@@ -82,7 +78,7 @@ axis, the pair of results would have been evidence of a shared error somewhere.
 \includegraphics[width=\linewidth]{figures/fig5_quality.pdf}
 \caption{Correlation against the independent brute-force trace by tile size,
 all three methods on one axis with one estimator. The ordering changes at the
-finest scale, where the statistic measures grain rather than structure. Log
+finest scale, where the statistic measures grain. Structure is not resolved at that scale. Log
 axis on tile size.}
 \label{fig:quality}
 \end{figure}
@@ -107,7 +103,7 @@ budgets ($10^6$ splats), our method converges closer to the wave-regularized tar
 while geometric MC plateaus at an asymptotic model-discrepancy floor.}
 \label{tab:efficiency}
 \footnotesize
-\begin{tabular}{@{}lrrr@{}}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lrrr@{}}
 \toprule
 Estimator & Splats & RMSE & Note \\
 \midrule
@@ -121,7 +117,7 @@ MC geometric, $M{=}16$   & \num{1000000} & 0.06445 & \\
 MC geometric, $M{=}64$   & \num{4200000} & 0.06101 & \\
 MC geometric, $M{=}256$  & \num{16800000} & 0.06013 & asymptotic model discrepancy floor \\
 \bottomrule
-\end{tabular}
+\end{tabular*}
 \end{table*}
 
 At small budgets (\num{262000} splats and below), plain geometric Monte Carlo
@@ -130,7 +126,7 @@ because our low-resolution forward grid incurs discretization error in the bound
 distance transform. There is no free lunch at coarse resolution.
 At \num{1000000} splats ($1024^2$), our single pass is $1.65$ times closer to the
 reference ($0.03914$ against $0.06445$).
-Furthermore, as sample count is increased, the geometric Monte Carlo error plateaus
+As sample count increases, the geometric Monte Carlo error plateaus
 at an asymptotic floor of $0.06013$ ($M = 256$, $1.68 \times 10^7$ splats). This plateau
 is structural: geometric Monte Carlo converges to the geometric caustic model
 (which has an integrable singularity and zero energy in the diffraction fringes),
@@ -138,9 +134,8 @@ producing a persistent discrepancy relative to any wave-regularized reference.
 Our $1024^2$ pass lands $35\,\%$ below that model floor using sixteen times fewer
 splats than the $M{=}256$ run.
 
-This comparison demonstrates model consistency rather than an algorithmic failure
-of Monte Carlo integration: when evaluating fidelity against an unbiased geometric
-ground truth, we rely on the independent brute-force trace in Table~\ref{tab:threeway}.
+The comparison demonstrates model consistency; no algorithmic failure of Monte Carlo integration is implied. For fidelity against an unbiased geometric ground
+truth, we rely on the independent brute-force trace in Table~\ref{tab:threeway}.
 For the wave-regularized target, our forward quadrature converges efficiently once
 the fold band is adequately resolved.
 
@@ -165,9 +160,7 @@ distribution with the display cap set at six times the mean.
 \begin{table}[tbp]
 \centering
 \caption{Tail statistics, display ceiling at $6\times$ the mean. The converged
-wave truth itself has \SI{0.35}{\percent} above the cap, because bright fringes
-are real structure rather than noise; the relevant comparison is against that
-number, not against zero.}
+wave truth itself has \SI{0.35}{\percent} above the cap, because bright fringes are real structure. The relevant comparison is against that number; zero is the wrong baseline.}
 \label{tab:tail}
 \small
 \begin{tabular}{@{}lrrr@{}}
@@ -185,11 +178,9 @@ converged wave truth     & 7.73 & 6.87 & \SI{0.35}{\percent} \\
 The geometric tail decays slowly: $8.71 \to 7.25$ for a factor of \num{256} in
 samples. Our field sits at $7.71$ with \SI{0.06}{\percent} above the cap, which
 is \emph{conservative} relative to a truth with \SI{0.35}{\percent} above it.
-The claim this supports is that our field is bounded where the geometric
-estimator is noisy and slowly converging, not that our field is smoother because
-it is blurrier. The \SI{0.35}{\percent} of the truth above the cap are resolved
+The claim this supports is that our field is bounded where the geometric estimator is noisy and slowly converging. It does not show that our field is smoother because it is blurrier. The \SI{0.35}{\percent} of the truth above the cap are resolved
 bright fringes, and our correction reproduces them at the level the profile
-allows rather than inventing them.
+allows; it does not invent them.
 
 \begin{figure}[tbp]
 \centering
@@ -205,8 +196,7 @@ further work. Log scale on time.}
 \label{sec:results-dispersion}
 
 Chromatic separation is a consequence of the measured indices and the
-$\lambda^{2/3}$ width law, so it is a test of the derivation rather than a
-feature. The edge estimator of Section~\ref{sec:estimators} gives
+$\lambda^{2/3}$ width law, so it tests the derivation; it is not a feature. The edge estimator of Section~\ref{sec:estimators} gives
 \begin{equation}
 \text{edge radius},\ \text{ours} = R\ \SI{107}{\milli\meter} > G\
 \SI{105}{\milli\meter} > B\ \SI{102}{\milli\meter},
@@ -216,19 +206,19 @@ and SPPM gives $R\ \SI{56}{\milli\meter} > G\ \SI{54}{\milli\meter} > B\
 prediction of \eqref{eq:sellmeier}--\eqref{eq:rubin}: red has the lowest index,
 refracts least, and lands farthest from the axis.
 
-Crucially, in the independent brute-force trace, the edge radius (defined via
+In the independent brute-force trace, the edge radius (defined via
 Section~\ref{sec:estimators} as the outermost radius where mean azimuthal radial intensity
 exceeds $2\%$ of that channel's peak) measures
 $R \approx \SI{104}{\milli\meter} > G \approx \SI{102}{\milli\meter} > B \approx \SI{99}{\milli\meter}$
 (with the same $+\SI{5.0}{\milli\meter}$ red--blue split), confirming that our
 field's boundary ($\SI{107}{\milli\meter}$) accurately tracks the true geometric
-caustic extent (within $3\%$). In contrast, we hypothesise that SPPM's smaller radius
+caustic extent (within $3\%$). We hypothesise that SPPM's smaller radius
 ($\SI{56}{\milli\meter}$) is an artifact of progressive kernel shrinkage under finite photon budgets: because the peripheral
 caustic fan carries low ray density, SPPM's progressive kernel radius shrinkage
 ($r_{i+1}^2 = r_i^2 (i + \alpha) / (i + 1)$ with $\alpha = 2/3$) may leave peripheral bins
 underexposed, causing the outermost radius crossing the $2\%$ threshold to contract inward.
 Both methods agree on the red--blue differential split ($+\SI{5.0}{\milli\meter}$),
-which is governed by the dispersion relation rather than the detector threshold.
+which comes from the dispersion relation. The detector threshold is not the cause.
 
 \begin{figure}[tbp]
 \centering
@@ -236,8 +226,7 @@ which is governed by the dispersion relation rather than the detector threshold.
 \caption{Edge radius per channel for both methods, using the estimator of
 Section~\ref{sec:estimators}. Both order $R > G > B$ and both show the same
 $+\SI{5.0}{\milli\meter}$ red--blue split, which is what the measured indices
-predict. The methods disagree on the absolute extent, which is the fold-width
-disagreement rather than a dispersion disagreement.}
+predict. The methods disagree on the absolute extent, which is a fold-width disagreement. They agree on dispersion.}
 \label{fig:dispersion}
 \end{figure}
 
@@ -285,12 +274,12 @@ peak positions, producing visible chromatic fringe borders in Figure~\ref{fig:co
 peak at different positions because the band width goes as $\lambda^{2/3}$; the
 scale ratios are the analytic ones to four decimals. \textbf{(b)} the colour down
 the band: the fringes are coloured, and the medium decides which survive.
-\textbf{(c)} the complete factorial --- every one of the $4\times5\times4=80$
+\textbf{(c)} the complete factorial: every one of the $4\times5\times4=80$
 glass, water and source combinations, rendered from the traced ray map; the hue
 spread across them is red 20, green 18, yellow 15, blue 14, cyan 11, neutral 2.
 \textbf{(d)} the camera held fixed while the source is rotated about the glass: the
 caustic orbits the glass and the frame does not, which is what makes the motion
-visible rather than cancelled by a following camera. Panels (c) and (d) are ray-traced
+visible; a following camera would cancel it. Panels (c) and (d) are ray-traced
 with the renderer's default fringe width of \SI{0.0015}{\meter}, which is
 $\approx 220\times$ the physical Airy scale of $d \approx 6.8\,\mu\text{m}$ for this geometry at
 550\,nm; the physical fringe is deeply sub-pixel at these resolutions and would not be
@@ -304,14 +293,13 @@ to demonstrate the exact chromatic phase shift without artificial broadening.}
 \paragraph{The medium and the source are interchangeable for tint.}
 Table~\ref{tab:colour} gives the colour of the caustic core. A cobalt glass and a
 cool source both blue the caustic; an amber glass and a warm source both redden it.
-That is not two effects but one --- both multiply the three channels --- and the
+Both pairs act through the same mechanism: each multiplies the three channels. The
 numbers show how nearly interchangeable they are: moving the source from the
 solar spectrum to \SI{3400}{\kelvin} shifts the core's normalised RGB by
 \num{0.620}, which is comparable to the shift from tinting the glass at all.
 
 \paragraph{The complete factorial.}
-Figure~\ref{fig:colour}(c) is the whole $4\times5\times4=80$ grid rather than a
-sample of it. The sweep costs nothing beyond the three traced ray maps, because the
+Figure~\ref{fig:colour}(c) is the whole $4\times5\times4=80$ grid; no sampling was used. The sweep costs nothing beyond the three traced ray maps, because the
 geometry does not depend on the medium and every combination is only a reweighting
 of rays already traced. Across the 80 the hue spread is red 20, green 18, yellow
 15, blue 14, cyan 11 and neutral 2; the most saturated are cobalt glass with copper
@@ -320,19 +308,17 @@ under the warm one (\num{0.983}). The two neutral cases are the untinted pair un
 the equal-energy source, which is the control.
 
 \paragraph{A source that moves.}
-Rotating the source rather than the camera (Figure~\ref{fig:colour}(d)) is a
-different experiment and it needs a fixed frame. By default the camera follows the
+With the source rotating and the camera fixed (Figure~\ref{fig:colour}(d)), the experiment is different and needs a fixed frame. By default the camera follows the
 caustic's centroid, so a rotating source makes the frame pan to follow the caustic
-and the two motions cancel --- the caustic appears static, which is the opposite of
+and the two motions cancel. The caustic appears static, which is the opposite of
 what is happening. Locking the camera shows it: as the sun's azimuth sweeps
 $360^\circ$ the caustic's centroid traces a circle of radius
 \SI{54.2}{\milli\meter} about the glass while the frame stays put. Sampled at
 $90^\circ$ intervals the centroid is at $(+47.3,+24.6)$, $(-26.3,+48.5)$,
-$(-48.0,-25.3)$ and $(+24.6,-48.1)$\,mm, whose radii are $53.3$, $55.2$, $54.3$ and
-\SI{54.0}{\milli\meter} --- a circle of \SI{54.2}{\milli\meter} with a standard
-deviation of \SI{0.7}{\milli\meter}, so the orbit is circular rather than merely
-wandering. The caustic is thrown on the far side of the glass from the source, and
-that is a property of the refraction rather than of either medium.
+$(-48.0,-25.3)$ and $(+24.6,-48.1)$\,mm. Their radii are $53.3$, $55.2$, $54.3$ and
+\SI{54.0}{\milli\meter}: a circle of \SI{54.2}{\milli\meter} with a standard
+deviation of \SI{0.7}{\milli\meter}. The orbit is circular; it does not merely wander. The caustic is thrown on the far side of the glass from the source, and
+that is a property of the refraction. Neither medium causes it.
 
 \begin{table}[tbp]
 \centering
@@ -365,17 +351,13 @@ cool (10\,000\,K) & tea water & $0.953$ & $1.000$ & $0.325$ \\
 \end{table}
 
 \paragraph{Rendered, and where the colour has to be applied.}
-The table above is computed from the traced ray map. It is also rendered: the same
-geometry baked and rendered in Cycles, with only the medium changed, reproduces the
+The table above is computed from the traced ray map. The field is also rendered: the same geometry baked and rendered in Cycles, with only the medium changed, reproduces the
 tint, and doing so exposes a modelling requirement that is easy to miss.
 
-A caustic is a light-side quantity. Its colour is therefore set by the path the
-\emph{light} travelled, not the path the camera ray travelled, and in an estimator
-that accumulates one throughput along the camera ray those are different numbers. When
+A caustic is a light-side quantity. Its colour is therefore set by the path the \emph{light} travelled. The camera ray path is a different path, and in an estimator that accumulates one throughput along the camera ray those are different numbers. When
 the caustic fan is thrown clear of the glass the camera reaches it through air, so a
-camera-side throughput is approximately unity and the medium cannot act at all ---
-which is the correct behaviour for the camera path and the wrong answer for the
-caustic. A tinted \SI{90}{\milli\meter} water column that should remove about
+camera-side throughput is approximately unity and the medium cannot act at all.
+That is correct for the camera path and wrong for the caustic. A tinted \SI{90}{\milli\meter} water column that should remove about
 ninety percent of the red moved the caustic by \num{0.2}\,\% until the light path was
 carried into the field explicitly; with water set to an opaque
 \SI{500}{\per\meter} the caustic was unchanged. The glass appeared to work only
@@ -395,9 +377,8 @@ Figure~\ref{fig:redmedia} renders each case in turn.
 \caption{The tinted medium, one variable at a time. The same animation, camera,
 physical Airy width and frame as Figure~\ref{fig:ripple}; only the medium differs.
 The coefficients are per-metre Beer--Lambert chosen so each medium transmits about
-\num{0.90}, \num{0.15}, \num{0.03} over its real path --- roughly
-\SI{90}{\milli\meter} of water and \SI{3.5}{\milli\meter} of glass. They are
-experiment parameters, not measured materials. Exposure is deliberately not
+\num{0.90}, \num{0.15}, \num{0.03} over its real path, roughly
+\SI{90}{\milli\meter} of water and \SI{3.5}{\milli\meter} of glass. They are experiment parameters. They are not measurements of specific materials. Exposure is deliberately not
 re-solved per clip, so a tinted medium is genuinely darker; normalising each clip to
 its own brightness would remove the light loss the medium causes. Measured in the
 glass region, $R$ rises from \num{0.978} to \num{1.000} and $B$ falls from
@@ -415,13 +396,12 @@ band is a signature of the wave correction specifically, in a way the colour of 
 caustic core is not: a geometric solver with the right media and the right source
 would match the core's tint, and would not have the sequence at all.
 
-This is a weaker claim than a colour-accuracy claim, and it is the one the
+The claim is weaker than a colour-accuracy claim, and it is the one the
 measurement supports. We have not compared these tints against a photograph, for
 the reason given in Section~\ref{sec:limits-coherence}: at a $0.53^\circ$
 source the fringes this section is about are blurred away by the source's own
 angular size, so the sequence is measurable in a simulation and not in a
-photograph of this scene. The coefficients are the experiment's parameters, not
-measurements of specific materials, and the reproduction section names them.
+photograph of this scene. The coefficients are the experiment's parameters, and the reproduction section names them.
 
 \subsection{Temporal behaviour}
 \label{sec:results-flicker}
@@ -435,7 +415,7 @@ change inside the caustic region.
 \centering
 \caption{Flicker, in 8-bit levels, inside and outside the caustic region. Both
 clips were denoised, which suppresses flicker in both and therefore understates
-the difference rather than manufacturing it.}
+the difference; it does not manufacture it.}
 \label{tab:flicker}
 \small
 \begin{tabular}{@{}lrr@{}}
@@ -460,7 +440,7 @@ it out would make the caustic numbers look better than they are.
 \caption{RMSE against a converged wave-corrected reference by splat budget. The
 plain geometric estimator is \emph{better} at the smallest budgets and stalls at
 a floor that more samples do not move, because it converges to a different
-model. The regime where our method loses is drawn rather than omitted.}
+model. The regime where our method loses is drawn. We did not omit it.}
 \label{fig:efficiency}
 \end{figure}
 
@@ -470,13 +450,13 @@ model. The regime where our method loses is drawn rather than omitted.}
 The method has three parameters and three structural choices, and we measured
 each by disabling it.
 
-\begin{table}[tbp]
+\begin{table*}[tp]
 \centering
 \caption{Ablations. Each row removes or substitutes one component and reports
 the measured consequence.}
 \label{tab:ablation}
 \small
-\begin{tabular}{@{}p{0.34\linewidth}p{0.56\linewidth}@{}}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}p{0.35\textwidth}p{0.55\textwidth}@{}}
 \toprule
 Change & Measured consequence \\
 \midrule
@@ -503,8 +483,8 @@ No ceiling &
 field unbounded at the fold; the tail statistics of Table~\ref{tab:tail} no
 longer hold \\
 \bottomrule
-\end{tabular}
-\end{table}
+\end{tabular*}
+\end{table*}
 
 The Gaussian control in the first row illustrates the profile's theoretical properties:
 in the continuous 1D model across the fold curve, an equal-flux symmetric Gaussian produces
@@ -546,7 +526,7 @@ Ceiling $= 8.0\times$ & \SI{2.00}{\percent} & 7.549 & 0.0000 \\
 \end{tabular*}
 \end{table}
 
-Table~\ref{tab:sensitivity} reports sensitivity across a $256^2$ grid at an operational visibility width ($w_{\text{base}} = \SI{0.02}{\meter}$, vs physical $d \approx 6.8\,\mu\text{m}$). The estimator is sensitive: varying the detector percentile across $4\times$ shifts the field by $\text{RMSE} \approx 0.51$--$0.57$, and fringe scale by $\text{RMSE} \approx 0.76$--$0.82$ (measured against our own baseline, not external ground truth). Conversely, the display ceiling between $4\times$ and $8\times$ leaves the field unaltered ($\text{RMSE} = 0.0000$): the ceiling acts only on the band profile ($\bar G \le \kappa$, Airy $\le 1.35\kappa$), where the smoothed base reaches $2.94\times$ and the wave peak reaches $5.10\times$ ($< 1.35 \times 4.0 = 5.40\times$), while the global peak ($7.55\times$) sits outside the band in the geometric core.
+Table~\ref{tab:sensitivity} reports sensitivity across a $256^2$ grid at an operational visibility width ($w_{\text{base}} = \SI{0.02}{\meter}$, vs physical $d \approx 6.8\,\mu\text{m}$). The estimator is sensitive: varying the detector percentile across $4\times$ shifts the field by $\text{RMSE} \approx 0.51$--$0.57$, and fringe scale by $\text{RMSE} \approx 0.76$--$0.82$ (measured against our own baseline; no external ground truth is claimed). Conversely, the display ceiling between $4\times$ and $8\times$ leaves the field unaltered ($\text{RMSE} = 0.0000$): the ceiling acts only on the band profile ($\bar G \le \kappa$, Airy $\le 1.35\kappa$), where the smoothed base reaches $2.94\times$ and the wave peak reaches $5.10\times$ ($< 1.35 \times 4.0 = 5.40\times$), while the global peak ($7.55\times$) sits outside the band in the geometric core.
 
 \begin{figure*}[tp]
 \centering
@@ -554,22 +534,20 @@ Table~\ref{tab:sensitivity} reports sensitivity across a $256^2$ grid at an oper
 \caption{Three phases of the animating caustic, one row per method, taken from
 the supplementary clips. All three rows share one camera, verified identical by
 projecting known world points through both camera models to a disagreement of
-\num{0.0000}, and all three use the \emph{physical} fringe width rather than a
-visibility-exaggerated one, so the colour shown is the measured dispersion. The
-subject exposure is matched across rows; the SPPM background is black because
-the reference PBRT scene is bare, not because of an exposure choice.}
+\num{0.0000}, and all three use the \emph{physical} fringe width, so the colour shown is the measured dispersion; no width is exaggerated for visibility. The
+subject exposure is matched across rows; the SPPM background is black because the reference PBRT scene is bare. The black background is not an exposure choice.}
 \label{fig:ripple}
 \end{figure*}
 
 \subsection{Resolution and phase studies}
 \label{sec:results-studies}
 
-Two further studies bound the result rather than extending it.
+Two further studies bound the result; they do not extend it.
 
 \textbf{Resolution.} The apparent breadth of the fold's bright region measures
 $2.30\times$ the independent brute-force ground truth at $1024^2$ ($\approx 1450\,\mu\text{m}$ vs $630\,\mu\text{m}$, occupying \SI{9.56}{\percent} vs \SI{4.16}{\percent} of receiver area)
 and contracts to $1.87\times$ at $4096^2$ ($\approx 1180\,\mu\text{m}$, \SI{7.80}{\percent} area).
-In the rendered raster, the apparent visual breadth of the caustic ridge spans approximately 2 pixels at both grids, reflecting the discrete raster filtering floor rather than the underlying physical band, which maintains a fixed physical corridor.
+In the rendered raster, the apparent visual breadth of the caustic ridge spans approximately 2 pixels at both grids, which reflects the discrete raster filtering floor. The underlying physical band keeps a fixed physical corridor.
 
 \textbf{Phase.} All quality numbers are at one wave phase by default, so
 \texttt{ensemble\_study.py} repeats the measurement over eight phases of a full
@@ -578,6 +556,5 @@ $r@\SI{40}{\milli\meter} = 0.915 \pm 0.004$ at $512^2$,
 $r@\SI{5}{\milli\meter} = 0.690 \pm 0.006$, edge radius
 $R = \SI{107.9}{} \pm \SI{0.3}{\milli\meter}$ and
 $B = \SI{104.8}{} \pm \SI{0.7}{\milli\meter}$, and the $R > G > B$ ordering
-holds at all eight phases. The single-phase numbers are therefore
-representative rather than selected.
+holds at all eight phases. The single-phase numbers are representative; they were not selected.
 Note that earlier working drafts reported these two correlation values inverted ($r@\SI{40}{\milli\meter} = 0.690$, $r@\SI{5}{\milli\meter} = 0.915$) due to the tile-count versus tile-size naming inversion documented in Section~\ref{sec:verify-metric}. With consistent tile labeling, the 8-phase ensemble average at \SI{40}{\milli\meter} tiles ($0.915 \pm 0.004$) closely replicates the single-phase reference ($0.917$).

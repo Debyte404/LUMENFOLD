@@ -1,0 +1,87 @@
+%=======================================================================
+% Wave-Corrected Caustics over Photon Splatting
+% IEEEtran journal edition. The body is shared with docs/paper/.
+% Compile: python tools/build_paper_ieee.py
+%=======================================================================
+\documentclass[journal]{IEEEtran}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{cite}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{siunitx}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{graphicx}
+\graphicspath{{../paper/figures/}{../paper/}}
+
+\setcounter{secnumdepth}{2}
+\sisetup{detect-all,group-separator={,},group-minimum-digits=4}
+
+\theoremstyle{plain}
+\newtheorem{theoremcounter}{Theorem}
+\newtheorem{lemma}[theoremcounter]{Lemma}
+\newtheorem{corollary}[theoremcounter]{Corollary}
+\newtheorem{proposition}[theoremcounter]{Proposition}
+\theoremstyle{definition}
+\newtheorem{definition}[theoremcounter]{Definition}
+\theoremstyle{remark}
+\newtheorem{remark}[theoremcounter]{Remark}
+\newtheorem{assumption}[theoremcounter]{Assumption}
+
+\newcommand{\Hm}{\mathbf{H}}
+\newcommand{\Jm}{J_{\Hm}}
+\newcommand{\fold}{\mathcal{F}}
+\newcommand{\recv}{\Omega}
+\newcommand{\dir}{\hat{\mathbf{s}}}
+\newcommand{\nrm}{\mathbf{n}}
+\newcommand{\trn}{\hat{\mathbf{t}}}
+\newcommand{\Ai}{\operatorname{Ai}}
+\newcommand{\detJ}{\det \Jm}
+\newcommand{\dd}{\mathrm{d}}
+\newcommand{\order}[1]{\mathcal{O}\!\left(#1\right)}
+\DeclareMathOperator{\sinc}{sinc}
+
+% IEEEtran places a table* caption flush against the table body. The commands
+% table (Table XIV) is the one table whose caption follows the tabular, and it
+% touched the bottom rule; this supplies the missing gap.
+\newcommand{\tablecapgap}{\vspace{1em}}
+
+\renewcommand{\topfraction}{0.92}
+\renewcommand{\bottomfraction}{0.5}
+\renewcommand{\textfraction}{0.06}
+\renewcommand{\floatpagefraction}{0.7}
+\renewcommand{\dbltopfraction}{0.92}
+\renewcommand{\dblfloatpagefraction}{0.7}
+\setlength{\parskip}{0pt}
+
+\markboth{IEEE Transactions on Visualization and Computer Graphics}%
+{Chetri and Chauhan: Wave-Corrected Caustics over Photon Splatting}
+
+\begin{document}
+
+\input{sections/frontmatter}
+
+\input{../paper/sections/intro}
+\input{../paper/sections/kinematics}
+\input{../paper/sections/cgcaustics}
+\input{../paper/sections/current}
+\input{../paper/sections/ourway}
+\input{../paper/sections/results}
+\input{../paper/sections/verification}
+\input{../paper/sections/limitations}
+\input{../paper/sections/discussion}
+\input{../paper/sections/conclusion}
+\input{../paper/sections/appendix}
+
+\bibliographystyle{IEEEtran}
+\bibliography{../paper/refs}
+
+\end{document}

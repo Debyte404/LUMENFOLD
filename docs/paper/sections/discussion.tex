@@ -20,25 +20,20 @@ asymptotic floor, and the floor exists because it converges to a different physi
 Rays carry zero energy into wave diffraction fringes, so no geometric sampling budget
 reaches the wave-regularized target. Refining a sampler converges the estimate of the
 geometric integral and cannot change which physical model is being evaluated.
-That is a statement about cross-model reachability rather than about solver speed,
-and it is the one the data supports.
+The statement is about cross-model reachability; solver speed is a separate question, and reachability is the one the data support.
 
 \subsection{The estimator keeps being the problem}
 \label{sec:disc-estimator}
 
-The three results we withdrew or corrected from earlier drafts were all killed by
-estimators rather than by core physics: a correlation that was an artefact of a
-sign convention and a tile-naming inversion, a dispersion model that had been fitted
-rather than measured, and a flux-conservation figure that was circular by construction.
+The three results we withdrew or corrected from earlier drafts were all killed by estimators. A correlation was an artefact of a sign convention and a tile-naming inversion; a dispersion model had been fitted; and a flux-conservation figure was circular by construction. The core physics was not at fault.
 All are reported in full because they share a structure that a reader
 reproducing this work will meet.
 
 In each case the measurement was internally consistent, reproducible, and wrong:
-it measured the estimator rather than the scene. A correlation computed on a
+it measured the estimator. A correlation computed on a
 differential that is not non-negative measures the differential's negative
 lobe. An exponent fitted over three wavelengths measures the baseline. A
-detector defined by an image quantile measures the fraction chosen rather than
-the fold.
+detector defined by an image quantile measures the fraction chosen. It does not measure the fold.
 
 We do not think this is a peculiarity of caustics. High-dynamic-range features
 in rendering tend to be measured with statistics borrowed from low-dynamic-range
@@ -53,17 +48,15 @@ answer depends on a convention.
 Three things from this work transfer without the rest.
 
 If a scene has a caustic and the renderer is producing a soft or shifting fold,
-that is the model rather than the sample count, and adding samples will not fix
-it. Raising the budget makes the softness converge toward a wrong shape.
+that is the model. Adding samples will not fix it. Raising the budget makes the softness converge toward a wrong shape.
 
 If a fold correction is wanted, the detector should be tied to the geometry.
 Thresholding $|\detJ|$ converges under refinement; thresholding image brightness
 does not, and the failure is invisible in a single frame because the flagged
-region looks plausible either way. This is worth checking by rendering the same
+region looks plausible either way. Check it by rendering the same
 frame at two resolutions and comparing the band as a set.
 
-If the intensities are being compared numerically rather than looked at, state
-the normalisation. Half the table entries in this paper would be meaningless
+If the intensities are compared numerically, state the normalisation. Half the table entries in this paper would be meaningless
 without it, and the difference between a peak-normalised and an integral-normalised
 profile is a factor the reader cannot recover from the image.
 
@@ -79,9 +72,7 @@ source's geometric blur ($925\,\mu\text{m}$), so a photograph would not show tho
 What survives that observation is the part the method was built for: a bounded,
 stable field at the correct flux, in place of a divergent one. The fringes are
 the visible signature of the correction but not its justification, and a reader
-interested in the justification should read
-Table~\ref{tab:efficiency} and Table~\ref{tab:flicker} rather than
-Figure~\ref{fig:airy}. A practitioner rendering caustics for a film or a game is
+interested in the justification should read Table~\ref{tab:efficiency} and Table~\ref{tab:flicker}; Figure~\ref{fig:airy} is secondary. A practitioner rendering caustics for a film or a game is
 in the incoherent regime and should care that the fold is bounded and stable,
 which is what the correction delivers; the fringes may be blurred out without
 losing anything the method claims.
@@ -112,22 +103,20 @@ measured where the crossover lies (Section~\ref{sec:limits-cost}).
 Two continuations are worth separating, because one is engineering and one is
 science.
 
-The engineering continuation takes the method as it stands and applies it where
+The engineering route takes the method as it stands and applies it where
 a fold is the dominant feature, which is where the cost is justified: a glass
 of water on a table, a lens focusing onto a sensor, the bright ridge under a
 rippled surface. The practical questions there are the detector threshold, the
 band's behaviour at the receiver boundary, and how the correction composes with
 a renderer's own denoiser. All three are measurable.
 
-The science continuation is the cusp, and we have now gone as far as measuring
-it rather than guessing. The fold is the only catastrophe with the property that
+The scientific route is the cusp, and we have now measured it. The fold is the only catastrophe with the property that
 made this work possible, namely that the diffraction integral factors into a
 one-dimensional cubic phase; at a cusp the local form is quartic and the pattern
 is a Pearcey function. We built that case and tested the recipe on it
-(Section~\ref{sec:verify-cusp}). The construction itself carries over --- the
+(Section~\ref{sec:verify-cusp}). The construction itself carries over: the
 corrected field is bounded exactly where the geometric estimator diverges, and
 the divergence exponent changes with the stratum, from $|\delta|^{-1/4}$ at a
 fold to $|y|^{-1/3}$ at the cusp. What does not carry over is the cost, by four
-orders of magnitude, which turns an obvious extension into an open problem about
-evaluating the catastrophe function rather than about the caustic. That is a
-narrower claim than we would like and a more useful one than leaving it open.
+orders of magnitude, which turns an obvious extension into an open problem about evaluating the catastrophe function. The caustic itself is no longer the issue. The claim is narrower
+than we would like, and more useful than leaving it open.

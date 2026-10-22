@@ -144,14 +144,18 @@ Prompted by the question "how do we verify this is what an actual caustic will
 look like". The answer exposed a claim we have been implying for the whole
 project without ever testing it.
 
-`tools/fringe_scale.py` computes the fold's physical diffraction width from the
-ray map's cubic term:
+`tools/fringe_scale.py` computes the canonical fold diffraction width from
+Eq. 14 of the paper (the wavefront's cubic term, dimensionally normalised):
 
 | quantity | value |
 |---|---|
-| physical diffraction width at the fold | **123 um** |
+| physical diffraction width at the fold | **6.8 um** (first zero 15.8 um) |
 | width the renderer uses (`airy_scale`) | 1500 um |
-| ratio | **12.2x too wide** |
+| ratio | **220x too wide** |
+| width used by the shipped ripple clips | 123 um (18x) |
+
+An earlier draft derived 123 um from a dimensionally mismatched expression
+`(lambda^2 / 2 c3)^(1/3)`; that value is withdrawn (see paper, Section 4).
 
 And then the reason it does not matter, which is worse:
 
@@ -159,7 +163,7 @@ And then the reason it does not matter, which is worse:
 |---|---|
 | sun's angular size | 0.53 deg |
 | blur that imposes at ~100 mm to the fold | **925 um** |
-| ratio to the fringe spacing | **7.5x** |
+| ratio to the fringe spacing | **136x** |
 
 **Under a real sun this caustic has no visible fringes at all.** The source's
 angular size washes them out. That matches everyday experience — nobody sees
@@ -167,9 +171,9 @@ fringes in a glass of water's caustic in sunlight; they see a smooth bright ridg
 with colour fringing from dispersion.
 
 So the fringe structure in every render we have produced is a **visibility
-choice**, not a depiction of reality, and no photograph can confirm it. Any
-statement implying the fringe pattern has been or could be experimentally
-validated must be removed.
+choice**, not a depiction of reality — 220x for the 1.5 mm stills and 18x for the
+0.123 mm ripple clips — and no photograph can confirm it. Any statement implying
+the fringe pattern has been or could be experimentally validated must be removed.
 
 **What survives is boundedness.** The physical content of the wave model is not
 "there are fringes", it is "the intensity stays finite at the fold instead of

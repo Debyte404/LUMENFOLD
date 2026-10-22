@@ -44,11 +44,11 @@ Lebesgue measure zero).
 By definition of the order statistic, the measure of the set where the field is below
 its $p$-th quantile is $p \cdot \operatorname{area}(\recv)$ identically.
 As the sampling resolution $N \to \infty$, the measure of the flagged domain remains
-constant at $p$, rather than shrinking to zero as required for an asymptotic neighbourhood
-of the 1D fold curve.
+constant at $p$; it does not shrink to zero as an asymptotic neighbourhood
+of the 1D fold curve requires.
 \end{proof}
 
-Consequently, a physically consistent detector must threshold a geometric quantity
+A physically consistent detector must threshold a geometric quantity
 against a physical scale parameter:
 \begin{equation}
 B \;=\; \big\{\,\mathbf{x} \in \recv : |\detJ(\mathbf{x})| \le \epsilon\,\big\},
@@ -62,9 +62,9 @@ On the receiver plane, the transverse distance from the caustic fold edge scales
 $b \approx \frac{1}{2} C_{\text{map}} x_{\perp}^2$. Because the physical Airy diffraction corridor
 extends across receiver distance $b \lesssim C_w w \propto \lambda^{2/3}$, the corresponding
 transverse boundary in the surface domain is $|x_{\perp}| \lesssim \sqrt{2 C_w w / C_{\text{map}}} \propto \lambda^{1/3}$.
-Hence, the Jacobian threshold isolating the diffraction band is
+The Jacobian threshold isolating the diffraction band is
 $\epsilon = |\nabla_{\perp}(\detJ)|\,\sqrt{2 C_w w / C_{\text{map}}} \propto \lambda^{1/3}$.
-Crucially, for a given scene and physical wavelength $\lambda$, $\epsilon$ is a \emph{fixed physical threshold}.
+For a given scene and physical wavelength $\lambda$, $\epsilon$ is a \emph{fixed physical threshold}.
 Holding $\epsilon = 0.0592$ fixed as the computational grid resolution $N$ increases ($N = 256 \to 2048$):
 the cell count scales from $1{,}311$ cells at $256^2$ ($\SI{2.00}{\percent}$ of grid, due to coarse discrete cell quantization)
 to $19{,}600$ at $1024^2$ ($\SI{1.87}{\percent}$) and $78{,}495$ at $2048^2$ ($\SI{1.87}{\percent}$),
@@ -76,8 +76,7 @@ contracting the physical band area $\operatorname{area}(B) \to 0$ onto the measu
 In our discrete solver on the reference benchmark scene, we calibrate $\epsilon_0 = 0.0592$
 from the 2nd percentile of $|\detJ|$ on the base grid ($p = 0.02$), which
 reliably isolates the singular fold corridor across the receiver without referencing
-image brightness. However, as Lemma~\ref{lem:quantiledetector} establishes, generalisation
-to arbitrary scenes and scaling limits requires evaluating the absolute scale threshold \eqref{eq:physicaldetector}.
+image brightness. Generalisation to arbitrary scenes and scaling limits requires evaluating the absolute scale threshold \eqref{eq:physicaldetector}, as Lemma~\ref{lem:quantiledetector} establishes.
 
 Section~\ref{sec:results-ablation} measures the alternative directly: swapping
 the $|\detJ|$ detector for an image-brightness percentile detector degrades the
@@ -139,11 +138,8 @@ chain does not fit a single column measure,
 
 The ceiling in the actual construction is
 $I_i = \min\big(\min(\bar G_i,\kappa)b(s_i)k^{*},\,1.35\kappa\big)$, which can
-clip the brightest band pixels and therefore breaks the exact equality of
-Lemma~\ref{lem:flux}. We state the lemma for the unclipped case and report the
-size of the discrepancy from a separate audit
-(Section~\ref{sec:verify-energy}) rather than claiming an exactness the
-implementation does not have.
+clip the brightest band pixels and breaks the exact equality of
+Lemma~\ref{lem:flux}. We state the lemma for the unclipped case and report the size of the discrepancy from a separate audit (Section~\ref{sec:verify-energy}). We do not claim an exactness the implementation does not have.
 
 The tempting alternative is to rescale the whole channel after the display clamp
 so the overall level looks right. That fails: the clamp has already bounded the
@@ -157,7 +153,7 @@ difference between a bounded field and an unbounded one.
 \label{rem:circular}
 Equation~\eqref{eq:kstar} divides the measured band flux by the measured band
 flux by construction, so quoting $k^{*}$ as evidence of energy conservation is
-circular. It is a bookkeeping step, not a measurement. The non-circular
+circular. It is a bookkeeping step; no measurement is involved. The non-circular
 statement is the throughput audit of Section~\ref{sec:verify-energy}, which
 follows the light through every interface with the Fresnel weights of
 \eqref{eq:fresnel}.
@@ -216,10 +212,7 @@ evaluating surface cells in a single cache-local sweep.
 \subsection{The receiver boundary}
 \label{sec:ours-boundary}
 
-Rays whose receiver hit lands outside the domain are discarded, not clamped to
-the border. Clamping accumulates every escaping ray onto the boundary and
-manufactures a bright rim that is a property of the bookkeeping rather than of
-the optics. Formally, with $\recv$ the receiver footprint,
+Rays whose receiver hit lands outside the domain are discarded. Clamping them to the border would be wrong: it accumulates every escaping ray onto the boundary and manufactures a bright rim that belongs to the bookkeeping. Formally, with $\recv$ the receiver footprint,
 \begin{equation}
 \text{contribute}(\mathbf{x}) \iff \Hm(\mathbf{x}) \in \recv .
 \label{eq:boundary}
@@ -259,7 +252,7 @@ the regime where we lose.
 \label{sec:ours-parameters}
 
 The method has three parameters, and Section~\ref{sec:results-ablation}
-measures the sensitivity to each rather than asserting a value.
+measures the sensitivity to each; it does not assert a value.
 
 \begin{itemize}
 \item \textbf{Detector percentile.} Second percentile of $|\detJ|$. This sets

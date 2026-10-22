@@ -1,4 +1,4 @@
-"""ripple_gifs.py -- the three ripple GIFs, one camera, no exaggerated fringes.
+"""ripple_gifs.py -- the three ripple GIFs, one camera, labelled operational width.
 
 Renders the same animating caustic three ways and encodes each as a looping GIF:
 
@@ -8,12 +8,14 @@ Renders the same animating caustic three ways and encodes each as a looping GIF:
 
 Decisions, both measured rather than guessed (see the module notes):
 
-  * airy_scale = 0.000123 m -- the PHYSICAL fringe width for this geometry
-    (tools/fringe_scale.py). The previous clips used 1.5 mm, 12.2x too wide,
-    chosen for visibility. tools/airy_honesty_sweep.py shows narrowing the band
-    barely changes the chromatic variation (0.054 -> 0.060) because the colour
-    is carried by the measured index dispersion, not by the fringe decoration;
-    so the physical width removes the exaggeration at almost no cost.
+  * airy_scale = 0.000123 m -- an OPERATIONAL width, 18x the canonical physical
+    fringe scale (6.8 um, Eq. 14 via tools/fringe_scale.py). The previous clips
+    used 1.5 mm, ~220x too wide, chosen for visibility. tools/airy_honesty_sweep.py
+    shows narrowing the band barely changes the chromatic variation
+    (0.054 -> 0.060) because the colour is carried by the measured index
+    dispersion, not by the fringe decoration. At the delivered 640x360 raster the
+    canonical 6.8 um fringe is under 0.02 px, so this clip demonstrates the
+    caustic's structure, not a physical fringe width.
   * camera az 110 / elev 38 / dist 0.62 / lens 50 -- tools/frame_test2.py
     measured the caustic's margin from the frame edges with a differential mask
     (injection on minus off) and this view puts the whole fan in frame with
@@ -52,7 +54,7 @@ OUT = f"{ROOT}/out"
 SRC = f"{OUT}/gif_src"
 
 # --- measured choices
-AIRY = 0.000123          # physical fringe width, metres
+AIRY = 0.000123          # operational clip width, 18x canonical 6.8 um, metres
 AZ, ELEV, DIST, LENS = 110.0, 38.0, 0.62, 50.0
 BW, BH = 960, 540        # Blender render size
 SW, SH = 640, 360        # SPPM render size (cost scales with pixels)

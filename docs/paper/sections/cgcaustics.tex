@@ -6,7 +6,7 @@
 Every caustic method in production use estimates \eqref{eq:irradiance}.
 Rendering caustics by following light through curved bodies is as old as
 global-illumination rendering itself \cite{mitchell1992}; what has changed since
-is the estimator, not the object being estimated. The
+is the estimator. The object being estimated has not changed. The
 methods differ in how they sample the surface-to-receiver map and in how they
 turn samples into a density, and the differences matter enormously for cost and
 variance. They do not differ in the integrand, and the integrand is what
@@ -30,8 +30,7 @@ kernel, so the estimator is a smoothing of the push-forward.
 connect to light-carrying vertices, weighting the connection by a geometric
 term that contains the same $1/|\detJ|$ factor. Path tracing with next-event
 estimation, bidirectional path tracing, and the manifold-based methods
-\cite{hanika2015,zeltner2020} are members. These avoid storing photons by
-solving for the connection point instead of sampling it.
+\cite{hanika2015,zeltner2020} are members. These avoid storing photons: they solve for the connection point directly.
 
 Both families are Monte Carlo estimators of the same integral. Both are
 unbiased for the \emph{integral} of $I$ over a pixel, which is what a renderer
@@ -62,9 +61,9 @@ $I(b) \sim C b^{-1/2} H(b)$ in the normal coordinate $b$ of \eqref{eq:normalform
 $I$ is not twice differentiable at $b=0$, so standard $O(h^2 \nabla^2 I)$ bias
 expansions do not apply. Because $b^{-1/2}$ is locally integrable on $\mathbb{R}^+$,
 the expected kernel estimate $(I * K_h)(u)$ is strictly finite for all $h > 0$
-and scales as $O(h^{-1/2})$ at $u=0$. However, because $I(b) \to \infty$ as
-$b \to 0^+$, the pointwise estimation error $|(I * K_h)(u) - I(u)|$ is severe
-across an $O(h)$ neighbourhood of the fold.
+and scales as $O(h^{-1/2})$ at $u=0$. The pointwise estimation error
+$|(I * K_h)(u) - I(u)|$ is still severe across an $O(h)$ neighbourhood of the
+fold, because $I(b) \to \infty$ as $b \to 0^+$.
 \end{lemma}
 
 \begin{proof}
@@ -76,25 +75,25 @@ Evaluating the convolution directly at the fold $u=0$ for a kernel supported on 
 \end{equation}
 Since $s^{-1/2}$ is integrable on $[0,1]$, the integral in \eqref{eq:foldconv} is a
 finite constant $M_K < \infty$, yielding $(I * K_h)(0) = C M_K h^{-1/2} < \infty$.
-Thus the expected smoothed density remains bounded for any fixed $h > 0$. However,
-the true geometric irradiance diverges at $b = 0$, so $|(I * K_h)(0) - I(0)| = \infty$.
+The expected smoothed density remains bounded for any fixed $h > 0$. The true
+geometric irradiance, however, diverges at $b = 0$, so $|(I * K_h)(0) - I(0)| = \infty$.
 For any fixed $h$, the kernel estimate averages across the discontinuity, severely
 truncating the peak and smearing flux into the shadow region $b < 0$.
 \end{proof}
 
 Lemma~\ref{lem:kdebias} clarifies the trade-off in photon mapping: narrowing $h$
 is required to sharpen the fold toward its true geometric profile, but reducing $h$
-causes the Monte Carlo variance to diverge as $\order{1/(N h^2)}$. Consequently,
-at any finite photon budget $N$, photon mapping must choose between severe smoothing
-bias or overwhelming stochastic noise.
+causes the Monte Carlo variance to diverge as $\order{1/(N h^2)}$. At any finite
+photon budget $N$, photon mapping must choose between severe smoothing bias and
+overwhelming stochastic noise.
 
 Progressive photon mapping \cite{hachisuka2008} and stochastic progressive photon mapping
-\cite{hachisuka2009} shrink $h \to 0$ as $N \to \infty$ at a controlled rate, ensuring
+\cite{hachisuka2009} shrink $h \to 0$ as $N \to \infty$ at a controlled rate, which ensures
 consistency for the pixel-integrated irradiance in the asymptotic limit.
-However, for caustic folds, convergence is exceptionally slow precisely because the
+For caustic folds, convergence is exceptionally slow precisely because the
 geometric irradiance is unbounded: resolving the sharp ridge without noise demands
 enormous sample counts and lengthy accumulation times, as measured in Section~\ref{sec:current}.
-Crucially, even in the infinite-sample limit, geometric methods converge to the
+Even in the infinite-sample limit, geometric methods converge to the
 \emph{geometric} caustic model, which predicts an unphysical infinite radiance along the
 curve with zero light in the shadow. In physical reality, wave diffraction regularizes the
 singularity into a bounded, oscillating interference structure. At standard pixel resolutions,
@@ -116,10 +115,8 @@ G(\mathbf{x} \to \mathbf{u}) \;=\;
 \end{equation}
 up to the conventions of the particular formulation. The last factor is the
 same $1/|\detJ|$: the connection is undefined where the map is degenerate.
-Backward methods therefore inherit the fold problem exactly, and the
-literature's principal responses are to avoid connecting near degeneracies, to
-solve for the connection on a manifold instead of sampling it
-\cite{hanika2015,zeltner2020}, or to accept the noise and denoise it away.
+Backward methods inherit the fold problem exactly, and the
+literature's principal responses are to avoid connecting near degeneracies, to solve for the connection on a manifold directly \cite{hanika2015,zeltner2020}, or to accept the noise and denoise it away.
 
 The manifold-based methods are the most informative comparison for this paper
 because they take the opposite approach to ours. Where we keep the geometric
@@ -145,20 +142,14 @@ estimator's connection weight is unbounded. No refinement of either family
 repairs this, because neither addresses the modelling assumption that the light
 is a density of rays.
 
-\begin{table}[tbp]
+\begin{table*}[tp]
 \centering
 \caption{Where the standard families stand, by the analysis of this section.
 ``Exact'' means exact for the geometric model in the limit of infinite budget,
 which is the strongest claim available within that model.}
 \label{tab:families}
 \small
-% Column widths sum to 0.80\linewidth, not 0.86: with four columns the inter-column
-% \tabcolsep padding adds 36 pt, and 0.86*240 + 36 = 242 pt against a 240 pt
-% measure, which pushed the last column past the margin. The first column is
-% wider than the rest because a family name is a single unbreakable word:
-% "Manifold/vertex connection" has no break opportunity and overflowed a 46 pt
-% column, which no font size fixes.
-\begin{tabular}{@{}p{0.24\linewidth}p{0.17\linewidth}p{0.18\linewidth}p{0.21\linewidth}@{}}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}p{0.22\textwidth}p{0.18\textwidth}p{0.25\textwidth}p{0.25\textwidth}@{}}
 \toprule
 Family & Away from $\fold$ & On $\fold$ & Limitation \\
 \midrule
@@ -186,20 +177,19 @@ Wave-optical BRDF \cite{yan2018,cuypers2012,stam1999} &
 changes surface model & changes surface model &
 not applicable to macroscopic transmissive caustics \\
 \bottomrule
-\end{tabular}
-\end{table}
+\end{tabular*}
+\end{table*}
 
 \subsection{Where this sits in the transport literature}
 \label{sec:related}
 
-It is worth separating three threads this paper connects, because a reader
-may reasonably ask how wave-optical corrections interface with standard geometric estimators.
+Three threads meet here, and a reader may reasonably ask how wave-optical
+corrections interface with standard geometric estimators.
 
 The first is the \emph{transport estimator}. The push-forward of \eqref{eq:irradiance} is
 what photon mapping estimates by density \cite{jensen1996}, what progressive
 variants estimate with a shrinking radius \cite{hachisuka2008,hachisuka2009},
-and what bidirectional and vertex-connection methods estimate by connecting
-vertices rather than by storing samples \cite{veach1997}. Path-guiding and
+and what bidirectional and vertex-connection methods estimate by connecting vertices \cite{veach1997}. Path-guiding and
 manifold methods attack the same integral by changing \emph{where} the samples
 go \cite{muller2017,hanika2015,zeltner2020}. Our correction changes none of
 the sampling machinery outside the band. It modifies the singular integrand inside a detected
@@ -208,21 +198,20 @@ narrow band, regularizing the distribution before splatting.
 The second is the \emph{Jacobian kinematics}. Propagating irradiance through a scene by its
 determinant is classical \cite{arvo1994}, and the rank deficiency that concerns
 us is the same rank deficiency that appears in those formulations as a
-degenerate geometric term. Treating the degeneracy as an indicator of wave-scale
-diffraction rather than as a numerical failure is the central design stance of this work.
+degenerate geometric term. The central design stance is to treat the degeneracy as an indicator of wave-scale diffraction.
 
 The third is \emph{physical and catastrophe optics}. The wave-optical regularisation of
-fold caustics—specifically the canonical Airy integral and the $\lambda^{2/3}$ scaling
-law—is classical wave theory \cite{airy1838,berry1980,nye1999,kouyoumjian1974}. In computer graphics,
+fold caustics, specifically the canonical Airy integral and the $\lambda^{2/3}$ scaling
+law, is classical wave theory \cite{airy1838,berry1980,nye1999,kouyoumjian1974}. In computer graphics,
 wave theory has traditionally been applied either to diffraction shaders and microfacet
 reflectance \cite{stam1999,cuypers2012,yan2018} or to general wave-equation propagation
 solvers \cite{musbach2013,steinberg2021}. Steinberg and Yan \cite{steinberg2021} developed
 a rigorous general framework for physical light transport, formulating wave phenomena
 along paths. 
 
-Our contribution is not the underlying catastrophe optics, which is classical, but rather
-a \textbf{hybrid rendering pipeline}: a fast, conservative, band-local wave correction that
+The underlying catastrophe optics is classical.
+Our contribution is a \textbf{hybrid rendering pipeline}: a fast, conservative, band-local wave correction that
 detects fold singularities on-the-fly and replaces the diverging geometric flux with
-an energy-conserved Airy profile over standard photon splats. This achieves physically
+an energy-conserved Airy profile over standard photon splats. The result keeps physically
 faithful caustic boundaries and diffractive dispersion without the prohibitive cost of
 global wave solvers.

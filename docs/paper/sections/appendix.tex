@@ -1,11 +1,12 @@
 %-----------------------------------------------------------------------
-\appendix
+% IEEEtran needs \appendices for multiple appendices; egpubl has only \appendix.
+% Define the missing spelling, then use the one each class expects.
+\providecommand{\appendices}{\appendix}
+\appendices
 \section{Material models}
 \label{app:material}
 
-Both media are evaluated from published measurement rather than from a fitted
-dispersion curve; Section~\ref{sec:verify-index} records why the fit is the wrong
-instrument here.
+Both media are evaluated from published measurements. Section~\ref{sec:verify-index} records why a fitted dispersion curve is the wrong instrument here.
 
 \subsection{Water}
 
@@ -76,8 +77,8 @@ is a local diffeomorphism. In the normal-form coordinates $(u,v)$ of
 degeneracy, and the diffraction integral factors into an integral along $u$
 times the one-dimensional integral \eqref{eq:phase} along $v$. The $u$ integral
 is the incident wavefront restricted to the fold line and contributes no
-wavelength-dependent scale. This is why a single cubic phase carries the entire
-result, and why the fold is the one catastrophe that can be treated this way:
+wavelength-dependent scale. A single cubic phase therefore carries the entire
+result, and the fold is the one catastrophe that can be treated this way:
 higher-order caustics do not factor.
 
 \paragraph{Why the pupil truncation does not matter.} The integral
@@ -86,8 +87,8 @@ Airy function is an integral over the whole line. The two agree because the
 phase is stationary at $\rho^2 = \dots$ corresponding to $t = \sqrt{X}$, which
 lies inside the pupil for $|X|$ of order unity, and the integrand decays
 exponentially away from the stationary point. The replacement is therefore
-legitimate precisely in the regime where the profile is used --- near the fold
---- and would fail far from it, which is the second reason the correction is
+legitimate precisely in the regime where the profile is used, near the fold,
+and would fail far from it, which is the second reason the correction is
 applied only inside the band.
 
 \paragraph{The scaling, assembled.} Writing the canonical coordinate from the
@@ -112,9 +113,7 @@ For a single-channel image $I$ on a receiver with known centre $\mathbf{0}$,
 let $M = \max I$ and, for $r > 0$, let $\bar I(r)$ be the mean of $I$ over the
 annulus $\{\,r \le \|\mathbf{u}\| < r + \SI{1}{\milli\meter}\,\}$. The edge
 radius is $r_e = \sup\{\, r : \bar I(r) > 0.02\,M \,\}$.
-Dividing by $M$ makes the statistic invariant to any uniform scale, and taking a
-mean over an annulus rather than a maximum makes it unaffected by a ceiling
-applied to the core.
+Dividing by $M$ makes the statistic invariant to any uniform scale, and taking a mean over an annulus makes it unaffected by a ceiling applied to the core; a maximum would not.
 \end{definition}
 
 \begin{definition}[Tiled correlation]
@@ -153,6 +152,8 @@ in units of the 8-bit quantisation step.
 \label{tab:notation}
 \label{tab:manifest}
 \footnotesize
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{0.92}
 \begin{tabular}{@{}ll@{}}
 \toprule
 Symbol & Meaning \\
@@ -167,7 +168,7 @@ $\Ai, X, b(s)$ & Airy function, canonical coordinate \eqref{eq:canonical}, profi
 $\kappa, k^{*}$ & display ceiling, band flux ratio \eqref{eq:kstar} \\
 \bottomrule
 \end{tabular}
-\vspace{0.8em}
+\vspace{0.5em}
 
 \begin{tabular}{@{}ll@{}}
 \toprule
@@ -187,5 +188,5 @@ Profile floor \& ceiling & floor \num{0.15}, ceiling $1.35\,\kappa$ \\
 
 The reference width is the physical fringe scale for this geometry, derived
 from \eqref{eq:scalelaw} as $d \approx 6.8\,\mu\text{m}$ (first zero at $15.8\,\mu\text{m}$).
-It is deliberately not inflated for visibility in full-receiver physical renders:
-the renders use this physical scale, showing true chromatic dispersion rather than decorative fringes.
+The width is deliberately not inflated for visibility in full-receiver physical renders:
+the renders use this physical scale, showing true chromatic dispersion.

@@ -20,10 +20,9 @@ draws the arrangement to scale.
 
 \begin{table*}[tp]
 \centering
-\caption{Scene parameters. The material models are the measured forms of
-Section~\ref{sec:dispersion}, not fits. The source angular diameter is the true
+\caption{Scene parameters. The material models are the measured forms of Section~\ref{sec:dispersion}. We do not use fits. The source angular diameter is the true
 solar value, which sets a coherence scale far larger than the fringe spacing
-this paper is about --- see the remark in Section~\ref{sec:limits-coherence}.}
+this paper is about; see the remark in Section~\ref{sec:limits-coherence}.}
 \label{tab:scene}
 \footnotesize
 \begin{tabular}{@{}lll@{}}
@@ -48,8 +47,7 @@ Channels                  & \SI{650}{} / \SI{550}{} / \SI{450}{\nano\meter} & R/
 \includegraphics[width=\textwidth]{figures/fig1_scene.pdf}
 \caption{The test scene drawn to scale. The glass body, water column, wall
 thickness, fill height and receiver are shown at true relative size with
-dimension lines; the ray path is traced through the actual geometry of
-Section~\ref{sec:scene} at the central channel index rather than sketched. The
+dimension lines; the ray path is traced through the actual geometry of Section~\ref{sec:scene} at the central channel index; it is not a sketch. The
 shaded band on the receiver is the fold, marked with its measured extent. All
 lengths in millimetres.}
 \label{fig:scene}
@@ -68,8 +66,7 @@ h(\mathbf{x},t) \;=\; \sum_{i=1}^{4} A_i \sin\!\big(k_i\,(\hat{\mathbf{u}}_i
 \end{equation}
 a sum of four directional sinusoids with amplitudes $A_i = \{0.65, 0.40, 0.25,
 0.15\}\,\si{\milli\meter}$ at wavelengths $\Lambda_i = \{42, 27, 17,
-11\}\,\si{\milli\meter}$. The expansion in \eqref{eq:surface} is convenient
-rather than essential: nothing below uses the sinusoidal form except to know
+11\}\,\si{\milli\meter}$. The expansion in \eqref{eq:surface} is a convenience; nothing below uses the sinusoidal form except to know
 that $\nabla h$ is analytic and that $|\nabla h|$ is small. The outward normal
 follows from the analytic gradient,
 \begin{equation}
@@ -112,14 +109,14 @@ $s = (-D - h(\mathbf{x}))/\hat t_z$. Composing the two gives the
 Write $\Jm = \partial \Hm / \partial \mathbf{x}$ for its Jacobian and
 $\detJ$ for its determinant. For the scene of Table~\ref{tab:scene},
 $\Hm$ is a smooth map on the region of the surface that is not shadowed and not
-totally reflecting.
+a perfect mirror.
 
 \subsection{What the map induces on the receiver}
 \label{sec:pushforward}
 
-Splatting assigns each surface element the energy it carries --- proportional to
-its area, since the source is distant and the irradiance on the surface is
-spatially uniform --- and deposits that energy at the image point. The resulting
+Splatting assigns each surface element the energy it carries, proportional to
+its area (the source is distant, so the irradiance on the surface is
+spatially uniform), and deposits that energy at the image point. The resulting
 receiver irradiance is therefore the push-forward of the surface measure under
 $\Hm$:
 \begin{equation}
@@ -128,9 +125,7 @@ I(\mathbf{u}) \;=\; \sum_{\mathbf{x}\,:\,\Hm(\mathbf{x}) = \mathbf{u}}
 \label{eq:irradiance}
 \end{equation}
 where the sum runs over the preimages of $\mathbf{u}$, which is the standard
-sum over branches of a multi-valued inverse. It is worth being precise about the
-status of \eqref{eq:irradiance}: it is exact for the geometric model, not an
-estimator. Every method in Section~\ref{sec:cg} estimates this same object, and
+sum over branches of a multi-valued inverse. The status of \eqref{eq:irradiance} deserves precision: it is exact for the geometric model; no estimator enters this identity. Every method in Section~\ref{sec:cg} estimates this same object, and
 that shared target is why they share a failure.
 
 Equation~\eqref{eq:irradiance} is the Jacobian form of the usual
@@ -177,9 +172,9 @@ $\Hm(\mathbf{x}_0)$ in which $\Hm$ takes the form
 \Hm(u,v) \;=\; (u,\; v^2) .
 \label{eq:normalform}
 \end{equation}
-This is legitimate because Assumption~\ref{as:fold} puts us in the stable
+The form is legitimate because Assumption~\ref{as:fold} puts us in the stable
 one-fold stratum, and the normal form is stable under perturbation, so it
-describes the map in a neighbourhood rather than only at a point. In these
+describes the map on a neighbourhood of the point. In these
 coordinates $\detJ = 2v$, vanishing exactly on $v = 0$, which is
 $\fold$.
 
@@ -220,23 +215,18 @@ near the fold: the more samples land near the fold, the larger the individual
 weights become, so refining the quadrature concentrates ever-larger values into
 ever-smaller regions. Corollary~\ref{cor:integrable} says the band nevertheless
 holds a \emph{finite} amount of power. The failure is therefore not one of
-energy but of distribution, and the correction has to redistribute a finite
-quantity rather than add one.
+energy but of distribution, and the correction has to redistribute a finite quantity; it cannot add one.
 
-It is tempting to read the divergence as a sign that the sampler is
+The divergence might look like a sign that the sampler is
 insufficiently adaptive. It is not. Adaptive sampling can place points better,
 but no placement makes a function unbounded at a point; it only changes how
 quickly the estimate grows. The measured consequence in our own runs was a
-receiver core whose apparent radius was set by wherever a ceiling was applied
-rather than by the physics, which is exactly the artefact the estimators of
-Section~\ref{sec:estimators} exist to avoid.
+receiver core whose apparent radius was set by wherever a ceiling was applied. The physics did not set it; that is exactly the artefact the estimators of Section~\ref{sec:estimators} exist to avoid.
 
 \begin{figure*}[tp]
 \centering
 \includegraphics[width=\textwidth]{figures/fig2_fold.pdf}
-\caption{The ray map of \eqref{eq:raymap}, computed by the independent
-brute-force trace of Section~\ref{sec:results-quality} rather than by the
-solver. The density in (a) is the caustic; the bright ridge is where
+\caption{The ray map of \eqref{eq:raymap}, computed by the independent brute-force trace of Section~\ref{sec:results-quality}; the solver did not produce it. The density in (a) is the caustic; the bright ridge is where
 $|\detJ| \to 0$. Panel (b) cuts through it in raw ray counts. The sharpness of
 that peak is what Lemma~\ref{lem:diverge} says no quadrature can bound.}
 \label{fig:fold}
@@ -287,9 +277,11 @@ in the Airy integral $\Ai(-X) = \frac{1}{\pi}\int_0^\infty \cos\!\big(\tfrac{t^3
 \end{equation}
 The linear coefficient is then fixed, and matching it to $-X r$ gives
 \begin{equation}
-X \;=\; -\frac{2\pi}{\lambda}\,x\,\alpha
-\;=\; -x\,2\pi^{2/3}\lambda^{-2/3}c^{-1/3}
-\;=\; -x\,k^{2/3}2^{1/3}c^{-1/3},
+\begin{split}
+X &= -\frac{2\pi}{\lambda}\,x\,\alpha \\
+  &= -x\,2\pi^{2/3}\lambda^{-2/3}c^{-1/3} \\
+  &= -x\,k^{2/3}2^{1/3}c^{-1/3},
+\end{split}
 \end{equation}
 using $k^{2/3}2^{1/3} = 2\pi^{2/3}\lambda^{-2/3}$. The integral is now the Airy
 integral over the scaled pupil; for $|X|$ not large the finite pupil is
@@ -300,8 +292,7 @@ range, and its modulus squared is $|\Ai(-X)|^2$.
 Equation~\eqref{eq:canonical} is finite for every $X$, is maximal at
 $X = -1.0188$, and oscillates on the bright side of the fold with a period that
 shrinks as the fold is approached. Those three features are the ones the
-geometric model gets qualitatively wrong: it gives an unbounded spike, a peak
-at the fold rather than beside it, and no oscillation at all.
+geometric model gets qualitatively wrong: it gives an unbounded spike, places the peak on the fold, and adds no oscillation; the true peak lies beside the fold.
 
 \subsection{The ${\lambda^{2/3}}$ fringe scale, derived}
 \label{sec:scaling}
@@ -316,10 +307,10 @@ d(\lambda,c) \;=\; k^{-2/3}\,2^{-1/3}\,c^{1/3}
 \end{equation}
 Here, because the normalized pupil coordinate $\rho \in [-1,1]$ is dimensionless,
 the phase $\Phi(\rho)$ in \eqref{eq:phase} and the fold parameter $c$ both have
-dimensions of length ($\si{\meter}$). Consequently, $d(\lambda,c)$ has dimensions
+dimensions of length ($\si{\meter}$). The scale $d(\lambda,c)$ therefore has dimensions
 of length ($\si{\meter}^{2/3} \times \si{\meter}^{1/3} = \si{\meter}$).
 
-In our physical reference scene of a solid refracting cylinder (radius $R = \SI{35}{\milli\meter}$, glass index $n = 1.5251$), the ray map $\mathbf{x}(\phi)$ near the fold locus ($\phi_f \approx 207.70^\circ$) exhibits a cubic wavefront parameter $c \approx \SI{0.08115}{\meter}$ (transverse curvature $C_{\text{angle}} \approx \SI{0.01561}{\meter}$). Specifically, because the ray map is the gradient of the optical path length ($x(\phi) = \partial W / \partial \phi$), identifying the cubic phase coefficient in \eqref{eq:phase} with the third derivative of the optical path along the exit pupil maps the third derivative of the geometric ray map ($c_3 = \partial^3 x / \partial \phi^3 \approx \SI{0.08115}{\meter}$) directly to the cubic pupil parameter $c = c_3$. Evaluating \eqref{eq:scalelaw} with $c = \SI{0.08115}{\meter}$ yields the canonical transverse fringe scale $d(\lambda,c) \approx 6.78\,\mu\text{m}$ at $\lambda = \SI{550}{\nano\meter}$, with the first Airy zero ($|X| = 2.3381$) located at $15.84\,\mu\text{m}$. An earlier draft evaluated an unnormalized expression $(\lambda^2 / 2 c_3)^{1/3}$ yielding $123.1\,\mu\text{m}$, which we withdraw as dimensionally mismatched; the true diffraction scale is $\approx 6.8\,\mu\text{m}$. Because a standard $1024^2$ raster pixel ($312.5\,\mu\text{m}$) is $\approx 46\times$ larger than $d$, physical fringes are deeply sub-pixel in full-receiver renders.
+In our physical reference scene of a solid refracting cylinder (radius $R = \SI{35}{\milli\meter}$, glass index $n = 1.5251$), the ray map $\mathbf{x}(\phi)$ near the fold locus ($\phi_f \approx 207.70^\circ$) has cubic wavefront parameter $c \approx \SI{0.08115}{\meter}$ (transverse curvature $C_{\text{angle}} \approx \SI{0.01561}{\meter}$). The ray map is the gradient of the optical path length, $x(\phi) = \partial W / \partial \phi$. Identifying the cubic phase coefficient in \eqref{eq:phase} with the third derivative of the optical path along the exit pupil maps the third derivative of the geometric ray map ($c_3 = \partial^3 x / \partial \phi^3 \approx \SI{0.08115}{\meter}$) directly to the cubic pupil parameter $c = c_3$. Evaluating \eqref{eq:scalelaw} with $c = \SI{0.08115}{\meter}$ yields the canonical transverse fringe scale $d(\lambda,c) \approx 6.78\,\mu\text{m}$ at $\lambda = \SI{550}{\nano\meter}$. The first Airy zero ($|X| = 2.3381$) is at $15.84\,\mu\text{m}$. An earlier draft evaluated an unnormalized expression $(\lambda^2 / 2 c_3)^{1/3}$ and obtained $123.1\,\mu\text{m}$; we withdraw that value as dimensionally mismatched. The true diffraction scale is $\approx 6.8\,\mu\text{m}$. A standard $1024^2$ raster pixel ($312.5\,\mu\text{m}$) is $\approx 46\times$ larger than $d$, so physical fringes are deeply sub-pixel in full-receiver renders.
 
 \begin{corollary}[Wavelength scaling]
 \label{cor:scaling}
@@ -353,7 +344,7 @@ computation in Section~\ref{sec:verify-scaling}.
 
 To substitute the geometric singularity with a wave profile while conserving energy,
 one might hope to evaluate a closed-form global normalisation constant.
-However, because $|\Ai|^2$ asymptotically tracks the geometric $b^{-1/2}$ tail,
+Because $|\Ai|^2$ asymptotically tracks the geometric $b^{-1/2}$ tail,
 such a global constant cannot exist on $\mathbb{R}$.
 
 \begin{lemma}[Asymptotic divergence of the Airy tail]
@@ -389,20 +380,17 @@ $\sqrt{L}$ growth of the geometric tail $\int_0^L (2\sqrt{b})^{-1}\dd b = \sqrt{
 Far from the fold, the wave intensity naturally converges to the classical geometric
 ray density. Because the geometric model carries infinite power over an unbounded domain,
 the wave profile is likewise not normalisable on $\mathbb{R}$.
-Therefore, energy conservation cannot be defined globally; it must be defined
+Energy conservation cannot, therefore, be defined globally; it must be defined
 \emph{locally within a bounded band}, where both the geometric flux and the Airy
 integral are strictly finite (Corollary~\ref{cor:integrable}).
 This establishes the necessity of the band-local flux ratio constructed in
 Section~\ref{sec:ours-normalisation}.
 \end{corollary}
 
-Table~\ref{tab:airyfacts} collects the constants used later, each evaluated
-numerically rather than quoted from a table.
+Table~\ref{tab:airyfacts} collects the constants used later, each evaluated numerically; no value is quoted from a table.
 \begin{table}[tbp]
 \centering
-\caption{Airy quantities used in the implementation, all evaluated numerically
-in this work (\texttt{scipy.special.airy}) rather than taken from a printed
-table. The peak height is the normaliser in \eqref{eq:profile}; the divergence
+\caption{Airy quantities used in the implementation, all evaluated numerically in this work (\texttt{scipy.special.airy}); no printed table was used. The peak height is the normaliser in \eqref{eq:profile}; the divergence
 row is Lemma~\ref{lem:notl1} at $L = 5000$.}
 \label{tab:airyfacts}
 \small
@@ -423,12 +411,11 @@ mean tail intensity                 & $(2\pi\sqrt{u})^{-1}$ & Lemma~\ref{lem:not
 \centering
 \includegraphics[width=\textwidth]{figures/fig3_airy.pdf}
 \caption{Panel (a): the fold intensity $|\Ai(-u)|^2$ used by the correction
-\eqref{eq:profile}, computed with \texttt{scipy.special.airy}. It is bounded,
-peaks at $X = 1.0188$ \emph{beside} the fold rather than on it, and its
+\eqref{eq:profile}, computed with \texttt{scipy.special.airy}. The profile is bounded,
+peaks at $X = 1.0188$ \emph{beside} the fold; the fold itself is not the peak, and its
 oscillations tighten toward the fold. Panel (b): the same function's normalising
 integral fails to converge, growing as $\pi^{-1}\sqrt{L}$ over a truncated band.
-That is Lemma~\ref{lem:notl1}, and it is why the correction is a discrete band
-ratio \eqref{eq:kstar} rather than a constant.}
+Lemma~\ref{lem:notl1} explains why the correction is a discrete band ratio \eqref{eq:kstar}; a constant is impossible.}
 \label{fig:airy}
 \end{figure*}
 
@@ -444,9 +431,7 @@ b(s) \;&=\; 0.15 + 0.85\,P(s;w) .
 \end{aligned}
 \label{eq:profile}
 \end{equation}
-The normaliser is the $0.286928$ of Table~\ref{tab:airyfacts}, and it is a
-\emph{peak} normalisation rather than an integral one because
-Lemma~\ref{lem:notl1} forbids the latter. The additive floor $0.15$ keeps the
+The normaliser is the $0.286928$ of Table~\ref{tab:airyfacts}, and it is a \emph{peak} normalisation, because Lemma~\ref{lem:notl1} forbids an integral one. The additive floor $0.15$ keeps the
 band's skirt continuous with the geometric field outside it; without it the
 profile would fall to zero at the band edge and print a visible seam. The
 profile is evaluated through a 2048-entry table on $u \in [0,8]$ with linear
@@ -455,9 +440,7 @@ interpolation, and $s$ is the Euclidean distance transform of the detected band.
 \subsection{Dispersion, from measured data}
 \label{sec:dispersion}
 
-Both media are evaluated from measured refractive-index data rather than from
-fitted dispersion formulas, for a reason that Section~\ref{sec:verify-index}
-documents: a fitted curve is where this project's one physical error hid.
+Both media are evaluated from measured refractive-index data. Section~\ref{sec:verify-index} documents why a fitted curve is a trap here: this project's one physical error hid there.
 Water uses the four-term Sellmeier form of Daimon and Masumura
 \cite{daimon2007} for HPLC-distilled water at $20.0^\circ\text{C}$,
 \begin{equation}
@@ -474,8 +457,7 @@ At the three render channels, \eqref{eq:sellmeier} gives
 $n = 1.33167 / 1.33468 / 1.33961$ and \eqref{eq:rubin} gives
 $1.52104 / 1.52514 / 1.53192$. Red has the lowest index and therefore refracts
 least, so red must land farthest from the axis. The chromatic ordering in every
-figure of this paper is a consequence of \eqref{eq:sellmeier}, \eqref{eq:rubin}
-and \eqref{eq:perchannel}, not an effect we added.
+figure of this paper is a consequence of \eqref{eq:sellmeier}, \eqref{eq:rubin} and \eqref{eq:perchannel}; we added no effect.
 
 The source subtends $0.53^\circ$, which at the receiver distance of this
 scene corresponds to a geometric blur of roughly $925\,\mu\text{m}$. The
@@ -490,8 +472,7 @@ Section~\ref{sec:limits-coherence} treats this as the method's principal limitat
 \label{sec:fresnel}
 
 Where the full scene is rendered the light path is walked through every
-interface --- air, glass, water, glass, air, receiver --- with \eqref{eq:snell}
-at each, and each ray carries its unpolarised Fresnel power transmission
+interface (air, glass, water, glass, air, receiver), with \eqref{eq:snell} at each, and each ray carries its unpolarised Fresnel power transmission
 \begin{equation}
 \begin{aligned}
 T(c_i,\eta) \;&=\; 1 - \frac12\Bigg[
@@ -510,8 +491,7 @@ supply on its own.
 \label{sec:estimators}
 
 The caustic is a thin, high-dynamic-range feature, so the statistic used to
-compare two renderings decides the answer. Three of our own earlier claims died
-here or in the optics rather than in the core theory, and all are reported in
+compare two renderings decides the answer. Three of our own earlier claims died here or in the optics; the core theory survived, and all are reported in
 Section~\ref{sec:verify}. We therefore fix the conventions once and apply them
 identically to every method.
 
@@ -528,7 +508,7 @@ the core, which is what makes it preferrable to the ridge argmax (set by the
 cap) and to the mean-over-all-rays radius (dominated by unconverged tails).
 \item \textbf{Positive-part differential.} An isolate formed as
 $\text{optics} - \text{no-optics}$ is not non-negative, because removing the
-glass also removes its shadow. It is scored on its positive part, which is the
+glass also removes its shadow. The isolate is scored on its positive part, which is the
 caustic. Section~\ref{sec:verify-metric} documents the factor-of-two error this
 convention prevents.
 \item \textbf{Temporal flicker.} For animations, the mean absolute frame-to-frame
@@ -538,7 +518,6 @@ change $\mathbb{E}\,|I_{t+1} - I_t|$ inside the caustic region.
 \begin{remark}[On the word ``converged'']
 \label{rem:converged}
 Used in this paper it means the resource budget was exhausted and the statistic
-had stopped moving at the reported precision. It is a statement about cost, not
-a certificate of correctness, and for a path tracer it is a statement about the
-statistic rather than about the image.
+had stopped moving at the reported precision. The word describes cost, not
+correctness; for a path tracer it describes the statistic. It does not describe the image.
 \end{remark}
