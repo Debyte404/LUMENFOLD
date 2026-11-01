@@ -159,6 +159,49 @@ n_out = sum(1 for m in mats for nd in m.node_tree.nodes if nd.name.startswith("C
 check("inject_remove_roundtrip", n_in > 0 and n_out == 0,
       f"injected={n_in} left={n_out}")
 
+# ---- 8b. rough glass refused by name -----------------------------------------
+fresh_scene()
+gm = glass().data.materials[0]
+bsdf = next(n for n in gm.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+bsdf.inputs["Roughness"].default_value = 0.5
+p = bpy.context.scene.caustic
+p.mesh_object = glass()
+p.target = plane()
+try:
+    bpy.ops.caustic.bake_mesh()
+    check("rough_glass_refused", False, "no error raised")
+except RuntimeError as e:
+    check("rough_glass_refused", "rough" in str(e).lower(), str(e)[:90])
+
+# ---- 8c. material IOR moves the fold ---------------------------------------
+fresh_scene()
+gm = glass().data.materials[0]
+bsdf = next(n for n in gm.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+bsdf.inputs["IOR"].default_value = 1.4
+run_bake(mesh_object=glass(), mesh_resolution=32, mesh_airy=0.006, target=plane())
+lo = [round(v, 4) for v in bpy.data.images["CAUSTIC_bake"].pixels[:]]
+bsdf.inputs["IOR"].default_value = 1.6
+run_bake(mesh_object=glass(), mesh_resolution=32, mesh_airy=0.006, target=plane())
+hi = [round(v, 4) for v in bpy.data.images["CAUSTIC_bake"].pixels[:]]
+check("material_ior_moves_fold", lo != hi, f"same={lo == hi}")
+
+# ---- 8d. volume node on the material tints the bake -----------------------
+fresh_scene()
+gm = glass().data.materials[0]
+nt = gm.node_tree
+va = nt.nodes.new("ShaderNodeVolumeAbsorption")
+va.inputs["Color"].default_value = (1.0, 0.0, 0.0, 1.0)  # absorb G+B
+va.inputs["Density"].default_value = 30.0
+out = nt.nodes.get("Material Output")
+nt.links.new(va.outputs["Volume"], out.inputs["Volume"])
+run_bake(mesh_object=glass(), mesh_resolution=32, mesh_airy=0.006, target=plane())
+img = list(bpy.data.images["CAUSTIC_bake"].pixels[:])
+n = len(img) // 4
+rr = sum(img[4 * i] for i in range(n))
+bb = sum(img[4 * i + 2] for i in range(n))
+check("volume_node_tints_bake", rr > 2.0 * max(bb, 1e-9),
+      f"R/B={rr / max(bb, 1e-9):.1f} (material volume node, no panel absorb)")
+
 # ---- 9. sequence bake: 3 frames differ, sequence injection ----------------
 fresh_scene()
 sun = bpy.data.objects.get("sun")

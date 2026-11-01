@@ -60,8 +60,34 @@ def test_inside_point_light_refused():
         raise AssertionError("inside light did not raise")
 
 
+def test_per_channel_ior_separates_folds():
+    import numpy as np
+    from mesh_caustic.trace import ior_rgb
+    v, f = _sphere()
+    sun = [{"type": "sun", "direction": (0.8, 0.42, -0.43)}]
+    kw = {"n_side": 60}
+    a = trace_mesh(v, f, sun, _recv(), dict(kw, eta=1.5251))
+    assert len(a["hits"]) > 100
+    # BK7-anchored dispersion must order R < G < B in index (red bends least)
+    r_ior, g_ior, b_ior = ior_rgb(1.525)
+    assert r_ior < g_ior < b_ior, (r_ior, g_ior, b_ior)
+    # ...and distinct per-channel etas must land hits in different bins
+    b = trace_mesh(v, f, sun, _recv(), dict(kw, eta=(1.00, 1.5251, 2.00)))
+    assert len(b["hits"]) > 100
+    hr, _, _ = np.histogram2d(*b["hits"][b["chan"] == 0].T, bins=16)
+    hb, _, _ = np.histogram2d(*b["hits"][b["chan"] == 2].T, bins=16)
+    assert not np.allclose(hr, hb)
+
+
+def test_estimate_scales_with_channels():
+    from mesh_caustic.trace import estimate_seconds
+    assert estimate_seconds(1000, 48, 3) > 2.5 * estimate_seconds(1000, 48, 1)
+
+
 if __name__ == "__main__":
     test_sphere_focuses()
     test_open_cube_refused()
     test_inside_point_light_refused()
+    test_per_channel_ior_separates_folds()
+    test_estimate_scales_with_channels()
     print("MESH_TRACE_TESTS_OK")

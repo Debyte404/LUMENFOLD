@@ -474,13 +474,17 @@ class CAUSTIC_OT_bake_mesh(bpy.types.Operator):
         dg = context.evaluated_depsgraph_get()
         verts, faces = _mesh_tris(obj, dg)
         tris_n = len(faces)
-        est = MT.estimate_seconds(tris_n, p.mesh_resolution)
+        est = MT.estimate_seconds(tris_n, p.mesh_resolution, nchan=3)
         try:
+            MT.check_closed(faces)
             recv = _resolve_target(p.target)
+            mat = _resolve_material(obj)
             lights = _collect_lights(context.scene.objects, tuple(p.sun_dir))
+            absorb = mat["absorb"] if mat["absorb"] is not None else tuple(p.glass_absorb)
+            eta = MT.ior_rgb(mat["ior"])
             fld, res = _bake_field(MT, MB, verts, faces, lights, recv,
                                    p.mesh_resolution, p.mesh_airy,
-                                   tuple(p.glass_absorb))
+                                   absorb, eta)
         except ValueError as e:
             p.status = str(e)
             self.report({"ERROR"}, p.status)
@@ -567,21 +571,74 @@ def _collect_lights(objects, sun_dir):
     return lights
 
 
-def _bake_field(MT, MB, verts, faces, lights, recv, res, airy, absorb):
+def _resolve_material(obj):
+    """Read the renderable glass material: first transmissive slot, else active.
+
+    Returns dict(ior, roughness, absorb_or_None, tint). Volume Absorption on
+    the material's Volume socket becomes per-channel Beer-Lambert mu; without
+    one the caller supplies panel fallback coefficients. Raises ValueError
+    with a named refusal when nothing transmissive exists or roughness kills
+    the fold the correction is defined on."""
+    mats = [s.material for s in obj.material_slots if s.material and s.material.use_nodes]
+    if not mats and obj.active_material and obj.active_material.use_nodes:
+        mats = [obj.active_material]
+    if not mats:
+        raise ValueError("no usable material: mesh needs a node material")
+    pick = None
+    for m in mats:
+        bsdf = next((n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+        if bsdf is not None and "Transmission Weight" in bsdf.inputs:
+            try:
+                if float(bsdf.inputs["Transmission Weight"].default_value) > 0.01:
+                    pick, bsdf_pick = m, bsdf
+                    break
+            except (TypeError, ValueError):
+                continue
+    if pick is None:
+        raise ValueError("no transmissive material: give the mesh a Principled BSDF with Transmission Weight > 0")
+    rough = float(bsdf_pick.inputs["Roughness"].default_value) if "Roughness" in bsdf_pick.inputs else 0.0
+    if rough > 0.05:
+        raise ValueError(f"rough glass unsupported: roughness {rough:.2f} has no sharp fold to correct (use 0.00-0.05)")
+    ior = float(bsdf_pick.inputs["IOR"].default_value) if "IOR" in bsdf_pick.inputs else 1.525
+    tint = tuple(float(v) for v in bsdf_pick.inputs["Base Color"].default_value[:3]) if "Base Color" in bsdf_pick.inputs else (1.0, 1.0, 1.0)
+    absorb = None
+    out = bsdf_pick.id_data.nodes.get("Material Output")
+    if out is not None and out.inputs["Volume"].is_linked:
+        node = out.inputs["Volume"].links[0].from_node
+        seen = set()
+        while node is not None and node.name not in seen:
+            seen.add(node.name)
+            if node.type == "VOLUME_ABSORPTION":
+                d = max(float(node.inputs["Density"].default_value), 0.0)
+                col = tuple(float(v) for v in node.inputs["Color"].default_value[:3])
+                if d > 0.0:
+                    absorb = tuple(d * (1.0 - c) for c in col)
+                break
+            if not node.inputs:
+                break
+            linked = [l for i in node.inputs for l in i.links]
+            node = linked[0].from_node if linked else None
+    return {"ior": ior, "roughness": rough, "absorb": absorb, "tint": tint}
+
+
+def _bake_field(MT, MB, verts, faces, lights, recv, res, airy, absorb, eta):
     """Trace + band-correct. Returns (fld01 RGB peak 1.0 row0=+Y, trace dict).
-    Raises ValueError from the tracer (not watertight / inside light / ...)."""
+    eta is scalar or (R,G,B); absorb is per-channel. Raises ValueError from
+    the tracer (not watertight / inside light / ...) or the no-hits guard."""
     import numpy as _np
     n = res
     cx, cy, half, rz = recv["cx"], recv["cy"], recv["half"], recv["z"]
     r = MT.trace_mesh(_np.asarray(verts), faces, lights,
                       {"z": rz, "patch_half": half, "center": (cx, cy)},
-                      {"n_side": n, "eta": 1.5251, "absorb_rgb": tuple(absorb)})
+                      {"n_side": n, "eta": eta, "absorb_rgb": tuple(absorb)})
     outs = []
     for c in range(3):
-        wc = (r["weights"][:, c] if len(r["hits"]) else None)
+        m = (r["chan"] == c) if len(r["hits"]) else None
+        hc = r["hits"][m] if m is not None else _np.zeros((0, 2))
+        wc = r["weights"][m] if m is not None else None
         gc, _, _ = _np.histogram2d(
-            r["hits"][:, 0] if len(r["hits"]) else _np.zeros(0),
-            r["hits"][:, 1] if len(r["hits"]) else _np.zeros(0),
+            hc[:, 0] if len(hc) else _np.zeros(0),
+            hc[:, 1] if len(hc) else _np.zeros(0),
             bins=n, weights=wc,
             range=[[cx - half, cx + half], [cy - half, cy + half]])
         outs.append(gc.T)
@@ -649,11 +706,14 @@ class CAUSTIC_OT_bake_seq(bpy.types.Operator):
         from mesh_caustic import trace as MT
         from mesh_caustic import band as MB
         try:
+            mat = _resolve_material(obj)
             recv = _resolve_target(p.target)
         except ValueError as e:
             p.status = str(e)
             self.report({"ERROR"}, p.status)
             return {"CANCELLED"}
+        absorb = mat["absorb"] if mat["absorb"] is not None else tuple(p.glass_absorb)
+        eta = MT.ior_rgb(mat["ior"])
         seqdir = os.path.join(TMP_DIR, "seq")
         os.makedirs(seqdir, exist_ok=True)
         base_n = None
@@ -675,7 +735,7 @@ class CAUSTIC_OT_bake_seq(bpy.types.Operator):
             try:
                 fld, res = _bake_field(MT, MB, verts, faces, lights, recv,
                                        p.mesh_resolution, p.mesh_airy,
-                                       tuple(p.glass_absorb))
+                                       absorb, eta)
             except ValueError as e:
                 p.status = str(e)
                 self.report({"ERROR"}, p.status)

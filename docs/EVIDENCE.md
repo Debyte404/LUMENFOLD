@@ -2749,3 +2749,24 @@ What remains open: residual exposure/background deltas (uniform 0.7 env is
 an approximation of Cycles' gradient world); a converged Mitsuba run is
 not claimed.
 
+--------------------------------------------------------------------------------
+## 27. Material-driven mesh bake: IOR, absorption, and rough refusal (2026-11-02)
+--------------------------------------------------------------------------------
+
+The mesh tracer no longer takes a hardcoded IOR: `trace_mesh` accepts a
+scalar IOR (one shared path, per-channel absorption weights) or an (R,G,B)
+triple (three dispersed paths). The addon reads the mesh's own Blender
+material -- IOR from the Principled BSDF (anchored per-channel via measured
+BK7 dispersion, so R refracts least and lands farthest), Beer-Lambert
+coefficients from a linked Volume Absorption node when present (panel
+`glass_absorb` is the fallback), and refuses roughness > 0.05 by name
+(no sharp fold exists to correct). Transmissivity gated: Transmission
+Weight must exceed 0.
+
+| check | result |
+|---|---|
+| `test_mesh_trace.py` incl. per-channel separation + nchan estimate | PASS |
+| `test_addon_mesh.py` 16 asserts incl. rough refusal, IOR-moves-fold, volume-node tint | PASS |
+| legacy `test_addon.py` 8 asserts (untouched path) | PASS |
+| dragon re-bake, 150^2, per-channel BK7-anchored IOR | 5441 hits (was 1812 achromatic), est 118 s, took 118 s |
+| `check_paper.py` | `PAPER REFS OK` |

@@ -49,19 +49,24 @@ caustic will be in the wrong place. `tools/blender_scene.py` is a working refere
 
 Set **Bake source** to `Selected mesh`. Set **Mesh object** to the closed
 glass body and **Target** to the receiving object, then **Bake mesh caustic**.
-The add-on traces the scene's own lights (SUN, point, spot, area — otherwise
-the **Sun dir** fallback) through the evaluated mesh with two-interface
+The add-on reads the mesh's own Blender material — IOR from the Principled
+BSDF (anchored per-channel via measured BK7 dispersion, so R/G/B fold in
+different places) and Beer–Lambert coefficients from a linked Volume
+Absorption node when present (the panel absorb values are only a fallback)
+— then traces the scene's own lights (SUN, point, spot, area; otherwise the
+**Sun dir** fallback) through the evaluated mesh with two-interface
 refraction, bins the receiver hits, and applies the same band-local Airy
 correction as the solver bake. Inject, remove, and tint work exactly as below.
 
 Contract (refused by name otherwise): the mesh must be watertight, the
-target needs UVs spanning 0–1, lights must sit outside the glass. Rough
-glass, nested volumes, and volumetrics are explicitly unsupported — the
-fold the correction is defined on does not exist there.
+target needs UVs spanning 0–1, lights must sit outside the glass, the
+material must be transmissive (Transmission Weight > 0) and smooth
+(roughness ≤ 0.05 — a rough surface has no fold to correct). Nested
+volumes and volumetrics inside the body are explicitly unsupported.
 
-Bake time scales with rays x triangles (shown in the panel before running;
-the 35k-tri dragon at 150^2 takes ~40 s on this machine). The field is
-peak-normalized; brightness comes from **Injection gain**.
+Bake time scales with rays x triangles x 3 channels (shown in the panel
+before running; the 35k-tri dragon at 150^2 takes ~40 s on this machine).
+The field is peak-normalized; brightness comes from **Injection gain**.
 
 ### Solver bake (calibrated pool scene)
 

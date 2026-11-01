@@ -1,7 +1,9 @@
 """trace.py -- generalized two-interface mesh tracer (numpy-only).
 
-trace_mesh(verts, faces, lights, receiver, opts) -> dict with hits (N,2),
-weights (N,3 rgb transmission), grid (G,G irradiance), extent_m.
+trace_mesh(verts, faces, lights, receiver, opts) -> {"hits": (M,2),
+"chan": (M,) int 0/1/2 (R/G/B), "weights": (M,) Beer-Lambert transmission,
+"extent_m"}. eta may be scalar (one shared path, per-channel absorption
+weights) or an (R,G,B) triple (three dispersed paths).
 
 Lights: {"type":"sun","direction":(x,y,z)} | {"type":"point","position":...}
 | {"type":"spot","position":...,"direction":...,"angle_deg":...}
@@ -16,13 +18,14 @@ from collections import Counter
 import numpy as np
 
 
-def estimate_seconds(n_tris, n_side):
+def estimate_seconds(n_tris, n_side, nchan=1):
     """Wall-time estimate for trace_mesh at this budget.
 
     Calibrated on the dragon referee (90k rays x 35k tris = 145 s):
-    t = rays * tris * 5e-8. Conservative on small meshes, honest on big ones.
+    t = rays * tris * 5e-8 per channel. Conservative on small meshes,
+    honest on big ones.
     """
-    return float(n_side * n_side) * float(n_tris) * 5e-8
+    return float(n_side * n_side) * float(n_tris) * 5e-8 * max(int(nchan), 1)
 
 
 def _check_watertight(faces):
@@ -31,6 +34,18 @@ def _check_watertight(faces):
         for u, v in ((a, b), (b, cc), (cc, a)):
             c[tuple(sorted((int(u), int(v))))] += 1
     return [e for e, n in c.items() if n != 2]
+
+
+def check_closed(faces):
+    """Raise ValueError naming open edges unless the mesh is watertight.
+
+    Public pre-flight used by hosts (e.g. the Blender addon) that must
+    report topology problems before spending time on lights and materials.
+    Same message as the in-trace guard: never two sources of truth.
+    """
+    bad = _check_watertight(faces)
+    if bad:
+        raise ValueError(f"mesh not watertight: {len(bad)} open edges")
 
 
 def _point_in_mesh(p, verts, faces):
@@ -98,7 +113,26 @@ def _basis_toward(n):
     return right, np.cross(right, n), n
 
 
-def _shoot(o, d, geo, eta, absorb, receiver_z, patch_half, cx, cy):
+def bk7_n(wl_um):
+    """BK7 crown-glass index at wavelength um (Sellmeier). Shape only: callers
+    anchor the curve at the artist's IOR, so the studio value is preserved
+    while the physical R>G>B ordering comes from measured dispersion."""
+    B = (1.03961212, 0.231792344, 1.01046945)
+    C = (0.00600069867, 0.0200179144, 103.560653)
+    l2 = wl_um * wl_um
+    return float((1.0 + sum(b * l2 / (l2 - c) for b, c in zip(B, C))) ** 0.5)
+
+
+def ior_rgb(ior_550, lambdas=(0.65, 0.55, 0.45)):
+    """Per-channel IOR anchored at the material's IOR (taken at 550 nm)."""
+    base = bk7_n(0.55)
+    return tuple(float(ior_550) + (bk7_n(l) - base) for l in lambdas)
+
+
+def _shoot(o, d, geo, eta_c, receiver_z, patch_half, cx, cy):
+    """Single interface-pair traversal at one channel index. Returns
+    (x, y, path_length_mm_inside) or None (miss / TIR / off-receiver). The
+    caller applies Beer-Lambert from the path length."""
     A, E1, E2 = geo
     pvec = np.cross(d, E2)
     det = np.einsum("ij,ij->i", E1, pvec)
@@ -111,7 +145,7 @@ def _shoot(o, d, geo, eta, absorb, receiver_z, patch_half, cx, cy):
     p, n = hp
     if n @ d > 0.0:
         n = -n
-    t = _refract(d, n, 1.0 / eta)
+    t = _refract(d, n, 1.0 / eta_c)
     if t is None:
         return None
     p2 = p + t * 1e-6
@@ -126,28 +160,36 @@ def _shoot(o, d, geo, eta, absorb, receiver_z, patch_half, cx, cy):
     q0, n2 = hx
     if n2 @ t > 0.0:
         n2 = -n2
-    t2 = _refract(t, n2, eta)
+    t2 = _refract(t, n2, eta_c)
     if t2 is None or abs(t2[2]) < 1e-9:
         return None
     L = float(np.linalg.norm(q0 - p))
-    w = np.exp(-np.asarray(absorb, float) * L)
     s = (receiver_z - q0[2]) / t2[2]
     if s <= 0.0:
         return None
     q = q0 + s * t2
     if abs(q[0] - cx) > patch_half or abs(q[1] - cy) > patch_half:
         return None
-    return (q[0], q[1], w)
+    return (q[0], q[1], L)
 
 
 def trace_mesh(verts, faces, lights, receiver, opts):
-    """See module docstring. Raises ValueError on open meshes / inside lights."""
+    """Two-interface transport per channel. eta may be scalar or (R,G,B).
+
+    Returns {"hits": (M,2), "chan": (M,) int 0/1/2, "weights": (M,) float,
+    "extent_m"}. A scalar eta traces one shared path with per-channel
+    absorption weights; a triple traces three dispersed paths.
+    Raises ValueError on open meshes / inside lights."""
     verts = np.asarray(verts, dtype=np.float64)
     faces = np.asarray(faces, dtype=np.int64)
-    bad = _check_watertight(faces)
-    if bad:
-        raise ValueError(f"mesh not watertight: {len(bad)} open edges")
-    eta = float(opts.get("eta", 1.5251))
+    check_closed(faces)
+    eta_opt = opts.get("eta", 1.5251)
+    try:
+        etas = (float(eta_opt),) * 3
+        nchan = 1
+    except TypeError:
+        etas = (float(eta_opt[0]), float(eta_opt[1]), float(eta_opt[2]))
+        nchan = 3 if len({round(e, 9) for e in etas}) > 1 else 1
     absorb = tuple(opts.get("absorb_rgb", (0.0, 0.0, 0.0)))
     n_side = int(opts.get("n_side", 150))
     rz = float(receiver["z"])
@@ -164,7 +206,24 @@ def trace_mesh(verts, faces, lights, receiver, opts):
         if pos is not None and _point_in_mesh(pos, verts, faces):
             raise ValueError("light inside mesh: move it outside the glass")
 
-    outs = []
+    outs = []  # (x, y, channel, weight)
+
+    def shoot_all(o, d):
+        if nchan == 1:
+            r = _shoot(o, d, geo, etas[0], rz, ph, cx, cy)
+            if r is None:
+                return
+            _, _, L = r
+            for c in range(3):
+                outs.append((r[0], r[1], c, float(np.exp(-absorb[c] * L))))
+        else:
+            for c in range(3):
+                r = _shoot(o, d, geo, etas[c], rz, ph, cx, cy)
+                if r is None:
+                    continue
+                _, _, L = r
+                outs.append((r[0], r[1], c, float(np.exp(-absorb[c] * L))))
+
     for L in lights:
         t = L["type"]
         if t == "sun":
@@ -175,9 +234,7 @@ def trace_mesh(verts, faces, lights, receiver, opts):
             for x in xs:
                 for y in xs:
                     o = centre + x * right + y * up - 0.5 * d
-                    r = _shoot(o, d, geo, eta, absorb, rz, ph, cx, cy)
-                    if r is not None:
-                        outs.append(r)
+                    shoot_all(o, d)
         elif t in ("point", "spot"):
             pos = np.asarray(L["position"], float)
             tgt = np.asarray(L.get("direction", centre - pos), float)
@@ -198,9 +255,7 @@ def trace_mesh(verts, faces, lights, receiver, opts):
                         ang = math.radians(float(L.get("angle_deg", 30.0)))
                         if float(dd @ co) < math.cos(ang):
                             continue
-                    r = _shoot(pos, dd, geo, eta, absorb, rz, ph, cx, cy)
-                    if r is not None:
-                        outs.append(r)
+                    shoot_all(pos, dd)
         elif t == "area":
             pos = np.asarray(L["position"], float)
             n = np.asarray(L.get("normal", (0, 0, -1)), float)
@@ -217,11 +272,17 @@ def trace_mesh(verts, faces, lights, receiver, opts):
                             aim = centre + x * right + y * up
                             dd = aim - src
                             dd /= float(np.linalg.norm(dd))
-                            r = _shoot(src, dd, geo, eta, absorb, rz, ph, cx, cy)
-                            if r is not None:
-                                outs.append(r)
+                            shoot_all(src, dd)
         else:
             raise ValueError(f"unknown light type: {t}")
-    hits = np.array([(h[0], h[1]) for h in outs], float) if outs else np.zeros((0, 2))
-    wght = np.array([h[2] for h in outs], float) if outs else np.zeros((0, 3))
-    return {"hits": hits, "weights": wght, "extent_m": (2 * ph, 2 * ph)}
+    if outs:
+        a = np.array(outs, float)
+        hits = a[:, :2].reshape(-1, 2)
+        chan = a[:, 2].astype(np.int64)
+        wght = a[:, 3]
+    else:
+        hits = np.zeros((0, 2))
+        chan = np.zeros((0,), dtype=np.int64)
+        wght = np.zeros((0,))
+    return {"hits": hits, "chan": chan, "weights": wght,
+            "extent_m": (2 * ph, 2 * ph)}
