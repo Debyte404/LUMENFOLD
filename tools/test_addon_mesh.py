@@ -187,6 +187,25 @@ check("seq_frames_differ", len(set(blobs)) > 1,
 img = bpy.data.images.get("CAUSTIC_bake")
 check("seq_injection_uses_sequence",
       img is not None and img.source == "SEQUENCE", getattr(img, "source", "?"))
+# the sequence must actually drive the render: CAUSTIC_bake is still the
+# 3-frame sequence from the seq test above — inject it and render frames 1/3
+bpy.ops.caustic.inject()
+sc = bpy.context.scene
+sc.render.engine = "CYCLES"
+sc.cycles.samples = 16
+sc.render.resolution_x = 240
+sc.render.resolution_y = 150
+import tempfile as _tf
+shots = []
+for f in (1, 3):
+    sc.frame_set(f)
+    fp = os.path.join(_tf.gettempdir(), f"dragon_seq_proof_f{f}.png")
+    sc.render.filepath = fp
+    bpy.ops.render.render(write_still=True)
+    shots.append(open(fp, "rb").read())
+check("seq_drives_render",
+      len(shots) == 2 and shots[0] != shots[1],
+      f"sizes={[len(s) for s in shots]}")
 
 print("FAILURES:", FAILS if FAILS else "0 []")
 sys.exit(1 if FAILS else 0)

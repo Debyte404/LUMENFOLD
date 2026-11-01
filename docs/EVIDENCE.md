@@ -2702,6 +2702,8 @@ What held:
 What did not / limits carried forward:
 * Rough glass, nested volumes, volumetrics inside the body, and motion blur
   are refused by name (no fold exists for rough glass; single closed surface
-  assumed). Animation (per-frame bake + image sequence) is implemented next
-  as the gated Phase 2 of `docs/superpowers/plans/2026-11-01-addon-anymesh-full.md`.
+  assumed). Animation (per-frame bake + image sequence) is implemented and
+  tested (`caustic.bake_seq`: per-frame lights, vertex-count guard, SEQUENCE
+  image with frame mapping; `test_addon_mesh.py` renders frames 1 vs 3 through
+  the injected sequence and they differ).
 
