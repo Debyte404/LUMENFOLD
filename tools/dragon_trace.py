@@ -38,8 +38,33 @@ def refract(d, n, eta):
     return eta * d + (eta * cosi - math.sqrt(k)) * n
 
 
+def _first_hit(o, d, A, E1, E2, pvec, det, inv, skip=-1):
+    """Closest positive hit of ray (o, d); skip one face index (the entry)."""
+    tvec = o - A
+    qvec = np.cross(tvec, E1)
+    u = np.einsum("ij,ij->i", tvec, pvec) * inv
+    v = (qvec @ d) * inv
+    dist = np.einsum("ij,ij->i", qvec, E2) * inv
+    ok = ((np.abs(det) > 1e-14) & (u >= 0.0) & (u <= 1.0) & (v >= 0.0)
+          & (u + v <= 1.0) & (dist > 1e-9))
+    if skip >= 0:
+        ok = ok & (np.arange(A.shape[0]) != skip)
+    if not ok.any():
+        return None, None
+    i = int(np.argmin(np.where(ok, dist, np.inf)))
+    p = o + dist[i] * d
+    n = np.cross(E1[i], E2[i])
+    n /= np.linalg.norm(n)
+    return i, (p, n)
+
+
 def trace(mesh, sun=SUN, n_side=300, eta=1.5251, receiver_z=0.0,
           patch_half=4.0, mesh_offset=None):
+    """Two-interface transport: enter (air->glass), exit (glass->air).
+
+    A ray that totally internally reflects at the exit is dropped. Rays
+    that miss the mesh entirely are dropped (no background transport).
+    """
     verts, faces = mesh
     if mesh_offset is not None:
         verts = verts + np.asarray(mesh_offset, dtype=np.float64)
@@ -48,8 +73,8 @@ def trace(mesh, sun=SUN, n_side=300, eta=1.5251, receiver_z=0.0,
     E2 = verts[faces[:, 2]] - A
     pvec = np.cross(sun, E2)
     det = np.einsum("ij,ij->i", E1, pvec)
-    good = np.abs(det) > 1e-14
     inv = np.zeros_like(det)
+    good = np.abs(det) > 1e-14
     inv[good] = 1.0 / det[good]
     lo, hi = verts.min(axis=0) - 0.05, verts.max(axis=0) + 0.05
     centre = 0.5 * (lo + hi)
@@ -63,28 +88,34 @@ def trace(mesh, sun=SUN, n_side=300, eta=1.5251, receiver_z=0.0,
     for x in xs:
         for y in xs:
             o = centre + x * right + y * up - 0.5 * sun
-            tvec = o - A
-            qvec = np.cross(tvec, E1)
-            u = np.einsum("ij,ij->i", tvec, pvec) * inv
-            v = (qvec @ sun) * inv
-            dist = np.einsum("ij,ij->i", qvec, E2) * inv
-            ok = (good & (u >= 0.0) & (u <= 1.0) & (v >= 0.0)
-                  & (u + v <= 1.0) & (dist > 1e-9))
-            if not ok.any():
+            ie, hp = _first_hit(o, sun, A, E1, E2, pvec, det, inv)
+            if ie is None:
                 continue
-            i = int(np.argmin(np.where(ok, dist, np.inf)))
-            p = o + dist[i] * sun
-            n = np.cross(E1[i], E2[i])
-            n /= np.linalg.norm(n)
+            p, n = hp
             if n @ sun > 0.0:
                 n = -n
-            t = refract(sun, n, 1.0 / eta)
-            if t is None or abs(t[2]) < 1e-9:
+            t = refract(sun, n, 1.0 / eta)  # air -> glass
+            if t is None:
                 continue
-            s = (receiver_z - p[2]) / t[2]
+            p2 = p + t * 1e-6
+            pvec2 = np.cross(t, E2)
+            det2 = np.einsum("ij,ij->i", E1, pvec2)
+            inv2 = np.zeros_like(det2)
+            g2 = np.abs(det2) > 1e-14
+            inv2[g2] = 1.0 / det2[g2]
+            ix, hx = _first_hit(p2, t, A, E1, E2, pvec2, det2, inv2, skip=ie)
+            if ix is None:
+                continue
+            q0, n2 = hx
+            if n2 @ t > 0.0:
+                n2 = -n2
+            t2 = refract(t, n2, eta)  # glass -> air
+            if t2 is None or abs(t2[2]) < 1e-9:
+                continue  # TIR at exit: trapped
+            s = (receiver_z - q0[2]) / t2[2]
             if s <= 0.0:
                 continue
-            q = p + s * t
+            q = q0 + s * t2
             if abs(q[0]) <= patch_half and abs(q[1]) <= patch_half:
                 hits.append((q[0], q[1]))
     return np.asarray(hits, dtype=np.float64)
