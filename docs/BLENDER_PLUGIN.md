@@ -45,7 +45,25 @@ caustic will be in the wrong place. `tools/blender_scene.py` is a working refere
 
 ## Controls
 
-### Solver and bake
+### Mesh bake (any closed mesh)
+
+Set **Bake source** to `Selected mesh`. Set **Mesh object** to the closed
+glass body and **Target** to the receiving object, then **Bake mesh caustic**.
+The add-on traces the scene's own lights (SUN, point, spot, area — otherwise
+the **Sun dir** fallback) through the evaluated mesh with two-interface
+refraction, bins the receiver hits, and applies the same band-local Airy
+correction as the solver bake. Inject, remove, and tint work exactly as below.
+
+Contract (refused by name otherwise): the mesh must be watertight, the
+target needs UVs spanning 0–1, lights must sit outside the glass. Rough
+glass, nested volumes, and volumetrics are explicitly unsupported — the
+fold the correction is defined on does not exist there.
+
+Bake time scales with rays x triangles (shown in the panel before running;
+the 35k-tri dragon at 150^2 takes ~40 s on this machine). The field is
+peak-normalized; brightness comes from **Injection gain**.
+
+### Solver bake (calibrated pool scene)
 
 | control | meaning |
 |---|---|
@@ -144,16 +162,22 @@ with `Density = max(mu)` and `Color = 1 - mu/max(mu)`. Both nodes are named with
 
 ## Verification
 
-Two headless harnesses, both of which run without a GUI:
+Two headless harnesses, both of which run without a GUI (Steam Blender 5.2
+via `tools/run_blender.py`, which resolves `BLENDER_EXE` or the Steam
+default — the old hardcoded 4.2 path is gone with that install):
 
 ```bash
 # the caustic injection end to end: register, bake, inject, remove
-"C:/Program Files/Blender Foundation/Blender 4.2/blender.exe" \
-  --background --factory-startup --python tools/test_addon.py
+python tools/run_blender.py --background --factory-startup \
+    --python tools/test_addon.py
+
+# the any-mesh bake: watertight sphere, point light, refusals, absorb, inject
+python tools/run_blender.py --background --factory-startup \
+    --python tools/test_addon_mesh.py
 
 # the coloured-medium path: node built, node LINKED, volume_bounces raised
-"C:/Program Files/Blender Foundation/Blender 4.2/blender.exe" \
-  --background --factory-startup --python tools/addon_bringup.py
+python tools/run_blender.py --background --factory-startup \
+    --python tools/addon_bringup.py
 ```
 
 `test_addon.py` output:

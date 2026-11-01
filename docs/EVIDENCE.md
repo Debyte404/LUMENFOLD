@@ -2664,3 +2664,44 @@ Figure: `docs/media/dragon_suite.png` (built by
 panels side by side at physical scale: referee fan, Cycles-native beauty,
 unresolved PBRT table, unconverged Mitsuba.
 
+--------------------------------------------------------------------------------
+## 25. Any-mesh Bake through the finished addon (2026-11-01)
+--------------------------------------------------------------------------------
+
+The mesh Bake path of `blender_addon/caustic_injector.py` run against the
+dragon through the addon's own operator (not a script): bake, inject, render.
+
+| step | measured |
+|---|---|
+| mesh | dragon, 34938 evaluated tris, watertight, open_edges=0 |
+| bake grid | 150^2 rays, SUN lamp, clear medium (0,0,0) |
+| estimate shown pre-run | 39 s (`estimate_seconds`: rays x tris x 5e-8) |
+| bake wall time | 38 s |
+| ray hits | 1812 of 22500 rays |
+| inject | 1 material slot, `CAUSTIC_*` nodes, Cycles caustics off |
+| render | 720p, 128spp, CAM_beauty: `out/dragon_suite/addon_ours_720p_neutral.png` |
+
+Reproduce (Steam Blender 5.2):
+```
+python tools/run_blender.py --background --factory-startup --python tools/test_addon_mesh.py
+```
+(all 8 asserts PASS), then the dragon proof driver (bake 38 s, inject,
+720p render) as recorded above.
+
+What held:
+* Estimate model validated: predicted 39 s, measured 38 s on 35k tris.
+* A first bake with the red default medium (30, 344, 721) rendered a RED fan
+  in the shadow — the absorb path tints through to the final image by
+  construction (per-channel weights, joint peak). Re-baked neutral (0,0,0)
+  for the placement comparison; both renders kept in `out/dragon_suite/`.
+* Named refusals verified headless: open mesh and missing-UV targets cancel
+  with the reason in the status (Blender 5.2 raises RuntimeError through
+  `bpy.ops` for ERROR+CANCELLED — the tests assert on that; UI behaviour is
+  the standard status-bar flash).
+
+What did not / limits carried forward:
+* Rough glass, nested volumes, volumetrics inside the body, and motion blur
+  are refused by name (no fold exists for rough glass; single closed surface
+  assumed). Animation (per-frame bake + image sequence) is implemented next
+  as the gated Phase 2 of `docs/superpowers/plans/2026-11-01-addon-anymesh-full.md`.
+
