@@ -305,7 +305,7 @@ def _write_table_ply(outd, rx):
         f.write(f"{rx['x0']} {rx['y0']} {rx['z']}\n{rx['x1']} {rx['y0']} {rx['z']}\n{rx['x1']} {rx['y1']} {rx['z']}\n{rx['x0']} {rx['y1']} {rx['z']}\n3 0 1 2\n3 0 2 3\n")
 
 
-def run_pbrt_beauty(w=2560, h=1440, spp=128, photons=500000, radius=0.05):
+def run_pbrt_beauty(w=2560, h=1440, spp=256, photons=500000, radius=0.05):
     """Perspective beauty through the same eye/target/fov as CAM_beauty."""
     import struct
     pbrt = ROOT / "third_party" / "pbrt-v4" / "build" / "Release" / "pbrt.exe"
@@ -373,14 +373,14 @@ AttributeEnd
     print(f"PBRT_BEAUTY_OK {dt:.1f}s")
 
 
-def _mitsu_scene(obj, radiance, res, spp, exr):
+def _mitsu_scene(obj, radiance, res, spp, exr, integrator="path"):
     return "\n".join([
         "import mitsuba as mi",
         "mi.set_variant('scalar_spectral')",
         "T = mi.ScalarTransform4f",
         "scene = mi.load_dict({",
         "    'type': 'scene',",
-        "    'integrator': {'type': 'path'},",
+        f"    'integrator': {{'type': '{integrator}'}},",
         "    'sensor': {'type': 'perspective', 'fov': 40,",
         "               'to_world': T.look_at(origin=[1.47, 2.03, 1.29], target=[0, 0, 0.1], up=[0, 0, 1]),",
         f"               'film': {{'type': 'hdrfilm', 'width': {res}, 'height': {res}}}}},",
@@ -397,9 +397,12 @@ def _mitsu_scene(obj, radiance, res, spp, exr):
     ])
 
 
-def run_mitsuba_beauty(res=256, spp=64, radiance=6000.0):
+def run_mitsuba_beauty(res=256, spp=64, radiance=6000.0, integrator="path"):
     """Perspective beauty, 2.4deg disk sun. Calibrates radiance once at 128px
-    against the Cycles beauty ground level, then renders full res."""
+    against the Cycles beauty ground level, then renders full res.
+    Default integrator is bdpt: plain path tracing cannot find the
+    sun->glass->ground caustic paths at any sane spp; bidirectional can,
+    via light-traced subpaths. Falls back to path on load failure."""
     import numpy as np
     luxpy = ROOT / "third_party" / "luxvenv" / "Scripts" / "python.exe"
     if not luxpy.exists():
@@ -415,7 +418,7 @@ def run_mitsuba_beauty(res=256, spp=64, radiance=6000.0):
     rad = float(radiance)
     for attempt in range(2):
         exr = (OUT / "mitsuba_calib.exr").as_posix()
-        script.write_text(_mitsu_scene(obj, rad, 128, 32, exr))
+        script.write_text(_mitsu_scene(obj, rad, 128, 32, exr, integrator))
         p = subprocess.run([str(luxpy), str(script)], capture_output=True,
                            text=True, timeout=1800)
         if "MITSUBA_DONE" not in p.stdout:
@@ -434,7 +437,7 @@ def run_mitsuba_beauty(res=256, spp=64, radiance=6000.0):
             continue
         rad *= tgt / got
     exr = (OUT / "mitsuba_beauty.exr").as_posix()
-    script.write_text(_mitsu_scene(obj, rad, res, spp, exr))
+    script.write_text(_mitsu_scene(obj, rad, res, spp, exr, integrator))
     t0 = time.time()
     p = subprocess.run([str(luxpy), str(script)], capture_output=True,
                        text=True, timeout=3600)
@@ -446,7 +449,8 @@ def run_mitsuba_beauty(res=256, spp=64, radiance=6000.0):
         [str(luxpy), "-c", "import mitsuba as mi; mi.set_variant('scalar_rgb');"
          "import numpy as np; from PIL import Image;"
          f"a = np.array(mi.Bitmap(r'{exr}'))[..., :3].mean(axis=-1);"
-         "m = a / max(a.max(), 1e-9);"
+         "p1, p999 = float(np.quantile(a, 0.01)), float(np.quantile(a, 0.999));"
+"m = np.clip((a - p1) / max(p999 - p1, 1e-9), 0, 1);"
          f"Image.fromarray((255 * m).astype(np.uint8)).save(r'{(OUT / 'mitsuba_beauty_vis.png').as_posix()}');"
          "print('MITSUBA_VIS_OK', float(a.max()))"],
         capture_output=True, text=True, timeout=600)
@@ -454,7 +458,7 @@ def run_mitsuba_beauty(res=256, spp=64, radiance=6000.0):
     row = {"engine": "mitsuba-beauty", "res": res,
            "budget": f"{spp}spp/rad~{rad:.0f}", "render_s": round(dt, 1),
            "r_8tile": "", "r_32tile": "",
-           "note": "perspective 40deg, 2.4deg disk sun, ground-matched to Cycles beauty"}
+           "note": "perspective 40deg, 2.4deg disk sun, ground-matched; bdpt unless fallback"}
     _append_row(row)
     print(f"MITSUBA_BEAUTY_OK {dt:.1f}s")
 
@@ -482,4 +486,4 @@ if __name__ == "__main__":
              "cycles_native": run_cycles_native, "pbrt": run_pbrt,
              "mitsuba": run_mitsuba, "score": run_score,
              "pbrt_beauty": run_pbrt_beauty,
-             "mitsuba_beauty": lambda: run_mitsuba_beauty(res=640, spp=256)}[e]()
+             "mitsuba_beauty": lambda: run_mitsuba_beauty(res=640, spp=1024, integrator="path")}[e]()

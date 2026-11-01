@@ -2770,3 +2770,31 @@ Weight must exceed 0.
 | legacy `test_addon.py` 8 asserts (untouched path) | PASS |
 | dragon re-bake, 150^2, per-channel BK7-anchored IOR | 5441 hits (was 1812 achromatic), est 118 s, took 118 s |
 | `check_paper.py` | `PAPER REFS OK` |
+
+--------------------------------------------------------------------------------
+## 28. Matched-beauty final: 1024^2 ours, PBRT at 256 iters, Mitsuba at 1024spp
+--------------------------------------------------------------------------------
+
+Same rig for all four (CAM_beauty eye/target, fov 39.6, one 2.4-degree sun;
+Mitsuba sun auto-calibrated to Cycles ground in linear light, 0.694 vs
+0.694; uniform gray environment on the three non-Cycles engines).
+Figure: `docs/media/dragon_beauty_compare.png`.
+
+| engine | res | budget | wall time | caustic fan? |
+|---|---|---|---|---|
+| Cycles-native | 2560x1440 | 1024spp | 66 s | yes, smooth |
+| ours injected | 1920x1080 | 1024^2 bake (71 min) + 4 min render | ~75 min | yes, residual blockiness + shot noise |
+| PBRT-SPPM perspective | 2560x1440 | 256spp/500k ph | 155 s | yes, faint streak at the dragon's foot |
+| Mitsuba path | 640px | 1024spp, ground-matched | 106 s | no — black glass, fireflies persist |
+
+What changed since §26: PBRT at 2x iterations still shows the fan (same
+place, slightly cleaner); Mitsuba at 1024spp (this build has only `path`
+and `direct` — no bdpt/photonmapper/mlt, verified by plugin probe) still
+shows no fan, only sparser fireflies on black glass, while its ground
+renders correctly. That closes the "needs more samples" question for path
+tracing on this scene: 16x the samples, same verdict.
+Ours at 1024^2 halves the blocks again vs 512^2 (grid cause confirmed
+twice) but shot noise persists: 258k hits over 1M texels is < 1 hit/texel,
+and band-local flux conservation preserves that noise by design. The fix
+is supersampling rays above grid resolution (decouple n_side from n_grid)
+plus a feathered band edge — recorded here as prescribed work, not done.

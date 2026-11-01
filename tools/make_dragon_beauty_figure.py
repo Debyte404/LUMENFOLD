@@ -24,9 +24,9 @@ def main():
 
     panels = [
         ("cycles_native_2560.png", "Cycles native 2560x1440/1024spp (66 s)"),
-        ("addon_ours_2560_r512.png", "ours injected 2560, 512^2 bake (85 s + 133 s)"),
-        ("pbrt_beauty_vis.png", "PBRT-SPPM perspective 2560x1440 (86 s)"),
-        ("mitsuba_beauty_vis.png", "Mitsuba path, ground-matched (34 s)"),
+        ("addon_ours_2560_r1024.png", "ours injected 2560, 1024^2 bake (71 min + 4 min)"),
+        ("pbrt_beauty_vis.png", "PBRT-SPPM perspective 2560x1440/256spp (155 s)"),
+        ("mitsuba_beauty_vis.png", "Mitsuba path 1024spp, ground-matched (106 s)"),
     ]
     fig, axes = plt.subplots(2, 2, figsize=(12.8, 7.6))
     for ax, (fn, title) in zip(axes.ravel(), panels):
