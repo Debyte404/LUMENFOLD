@@ -9,3 +9,11 @@ pbrt-sppm,256,256spp/500000ph,7.7,,,ortho over receiver; scored vs referee in EV
 referee,256,300^2 rays,145.9,,,receiver_z=-0.276 patch_half=2.17m
 ours-proto,128,150^2 rays,36.3,0.999,0.987,EDT-ridge band + Airy 6.77um vs referee-256 block-averaged
 pbrt-scored,256,resample-to-referee,,0.097,0.082,bilinear PBRT ortho onto referee grid; orientation per pipeline
+pbrt-beauty,2560x1440,128spp/500000ph,78.6,,,"perspective 39.6deg, same eye/target as CAM_beauty"
+mitsuba-beauty,640,256spp/rad~3026812,29.2,,,"perspective 40deg, 2.4deg disk sun, ground-matched to Cycles beauty"
+pbrt-scored,256,resample-to-referee,,0.097,0.082,bilinear PBRT ortho onto referee grid; orientation per pipeline
+mitsuba-beauty,640,256spp/rad~10100,31.0,,,"perspective 40deg, 2.4deg disk sun, ground-matched to Cycles beauty"
+pbrt-scored,256,resample-to-referee,,0.097,0.082,bilinear PBRT ortho onto referee grid; orientation per pipeline
+pbrt-beauty,2560x1440,128spp/500000ph,85.9,,,"perspective 39.6deg, same eye/target as CAM_beauty"
+mitsuba-beauty,640,256spp/rad~5252,33.9,,,"perspective 40deg, 2.4deg disk sun, ground-matched to Cycles beauty"
+pbrt-scored,256,resample-to-referee,,0.097,0.082,bilinear PBRT ortho onto referee grid; orientation per pipeline

@@ -2719,3 +2719,33 @@ What did not / limits carried forward:
   image with frame mapping; `test_addon_mesh.py` renders frames 1 vs 3 through
   the injected sequence and they differ).
 
+--------------------------------------------------------------------------------
+## 26. Matched four-engine beauty comparison (2026-11-01)
+--------------------------------------------------------------------------------
+
+Same eye/target (CAM_beauty (1.47, 2.03, 1.29) -> (0, 0, 0.1), fov 39.6),
+same 2.4-degree sun direction, ground levels matched (Mitsuba sun radiance
+auto-calibrated to Cycles ground median in linear light: 0.694 vs 0.694),
+uniform gray environment on all three non-Cycles engines (Cycles background
+measured 0.64-0.83 linear; PBRT/Mitsuba given 0.7). Physical scale throughout.
+Figure: `docs/media/dragon_beauty_compare.png` (built by
+`tools/make_dragon_beauty_figure.py`).
+
+| engine | res | budget | wall time | caustic fan? |
+|---|---|---|---|---|
+| Cycles native | 2560x1440 | 1024spp | 66 s | yes, smooth |
+| ours injected (512^2 bake) | 1920x1080 | bake 334 s + render 133 s | 467 s | yes, blocky at 1.6 cm/px |
+| PBRT-SPPM perspective | 2560x1440 | 128spp/500k ph | 86 s | yes, faint streak at dragon's foot |
+| Mitsuba path | 640px | 256spp | 34 s | no — black glass + fireflies |
+
+What this settles: PBRT-SPPM does resolve the dragon fan (the earlier
+r = 0.097 ortho score was an unconverged 256-iteration measurement on an
+8 m patch, now superseded as a quality claim but kept in the CSV history).
+Three of four methods agree on placement. Mitsuba path tracing at this
+budget does not converge the fan — consistent with the paper's standing
+result on path tracers and glass caustics, now with matched-rig evidence.
+
+What remains open: residual exposure/background deltas (uniform 0.7 env is
+an approximation of Cycles' gradient world); a converged Mitsuba run is
+not claimed.
+

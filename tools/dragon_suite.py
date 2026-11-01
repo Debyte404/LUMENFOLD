@@ -181,6 +181,7 @@ Integrator "sppm" "integer maxdepth" [8]
            "float radius" [{radius}]
 WorldBegin
 LightSource "distant" "point3 from" [-1.6 -0.84 0.86] "point3 to" [0 0 0] "rgb L" [8.0 8.0 8.0]
+LightSource "infinite" "rgb L" [0.7 0.7 0.7]
 MakeNamedMaterial "glass" "string type" "dielectric" "float eta" [1.52514]
 MakeNamedMaterial "table" "string type" "diffuse" "rgb reflectance" [0.8 0.8 0.8]
 AttributeBegin
@@ -293,6 +294,171 @@ def run_score():
     print(f"SCORE_OK pbrt_vs_referee r8={r8:.3f} r32={r32:.3f}")
 
 
+EYE = (1.47, 2.03, 1.29)
+LOOK = (0.0, 0.0, 0.1)
+BEAUTY_FOV = 39.6  # Blender 50mm default lens
+
+
+def _write_table_ply(outd, rx):
+    with open(outd / "table.ply", "w") as f:
+        f.write("ply\nformat ascii 1.0\nelement vertex 4\nproperty float x\nproperty float y\nproperty float z\nelement face 2\nproperty list uchar int vertex_indices\nend_header\n")
+        f.write(f"{rx['x0']} {rx['y0']} {rx['z']}\n{rx['x1']} {rx['y0']} {rx['z']}\n{rx['x1']} {rx['y1']} {rx['z']}\n{rx['x0']} {rx['y1']} {rx['z']}\n3 0 1 2\n3 0 2 3\n")
+
+
+def run_pbrt_beauty(w=2560, h=1440, spp=128, photons=500000, radius=0.05):
+    """Perspective beauty through the same eye/target/fov as CAM_beauty."""
+    import struct
+    pbrt = ROOT / "third_party" / "pbrt-v4" / "build" / "Release" / "pbrt.exe"
+    if not pbrt.exists():
+        raise SystemExit(f"pbrt not built at {pbrt}")
+    outd = ROOT / "out" / "dragon_pbrt"
+    outd.mkdir(parents=True, exist_ok=True)
+    fpath = (outd / "pbrt_beauty.exr").as_posix()
+    dply = (outd / "dragon.ply").as_posix()
+    tply = (outd / "table.ply").as_posix()
+    r = _recv()
+    rx = r["receiver"]
+    _write_table_ply(outd, rx)
+    ex, ey, ez = EYE
+    tx, ty, tz = LOOK
+    scene = f"""LookAt {ex} {ey} {ez}   {tx} {ty} {tz}   0 0 1
+Camera "perspective" "float fov" [{BEAUTY_FOV}]
+       "float frameaspectratio" [{w / h:.6f}]
+Film "rgb" "string filename" "{fpath}"
+     "integer xresolution" [{w}] "integer yresolution" [{h}]
+Sampler "halton" "integer pixelsamples" [{spp}]
+Integrator "sppm" "integer maxdepth" [8]
+           "integer photonsperiteration" [{photons}]
+           "float radius" [{radius}]
+WorldBegin
+LightSource "distant" "point3 from" [-1.6 -0.84 0.86] "point3 to" [0 0 0] "rgb L" [8.0 8.0 8.0]
+LightSource "infinite" "rgb L" [0.7 0.7 0.7]
+MakeNamedMaterial "glass" "string type" "dielectric" "float eta" [1.52514]
+MakeNamedMaterial "table" "string type" "diffuse" "rgb reflectance" [0.8 0.8 0.8]
+AttributeBegin
+  NamedMaterial "table"
+  Shape "plymesh" "string filename" "{tply}"
+AttributeEnd
+AttributeBegin
+  NamedMaterial "glass"
+  Shape "plymesh" "string filename" "{dply}"
+AttributeEnd
+"""
+    sp = outd / "dragon_beauty.pbrt"
+    sp.write_text(scene)
+    t0 = time.time()
+    p = subprocess.run([str(pbrt), "--nthreads", "20", str(sp)],
+                       capture_output=True, text=True, timeout=7200)
+    dt = time.time() - t0
+    print((p.stdout[-600:] or "") + (p.stderr[-600:] or ""))
+    if p.returncode != 0:
+        raise SystemExit("pbrt beauty render failed")
+    luxpy = ROOT / "third_party" / "luxvenv" / "Scripts" / "python.exe"
+    q = subprocess.run(
+        [str(luxpy), "-c", "import mitsuba as mi; mi.set_variant('scalar_rgb');"
+         "import numpy as np; from PIL import Image;"
+         f"a = np.array(mi.Bitmap(r'{fpath}')); lum = a[..., :3].mean(axis=-1).astype(np.float64);"
+         f"np.save(r'{(OUT / 'pbrt_beauty_lum.npy').as_posix()}', lum);"
+         "p1, p999 = float(np.quantile(lum, 0.01)), float(np.quantile(lum, 0.999));"
+         "m = np.clip((lum - p1) / max(p999 - p1, 1e-9), 0, 1);"
+         f"Image.fromarray((255 * m).astype(np.uint8)).save(r'{(OUT / 'pbrt_beauty_vis.png').as_posix()}');"
+         "print('PBRT_BEAUTY_DUMP_OK', a.shape, 'p999', float(p999))"],
+        capture_output=True, text=True, timeout=600)
+    print((q.stdout[-400:] or "") + (q.stderr[-400:] or ""))
+    row = {"engine": "pbrt-beauty", "res": f"{w}x{h}",
+           "budget": f"{spp}spp/{photons}ph", "render_s": round(dt, 1),
+           "r_8tile": "", "r_32tile": "",
+           "note": "perspective 39.6deg, same eye/target as CAM_beauty"}
+    _append_row(row)
+    print(f"PBRT_BEAUTY_OK {dt:.1f}s")
+
+
+def _mitsu_scene(obj, radiance, res, spp, exr):
+    return "\n".join([
+        "import mitsuba as mi",
+        "mi.set_variant('scalar_spectral')",
+        "T = mi.ScalarTransform4f",
+        "scene = mi.load_dict({",
+        "    'type': 'scene',",
+        "    'integrator': {'type': 'path'},",
+        "    'sensor': {'type': 'perspective', 'fov': 40,",
+        "               'to_world': T.look_at(origin=[1.47, 2.03, 1.29], target=[0, 0, 0.1], up=[0, 0, 1]),",
+        f"               'film': {{'type': 'hdrfilm', 'width': {res}, 'height': {res}}}}},",
+        f"    'dragon': {{'type': 'obj', 'filename': '{obj}', 'material': {{'type': 'dielectric', 'int_ior': 1.525}}}},",
+        "    'sun': {'type': 'sphere', 'center': [-4.8, -2.52, 2.58], 'radius': 0.126,"
+        f" 'emitter': {{'type': 'area', 'radiance': {radiance}}}}},",
+        "    'ground': {'type': 'rectangle', 'to_world': T.translate([0, 0, -0.28]).scale([8, 7, 1]), 'material': {'type': 'diffuse'}},",
+        "    'world': {'type': 'constant', 'radiance': 0.7},",
+        "})",
+        f"img = mi.render(scene, spp={spp})",
+        f"mi.Bitmap(img).write('{exr}')",
+        "print('MITSUBA_DONE')",
+        "",
+    ])
+
+
+def run_mitsuba_beauty(res=256, spp=64, radiance=6000.0):
+    """Perspective beauty, 2.4deg disk sun. Calibrates radiance once at 128px
+    against the Cycles beauty ground level, then renders full res."""
+    import numpy as np
+    luxpy = ROOT / "third_party" / "luxvenv" / "Scripts" / "python.exe"
+    if not luxpy.exists():
+        raise SystemExit("luxvenv python missing")
+    obj = (GEO / "dragon.obj").as_posix()
+    script = OUT / "mitsu_dragon.py"
+    # calibrate on the Cycles beauty ground level (display-mean of lower half)
+    from PIL import Image
+    cyc = np.array(Image.open(ROOT / "out/dragon_suite/cycles_native_2560.png").convert("L"),
+                   dtype=float) / 255.0
+    lin = cyc ** 2.2  # Cycles PNG is gamma-encoded; match in linear light
+    tgt = float(np.median(np.sort(lin)[:len(lin) // 2]))
+    rad = float(radiance)
+    for attempt in range(2):
+        exr = (OUT / "mitsuba_calib.exr").as_posix()
+        script.write_text(_mitsu_scene(obj, rad, 128, 32, exr))
+        p = subprocess.run([str(luxpy), str(script)], capture_output=True,
+                           text=True, timeout=1800)
+        if "MITSUBA_DONE" not in p.stdout:
+            print((p.stdout[-600:] or "") + (p.stderr[-600:] or ""))
+            raise SystemExit("mitsuba calibration render failed")
+        q = subprocess.run(
+            [str(luxpy), "-c", "import mitsuba as mi; mi.set_variant('scalar_rgb');"
+             "import numpy as np;"
+             f"a = np.array(mi.Bitmap(r'{exr}'))[..., :3].mean(axis=-1).ravel();"
+             "print(float(np.median(np.sort(a)[:len(a)//2])))"],
+            capture_output=True, text=True, timeout=600)
+        got = float(q.stdout.strip().split()[-1])
+        print(f"CALIB attempt {attempt}: radiance {rad:.0f} -> ground {got:.3f} (target {tgt:.3f} linear)")
+        if got <= 0:
+            rad *= 4.0
+            continue
+        rad *= tgt / got
+    exr = (OUT / "mitsuba_beauty.exr").as_posix()
+    script.write_text(_mitsu_scene(obj, rad, res, spp, exr))
+    t0 = time.time()
+    p = subprocess.run([str(luxpy), str(script)], capture_output=True,
+                       text=True, timeout=3600)
+    dt = time.time() - t0
+    print((p.stdout[-600:] or "") + (p.stderr[-600:] or ""))
+    if "MITSUBA_DONE" not in p.stdout:
+        raise SystemExit("mitsuba beauty render failed")
+    q = subprocess.run(
+        [str(luxpy), "-c", "import mitsuba as mi; mi.set_variant('scalar_rgb');"
+         "import numpy as np; from PIL import Image;"
+         f"a = np.array(mi.Bitmap(r'{exr}'))[..., :3].mean(axis=-1);"
+         "m = a / max(a.max(), 1e-9);"
+         f"Image.fromarray((255 * m).astype(np.uint8)).save(r'{(OUT / 'mitsuba_beauty_vis.png').as_posix()}');"
+         "print('MITSUBA_VIS_OK', float(a.max()))"],
+        capture_output=True, text=True, timeout=600)
+    print((q.stdout[-400:] or "") + (q.stderr[-400:] or ""))
+    row = {"engine": "mitsuba-beauty", "res": res,
+           "budget": f"{spp}spp/rad~{rad:.0f}", "render_s": round(dt, 1),
+           "r_8tile": "", "r_32tile": "",
+           "note": "perspective 40deg, 2.4deg disk sun, ground-matched to Cycles beauty"}
+    _append_row(row)
+    print(f"MITSUBA_BEAUTY_OK {dt:.1f}s")
+
+
 def _check():
     rng = np.random.default_rng(0)
     a = rng.random((128, 128))
@@ -314,4 +480,6 @@ if __name__ == "__main__":
             e = e.strip()
             {"referee": run_referee, "ours": run_ours,
              "cycles_native": run_cycles_native, "pbrt": run_pbrt,
-             "mitsuba": run_mitsuba, "score": run_score}[e]()
+             "mitsuba": run_mitsuba, "score": run_score,
+             "pbrt_beauty": run_pbrt_beauty,
+             "mitsuba_beauty": lambda: run_mitsuba_beauty(res=640, spp=256)}[e]()
