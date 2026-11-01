@@ -2659,3 +2659,8 @@ are superseded: the single-hit tracer refracted at entry and never exited,
 which shifts the fan by order of the body thickness. The two-interface
 transport above replaces it; the old rows remain in the CSV history.
 
+Figure: `docs/media/dragon_suite.png` (built by
+`tools/make_dragon_figure.py` from `out/` working artefacts) shows the four
+panels side by side at physical scale: referee fan, Cycles-native beauty,
+unresolved PBRT table, unconverged Mitsuba.
+
