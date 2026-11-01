@@ -2587,3 +2587,75 @@ Build and parity status:
 * `tools/check_dual_format.py`: `DUAL-FORMAT OK`, 11 shared sections, 12 claims checked in both editions;
 * `tools/check_paper.py`: `PAPER REFS OK` (all reference, citation, and script checks pass).
 
+--------------------------------------------------------------------------------
+## 24. Glass dragon complex-shape suite (2026-11-01)
+--------------------------------------------------------------------------------
+
+First arbitrary-mesh test: the in-repo `models/dragon.blend` (43457-vert base
+mesh, Remesh+Decimate modifiers live so the evaluated mesh is 17469 verts /
+34938 tris, plane ground, one camera, three point lights) converted to a closed
+glass volume (`tools/dragon_glass_setup.py`: open_edges=0, no Solidify needed,
+Principled transmission 1.0, roughness 0, IOR 1.525) with one locked sun and
+one locked camera for every engine. New scenery, not the tumbler rig. All
+proof renders at the physical fringe scale; no exaggerated panel exists yet.
+
+Pre-registered in `docs/superpowers/plans/2026-11-01-dragon-glass-caustic.md`:
+referee = independent triangle-mesh tracer (Moller-Trumbore, two-interface
+air->glass->air with TIR drop, no Jacobian, no solver import); pass criterion
+r >= 0.80 at coarse tiles for the proto correction; a miss is recorded, not tuned.
+
+| engine | res | budget | render_s | r_8tile | r_32tile |
+|---|---|---|---|---|---|
+| referee (two-interface) | 256 | 300^2 rays | 145.9 | — | — |
+| ours-proto | 128 | 150^2 rays | 36.3 | 0.999 | 0.987 |
+| cycles-native | 2560x1440 | 1024spp | 66.1 | — | — |
+| pbrt-sppm | 256 ortho | 256spp/500k ph | 7.7 | — | — |
+| pbrt-scored vs referee | 256 resampled | bilinear | — | 0.097 | 0.082 |
+| mitsuba-path | 256 | 64spp | 1.4 | — | — |
+
+Reproduce:
+```
+E:/SteamLibrary/steamapps/common/Blender/blender.exe --background --python tools/dragon_glass_setup.py -- --in models/dragon.blend --out models/dragon_glass.blend
+E:/SteamLibrary/steamapps/common/Blender/blender.exe --background --python tools/dragon_spike_render.py -- --blend models/dragon_glass.blend --out out/dragon_suite/cycles_native_2560.png --w 2560 --h 1440 --samples 1024 --clamp-indirect 0
+python tools/dragon_trace.py
+python tools/dragon_suite.py --check
+python tools/dragon_suite.py --engines referee,ours
+python tools/dragon_suite.py --engines cycles_native
+python tools/dragon_suite.py --engines pbrt
+python tools/dragon_suite.py --engines mitsuba
+python tools/dragon_suite.py --engines score
+```
+
+What held:
+* The smoke test passed first try: glass dragon at 720p/128spp Cycles-native
+  shows a bright refracted fan inside the cast shadow; at 2560x1440/1024spp it
+  is a sharp band left of the dragon (66.1 s). The referee (7023 hits, max 31)
+  throws the same fan, and the EDT-ridge band-local Airy correction tracks the
+  referee at r = 0.999/0.987.
+* Caveat on that number, stated plainly: ours-proto shares the tracer code
+  with the referee (only the sampling grid differs), so it scores the
+  correction operator, not an independent method. The independent witnesses
+  are the Cycles beauty renders, which agree with the referee on placement.
+
+What did not:
+* PBRT-SPPM misses the 0.80 threshold at r = 0.097/0.082. The 256-iteration
+  ortho render shows a lit table and a dark glass dragon but no resolved fan:
+  at 500k photons/iteration over an 8 m scene the fan is unconverged. Two
+  own-bugs were caught and fixed on the way (Windows backslash escapes in the
+  .pbrt paths; a one-triangle table quad), neither of which moved the score,
+  which points at budget rather than setup.
+* Mitsuba 3 path tracer at 64spp is fireflies on black: unconverged, as the
+  paper already documents for path tracers on glass caustics. Kept as the
+  qualitative witness only (paper limitations §8 treatment).
+* Open question, not a conclusion: whether a converged (10-100x) SPPM run
+  would meet the threshold. Not run; would be a new experiment with its own
+  budget row, not a revision of this one.
+* Orientation note: resampling PBRT onto the referee grid is Y-sensitive
+  (a flipped mapping reads 0.26/0.20); the pipeline's unflipped convention
+  is what is reported. Row 0 = -Y in the referee grid.
+
+Earlier CSV rows (single-interface referee 114.6 s, proto r = 1.0/0.995)
+are superseded: the single-hit tracer refracted at entry and never exited,
+which shifts the fan by order of the body thickness. The two-interface
+transport above replaces it; the old rows remain in the CSV history.
+
