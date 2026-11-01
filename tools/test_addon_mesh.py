@@ -159,5 +159,34 @@ n_out = sum(1 for m in mats for nd in m.node_tree.nodes if nd.name.startswith("C
 check("inject_remove_roundtrip", n_in > 0 and n_out == 0,
       f"injected={n_in} left={n_out}")
 
+# ---- 9. sequence bake: 3 frames differ, sequence injection ----------------
+fresh_scene()
+sun = bpy.data.objects.get("sun")
+sun.rotation_mode = "XYZ"
+for f, ang in ((1, 0.0), (2, 0.1), (3, 0.2)):
+    sun.rotation_euler = (ang, 0.0, 0.0)  # tilt about X: moves the -Z sun dir
+    sun.keyframe_insert(data_path="rotation_euler", frame=f)
+p = bpy.context.scene.caustic
+p = bpy.context.scene.caustic
+p.mesh_object = glass()
+p.target = plane()
+p.seq_start = 1
+p.seq_end = 3
+p.mesh_resolution = 32
+p.mesh_airy = 0.006
+r = bpy.ops.caustic.bake_seq()
+check("seq_bake_runs", r == {"FINISHED"}, p.status[:80])
+import glob as _glob
+frames = sorted(_glob.glob(os.path.join(
+    os.path.expanduser("~"), "AppData", "Local", "Temp",
+    "blender_caustic", "seq", "caustic_*.png")))
+check("seq_three_frames", len(frames) == 3, f"{len(frames)} files")
+blobs = [open(f, "rb").read() for f in frames]
+check("seq_frames_differ", len(set(blobs)) > 1,
+      f"sizes={[len(b) for b in blobs]}")
+img = bpy.data.images.get("CAUSTIC_bake")
+check("seq_injection_uses_sequence",
+      img is not None and img.source == "SEQUENCE", getattr(img, "source", "?"))
+
 print("FAILURES:", FAILS if FAILS else "0 []")
 sys.exit(1 if FAILS else 0)
