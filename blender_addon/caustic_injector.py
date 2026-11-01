@@ -694,12 +694,18 @@ class CAUSTIC_OT_bake_seq(bpy.types.Operator):
             img.colorspace_settings.name = "Non-Color"
         except Exception:
             pass
+        # Map timeline frames 1:1 onto the baked files: file 0001 <=> seq_start.
+        for _attr, _val in (("frame_start", p.seq_start),
+                           ("use_auto_refresh", True)):
+            try:
+                setattr(img, _attr, _val)
+            except Exception:
+                pass
         p.image_path = seqdir
         p.status = (f"[mesh-seq] {len(frames)} frames "
                     f"{p.seq_start}-{p.seq_end} in {seqdir}")
         self.report({"INFO"}, f"baked {len(frames)} frames to {seqdir}")
         return {"FINISHED"}
-        dt = time.time() - t0
         p.image_path = out
         p.last_ms = dt * 1000.0
         p.status = (f"[mesh] {tris_n} tris res {n} est {est:.0f}s "
