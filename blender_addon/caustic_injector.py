@@ -29,8 +29,8 @@ _ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
 bl_info = {
     "name": "Wave Caustic Injector",
     "author": "caustics project",
-    "version": (0, 2, 0),
-    "blender": (3, 6, 0),
+    "version": (0, 3, 0),
+    "blender": (5, 0, 0),
     "location": "View3D > Sidebar > Caustic",
     "description": "Bake wave-corrected caustics and inject them into Cycles "
                    "materials as noise-free light",
@@ -81,6 +81,27 @@ class CausticProps(bpy.types.PropertyGroup):
     target: bpy.props.PointerProperty(
         name="Target", type=bpy.types.Object,
         description="Object that receives the caustic (usually the table)")
+    # --- mesh bake (any closed mesh) -----------------------------------------
+    # Solver scene mode is untouched; these only feed CAUSTIC_OT_bake_mesh.
+    bake_source: bpy.props.EnumProperty(
+        name="Bake source",
+        items=[("SOLVER", "Solver scene", "Calibrated pool scene via showcase.exe"),
+               ("MESH", "Selected mesh", "Any closed mesh via the in-addon tracer")],
+        default="SOLVER")
+    mesh_object: bpy.props.PointerProperty(
+        name="Mesh object", type=bpy.types.Object,
+        description="Closed glass mesh to bake (mesh Bake mode)")
+    mesh_resolution: bpy.props.IntProperty(
+        name="Mesh res", description="Tracer grid per side (cost ~ res^2 x tris)",
+        default=128, min=16, max=1024)
+    mesh_airy: bpy.props.FloatProperty(
+        name="Mesh Airy (m)",
+        description="Fringe width used near the fold. Documented visibility "
+                    "parameter, not a physical prediction",
+        default=0.006, min=0.0005, max=0.05, precision=4)
+    sun_dir: bpy.props.FloatVectorProperty(
+        name="Sun dir", size=3, default=(0.80, 0.42, -0.43),
+        description="Fallback sun travel direction when the scene has no SUN lamp")
     # --- coloured media -----------------------------------------------------
     # Beer-Lambert, per metre, per channel. Two caveats worth stating where the
     # user meets them:
@@ -395,6 +416,161 @@ class CAUSTIC_OT_caustics_off(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class CAUSTIC_OT_bake_mesh(bpy.types.Operator):
+    """Bake the wave-corrected caustic for any closed mesh (in-addon tracer)"""
+    bl_idname = "caustic.bake_mesh"
+    bl_label = "Bake mesh caustic"
+
+    def execute(self, context):
+        import traceback
+        try:
+            return self._execute(context)
+        except Exception as e:  # noqa: BLE001 — a button must never crash Blender
+            traceback.print_exc()
+            try:
+                context.scene.caustic.status = f"error: {e}"
+            except Exception:
+                pass
+            self.report({"ERROR"}, f"error: {e}")
+            return {"CANCELLED"}
+
+    def _execute(self, context):
+        import math
+        import numpy as np
+        from mathutils import Vector
+        p = context.scene.caustic
+        obj = p.mesh_object or (context.active_object
+                               if context.active_object and context.active_object.type == "MESH"
+                               else None)
+        if obj is None or obj.type != "MESH":
+            p.status = "no mesh object: set Mesh object"
+            self.report({"ERROR"}, p.status)
+            return {"CANCELLED"}
+        sys.path.insert(0, os.path.join(_ROOT, "tools"))
+        from mesh_caustic import trace as MT
+        from mesh_caustic import band as MB
+        dg = context.evaluated_depsgraph_get()
+        ev = obj.evaluated_get(dg).to_mesh()
+        try:
+            verts = np.empty(len(ev.vertices) * 3)
+            ev.vertices.foreach_get("co", verts)
+            verts = verts.reshape(-1, 3)
+            polys = [tuple(p.vertices) for p in ev.polygons]
+            tris = []
+            for poly in polys:
+                for i in range(1, len(poly) - 1):
+                    tris.append((poly[0], poly[i], poly[i + 1]))
+            faces = np.asarray(tris, dtype=np.int64)
+        finally:
+            obj.evaluated_get(dg).to_mesh_clear()
+        tris_n = len(faces)
+        est = MT.estimate_seconds(tris_n, p.mesh_resolution)
+        # contract: target with full 0-1 UVs
+        tgt = p.target
+        if tgt is None or tgt.type != "MESH" or not tgt.data.uv_layers:
+            p.status = "no usable UVs: target needs a UV map spanning 0-1"
+            self.report({"ERROR"}, p.status)
+            return {"CANCELLED"}
+        uvs = None  # (UVs read per-loop below; no full copy needed)
+        alluv = [(l.uv[0], l.uv[1]) for l in tgt.data.uv_layers[0].data]
+        minu = min(u for u, v in alluv)
+        maxu = max(u for u, v in alluv)
+        minv = min(v for u, v in alluv)
+        maxv = max(v for u, v in alluv)
+        if not (minu <= 0.05 and maxu >= 0.95 and minv <= 0.05 and maxv >= 0.95):
+            p.status = "no usable UVs: target UVs must span 0-1"
+            self.report({"ERROR"}, p.status)
+            return {"CANCELLED"}
+        # lights: scene lamps, else the fallback sun direction
+        lights = []
+        for o in context.scene.objects:
+            if o.type != "LIGHT":
+                continue
+            d = o.matrix_world.to_quaternion() @ Vector((0, 0, -1))
+            lt = o.data.type
+            if lt == "SUN":
+                lights.append({"type": "sun", "direction": tuple(d)})
+            elif lt == "POINT":
+                lights.append({"type": "point", "position": tuple(o.matrix_world.translation)})
+            elif lt == "SPOT":
+                lights.append({"type": "spot", "position": tuple(o.matrix_world.translation),
+                               "direction": tuple(d),
+                               "angle_deg": math.degrees(o.data.spot_size)})
+            elif lt == "AREA":
+                lights.append({"type": "area", "position": tuple(o.matrix_world.translation),
+                               "normal": tuple(d), "size": float(o.data.size), "samples": 3})
+        if not lights:
+            sd = tuple(p.sun_dir)
+            lights = [{"type": "sun", "direction": sd}]
+        # receiver = target world bbox
+        ws = [tgt.matrix_world @ v.co for v in tgt.data.vertices]
+        xs = [v.x for v in ws]
+        ys = [v.y for v in ws]
+        zs = [v.z for v in ws]
+        cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+        half = max(max(xs) - min(xs), max(ys) - min(ys)) / 2
+        rz = sum(zs) / len(zs)
+        os.makedirs(TMP_DIR, exist_ok=True)
+        out = os.path.join(TMP_DIR, "caustic_mesh.png")
+        t0 = time.time()
+        try:
+            res = MT.trace_mesh(np.asarray(verts), faces, lights,
+                                {"z": rz, "patch_half": half, "center": (cx, cy)},
+                                {"n_side": p.mesh_resolution, "eta": 1.5251,
+                                 "absorb_rgb": tuple(p.glass_absorb)})
+        except ValueError as e:
+            p.status = str(e)
+            self.report({"ERROR"}, p.status)
+            return {"CANCELLED"}
+        import numpy as _np
+        n = p.mesh_resolution
+        hw = half
+        rng = [[cx - hw, cx + half], [cy - half, cy + half]]
+        outs = []
+        for c in range(3):
+            wc = (res["weights"][:, c] if len(res["hits"]) else None)
+            gc, _, _ = _np.histogram2d(
+                res["hits"][:, 0] if len(res["hits"]) else _np.zeros(0),
+                res["hits"][:, 1] if len(res["hits"]) else _np.zeros(0),
+                bins=n, weights=wc, range=rng)
+            outs.append(gc.T)
+        g = sum(outs) / 3.0
+        if not (g > 0).any():
+            p.status = "no receiver hits: mesh throws no light on the target"
+            self.report({"ERROR"}, p.status)
+            return {"CANCELLED"}
+        mpp = 2 * half / n
+        dist = MB.ridge_distance(g, mpp)
+        band_m = max(0.004, 3 * mpp)
+        chans = [MB.correct(gc, dist, band_m, p.mesh_airy) for gc in outs]
+        peak = max(float(c.max()) for c in chans)
+        fld = _np.stack([c / peak for c in chans], axis=-1)  # joint peak 1.0
+        fld = fld[::-1, :, :]  # row 0 = +Y, the solver dump convention
+        # Write the file WITHOUT Blender's pixel buffer: float-buffer
+        # foreach_set proved unreliable in background mode (in-memory reads
+        # disagreed with the saved file), so mirror the legacy solver path:
+        # external writer, then bpy.data.images.load.
+        from mesh_caustic import png16 as _png
+        _png.write_rgb16(out, _np.clip(fld / 16.0, 0.0, 1.0))  # solver convention: /16, undone by the x16 inject node
+        old = bpy.data.images.get("CAUSTIC_bake")
+        if old is not None:
+            bpy.data.images.remove(old)
+        img = bpy.data.images.load(out, check_existing=False)
+        img.name = "CAUSTIC_bake"
+        try:
+            img.colorspace_settings.name = "Non-Color"
+        except Exception:
+            pass
+        dt = time.time() - t0
+        p.image_path = out
+        p.last_ms = dt * 1000.0
+        p.status = (f"[mesh] {tris_n} tris res {n} est {est:.0f}s "
+                    f"took {dt:.0f}s peak 1.00 hits {len(res['hits'])}")
+        print("   ", p.status)
+        self.report({"INFO"}, f"mesh baked in {dt:.0f} s (est {est:.0f} s)")
+        return {"FINISHED"}
+
+
 # ---------------------------------------------------------------------------
 # panel
 # ---------------------------------------------------------------------------
@@ -436,6 +612,14 @@ class CAUSTIC_PT_panel(bpy.types.Panel):
         self.layout.operator("caustic.cycles_toggle", icon="LIGHT")
 
         box = self.layout.box()
+        box.label(text="Any-mesh bake (in-addon tracer)")
+        box.prop(p, "mesh_object")
+        box.prop(p, "mesh_resolution")
+        box.prop(p, "mesh_airy")
+        box.prop(p, "sun_dir")
+        box.operator("caustic.bake_mesh", icon="MESH_DATA")
+
+        box = self.layout.box()
         box.label(text=f"last bake: {p.last_ms:.0f} ms")
         if p.status:
             box.label(text=p.status[:60])
@@ -446,8 +630,8 @@ class CAUSTIC_PT_panel(bpy.types.Panel):
                                    f"{'on' if c.caustics_refractive else 'off'}")
 
 
-CLASSES = (CausticProps, CAUSTIC_OT_bake, CAUSTIC_OT_inject, CAUSTIC_OT_remove,
-           CAUSTIC_OT_tint_medium, CAUSTIC_OT_untint_medium,
+CLASSES = (CausticProps, CAUSTIC_OT_bake, CAUSTIC_OT_bake_mesh, CAUSTIC_OT_inject,
+           CAUSTIC_OT_remove, CAUSTIC_OT_tint_medium, CAUSTIC_OT_untint_medium,
            CAUSTIC_OT_caustics_off, CAUSTIC_PT_panel)
 
 

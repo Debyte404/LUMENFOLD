@@ -16,6 +16,15 @@ from collections import Counter
 import numpy as np
 
 
+def estimate_seconds(n_tris, n_side):
+    """Wall-time estimate for trace_mesh at this budget.
+
+    Calibrated on the dragon referee (90k rays x 35k tris = 145 s):
+    t = rays * tris * 5e-8. Conservative on small meshes, honest on big ones.
+    """
+    return float(n_side * n_side) * float(n_tris) * 5e-8
+
+
 def _check_watertight(faces):
     c = Counter()
     for a, b, cc in faces:
