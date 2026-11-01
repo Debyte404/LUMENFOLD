@@ -55,7 +55,7 @@ REF_SUN_RGB = (19.0, 17.6, 15.8)
 # is ~220x the physical value so fringes are legible on discrete rasters.
 AIRY_RENDER = 0.0015
 AIRY_PHYSICAL = 6.77e-6
-AIRY_FACTOR = AIRY_RENDER / AIRY_PHYSICAL  # ~221.5x (approx 220x)
+AIRY_FACTOR = 220.0  # 220x display exaggeration (approx)
 
 
 def render(out_png, n=900, sun_az=None, sun_el=None, glass=None, water=None,

@@ -1,0 +1,11 @@
+engine,res,budget,render_s,r_8tile,r_32tile,note
+referee,256,300^2 rays,114.6,,,receiver_z=-0.276 patch_half=2.17m
+ours-proto,128,150^2 rays,31.3,1.0,0.995,EDT-ridge band + Airy 6.77um vs referee-256 block-averaged
+cycles-native,2560x1440,1024spp,66.1,,,"Filter Glossy 0, clamp 0, mb12"
+pbrt-sppm,256,64spp/500000ph,1.9,,,ortho over receiver; scored vs referee in EVIDENCE step
+mitsuba-path,256,64spp,1.4,,,qualitative only (no SPPM in 3.9); beauty framing
+pbrt-sppm,256,64spp/500000ph,1.7,,,ortho over receiver; scored vs referee in EVIDENCE step
+pbrt-sppm,256,256spp/500000ph,7.7,,,ortho over receiver; scored vs referee in EVIDENCE step
+referee,256,300^2 rays,145.9,,,receiver_z=-0.276 patch_half=2.17m
+ours-proto,128,150^2 rays,36.3,0.999,0.987,EDT-ridge band + Airy 6.77um vs referee-256 block-averaged
+pbrt-scored,256,resample-to-referee,,0.097,0.082,bilinear PBRT ortho onto referee grid; orientation per pipeline

@@ -6,6 +6,7 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23377366.svg)](https://doi.org/10.5281/zenodo.23377366)
 [![Paper](https://img.shields.io/badge/paper-PDF%20(26%20pages)-B31B1B.svg)](docs/paper/main.pdf)
 [![ORCID](https://img.shields.io/badge/ORCID-0009--0004--2672--3503-A6CE39.svg)](https://orcid.org/0009-0004-2672-3503)
+[![ORCID](https://img.shields.io/badge/ORCID-0000--0003--0549--4727-A6CE39.svg)](https://orcid.org/0000-0003-0549-4727)
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)](#quickstart)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-success.svg)](#quickstart)
 
@@ -30,8 +31,9 @@ geometry rather than of the discretisation, and applies the wave-optical correct
 only inside a narrowly detected band — where it is cheap, physically motivated, and
 keeps the band's own energy.
 
-- 📄 **[Read the paper](docs/paper/main.pdf)** — 26 pages, official Eurographics /
+- 📄 **[Read the paper (CGF edition)](docs/paper/main.pdf)** — 26 pages, official Eurographics /
   *Computer Graphics Forum* class (`egpubl.cls`). Section 11 is the full reproduction list.
+- 📄 **[IEEEtran edition](docs/paper-ieee/main.pdf)** — 27 pages, two-column, numbered citations, same body and claims.
 - 🔬 **[Every number, traced](docs/EVIDENCE.md)** — the measurement log, including the
   results that went against us.
 - ⚔️ **[Our own attack on our claims](docs/CRITIQUE.md)** — the adversarial audit, and
@@ -64,7 +66,7 @@ explicit rays that neither method produced — with an identical metric:
 | 5 mm tiles | 0.721 | **0.722** | 0.405 |
 | coverage of the ground-truth caustic core | **99.9 %** | — | 54.7 % |
 
-Speed — and this is **not** a uniform win:
+Production cost for **one fixed geometry family** — not a general speed-up claim:
 
 | workload | ours | Cycles | PBRT-v4 SPPM |
 |---|---|---|---|
@@ -73,12 +75,14 @@ Speed — and this is **not** a uniform win:
 | orbit clip, 1280×720, 120 frames | **773.3 s** | 1043.2 s | — |
 | ripple clip, 960×540, 72 frames | 481.9 s | **453.0 s** | — |
 
-**Read the caveats, they matter.** The method is 2–3 orders of magnitude cheaper at
-*producing* a caustic for this geometry family, and wins on animations that re-bake per
-frame (1.35×, with 7.9× less caustic flicker). But it **ties on a single still**, **loses
-to Cycles** on the static-camera clip, and plain Monte-Carlo is **more accurate below
-~262 k splats**. Our caustic is also **too smooth** — 2.30× broader than the brute-force
-trace at 1024² (1.87× at 4096²).
+**Read the caveats, they matter.** For this one geometry family the production cost of a
+caustic is 2–3 orders of magnitude below re-converging SPPM, and the method wins on
+animations that re-bake per frame (1.35×, with 7.9× less caustic flicker). This is a
+solver-specific production-cost result, not a general speed-up over path tracing; the
+paper's conclusion states the same boundary. The method **ties on a single still**,
+**loses to Cycles** on the static-camera clip, and plain Monte-Carlo is **more accurate
+below ~262 k splats**. Our caustic is also **too smooth** — 2.30× broader than the
+brute-force trace at 1024² (1.87× at 4096²).
 
 ## Quickstart
 
@@ -212,7 +216,8 @@ which is the opposite of what is happening. `--cam-fixed` locks the frame.
 
 ### Red medium, one variable at a time
 
-The same ripple animation as `ripple_ours.gif` — same camera, same physical Airy width,
+The same ripple animation as `ripple_ours.gif` — same camera, same operational Airy
+width (0.123 mm, 18× the canonical 6.8 µm),
 same studio rig, same 72 frames — with only the medium changed:
 
 <p align="center">
@@ -327,6 +332,8 @@ python tools/make_all_figures.py          # all 12 paper figures, in order
 python tools/figure_lint.py               # measure every figure against geometry and typography spec
 python tools/make_hero.py                 # the comparison animation at the top
 python tools/build_paper_pdf.py           # compile the CGF paper
+python tools/build_paper_ieee.py          # compile the IEEEtran edition
+python tools/check_dual_format.py         # prove both editions share body, abstract, and claims
 python tools/check_paper.py               # dangling refs, title page, flattened files
 python tools/scan_ai_tells.py             # AI-writing tells in the manuscript
 python tools/paper_forensics.py           # stylometry, control corpus, and literature overlap audit
@@ -341,10 +348,10 @@ working directory.
 One scene, one machine, no laboratory ground truth — this is a **computational
 evaluation** and physical-apparatus validation is deliberately out of scope. The physical
 claim is one of *form* (finite fringes, chromatic ordering, no `1/√·` divergence), not
-absolute fringe width: for a glass this size the real fringes are 0.123 mm wide and a
-0.53° sun blurs them away entirely, so a photograph would not show them however they are
-rendered. The efficiency claim is amortised against **one fixed geometry family**; change
-the optic and the solver needs new work.
+absolute fringe width: for a glass this size the canonical fringes are 6.8 µm wide
+(0.0068 mm) and a 0.53° sun blurs them away entirely, so a photograph would not show
+them however they are rendered. The efficiency claim is amortised against **one fixed
+geometry family**; change the optic and the solver needs new work.
 
 Further limits are itemised in **Section 8** of the paper. Two are worth stating here:
 
@@ -360,9 +367,10 @@ Further limits are itemised in **Section 8** of the paper. Two are worth stating
   available and computationally is not, at least not this way — see
   `tools/pearcey_cusp.py`.
 - **The coherent limit is not the sun.** The source subtends 0.53°, a geometric blur of
-  ~925 µm at the receiver, against a physical fringe spacing of 123 µm — about 7.5×
-  smaller. A photograph of this scene under the sun would not show the fringe structure
-  this paper computes, and the figures should not be read as a prediction of one.
+  ~925 µm at the receiver, against a canonical physical fringe spacing of 6.8 µm — about
+  136× smaller. A photograph of this scene under the sun would not show the fringe
+  structure this paper computes, and the figures should not be read as a prediction of
+  one.
 
 ## History
 
@@ -388,10 +396,11 @@ meantime.
 
 ```bibtex
 @misc{chetri2026lumenfold,
-  title  = {Wave-Corrected Caustics over Photon Splatting},
-  author = {Chetri, Ankit},
-  year   = {2026},
-  note   = {ORCID 0009-0004-2672-3503},
-  url    = {https://github.com/Debyte404/LUMENFOLD}
+  title       = {Wave-Corrected Caustics over Photon Splatting},
+  author      = {Chetri, Ankit and Chauhan, Vaishali},
+  institution = {Manipal University Jaipur},
+  year        = {2026},
+  note        = {ORCID: 0009-0004-2672-3503, 0000-0003-0549-4727},
+  url         = {https://github.com/Debyte404/LUMENFOLD}
 }
 ```

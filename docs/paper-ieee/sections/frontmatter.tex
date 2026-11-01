@@ -1,0 +1,31 @@
+%-----------------------------------------------------------------------
+% IEEE title, author, abstract, keywords.
+% The abstract is the CGF abstract verbatim; the parity check compares the
+% whitespace-normalised text of the two abstracts and fails on any drift.
+%-----------------------------------------------------------------------
+\title{Wave-Corrected Caustics over Photon Splatting: Fold Kinematics,
+a Band-Local Airy Correction, and a Comparative Evaluation Against
+Production Solvers}
+
+\author{A.~Chetri and Vaishali~Chauhan%
+\thanks{A.~Chetri and V.~Chauhan are with Manipal University Jaipur, Jaipur, Rajasthan 303007, India (e-mail: ankit.byte.404@gmail.com).}%
+\thanks{A.~Chetri is the corresponding author (GitHub: \texttt{Debyte404}, ORCID: 0009-0004-2672-3503).}%
+\thanks{V.~Chauhan is with Manipal University Jaipur (ORCID: 0000-0003-0549-4727).}%
+}
+
+\maketitle
+
+\begin{abstract}
+We describe a hybrid caustic estimator. Photon splatting and path-traced caustics both diverge at the fold. We treat that as a model property, not a discretisation error. A geometric quadrature carries the image; a wave-optical correction redistributes the band's own energy according to the Airy profile with per-channel width scaling as $\lambda^{2/3}$. We derive the kinematics from the ray map, the fold condition, the normal form, and the wavelength scaling. That derivation shows where standard CG methods succeed and where they must fail.
+
+We evaluate against PBRT-v4 SPPM and Blender Cycles on one scene with measured dispersive indices (water: Daimon \& Masumura 2007; glass: Rubin 1985), using Mitsuba~3 for qualitative spectral verification. Against an independent brute-force geometric ground truth of $810{,}000$ rays, our estimator scores $0.917$ correlation at 40\,mm tiles, vs $0.853$ for SPPM and $0.828$ for Cycles. At 5\,mm tiles they tie ($0.721$ vs $0.722$). An equal-flux Gaussian control shows coarse correlation is governed by band-local flux regularisation and energy bounding; the Airy profile governs fine chromatic fringes. Internal convergence shows quadratic grid scaling against our own $2048^2$ wave-corrected pass. Interface transport throughput is $96.4\%$ across refractive interfaces, dominated by Fresnel exit reflection; band-local flux conservation redistributes the band's own measured energy by construction.
+
+We also analyze chromatic dispersion under absorbing media and non-solar spectra. Bulk absorption and emission spectra modulate channel throughput linearly; the $\lambda^{2/3}$ scaling displaces fringe peaks chromatically across the band.
+
+The correction is defined for regular fold arcs. We test the next stratum: a cusp requires a Pearcey function; its divergence exponent differs from the fold's (measured $-0.3333$ vs analytic $-1/3$; fold $-0.2434$ vs $-1/4$). The substitution carries over and bounds the field where the geometric estimator diverges. The cost is four orders of magnitude higher, so we report that measurement and offer no production method. We also show a continuous global normalisation of the fold is impossible because $|\Ai(-u)|^2$ is not integrable on $\mathbb{R}$; that's why the correction is a band-local discrete flux ratio. Limitations, experimental controls, and solver failure modes are detailed in the paper. All source code, verification harnesses, and the Blender add-on are MIT licensed at \url{https://github.com/Debyte404/LUMENFOLD}.
+\end{abstract}
+
+\begin{IEEEkeywords}
+caustics, wave optics, photon splatting, photon mapping, SPPM, diffraction,
+Airy function, grid-free rendering, comparative evaluation
+\end{IEEEkeywords}

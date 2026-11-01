@@ -8,13 +8,15 @@ magnitude then the fringes in our renders are a drawing, not a prediction - and
 no photograph could ever confirm them.
 
 The physical scale comes from the wavefront's cubic term. Near a fold the ray map
-behaves as x(phi) ~ x_f + (1/6) c3 (phi - phi_f)^3, and the diffraction integral
-for that phase has a characteristic width
+behaves as x(phi) ~ x_f + (1/6) c3 (phi - phi_f)^3, and the canonical fold
+diffraction width used by the paper's Eq. 14 is
 
-    delta = (lam^2 / (2 |c3|))^(1/3)
+    d = lam^(2/3) c^(1/3) / (2 pi^(2/3))
 
-with c3 measured from the exact map (tools/analytic_caustic.py). This computes
-both numbers and states the ratio.
+with c measured from the exact map (tools/analytic_caustic.py). An earlier draft
+used the dimensionally mismatched heuristic delta = (lam^2 / (2 |c3|))^(1/3),
+which gave 123 um; that value is withdrawn and printed below only for the record.
+This computes both numbers and states the ratio.
 
 Run:  python tools/fringe_scale.py
 """

@@ -38,19 +38,21 @@ list of what a photograph *cannot* settle.
 
 Two independent reasons, both fatal:
 
-1. **The fringes do not exist under this illumination.** A fold has a physical
-   diffraction width of **123 um** for this geometry (`tools/fringe_scale.py`,
-   from the ray map's cubic term). But a source of finite angular size blurs the
-   pattern by `angle x distance`: the sun is 0.53 deg, and at ~100 mm to where
-   the caustic forms that is **925 um — 7.5x the fringe spacing**. The fringes are
-   washed out. Under a real sun, this caustic is a smooth bright ridge with no
-   visible fringes at all. That matches everyday experience: nobody sees fringes
-   in a glass of water's caustic in sunlight.
+1. **The fringes do not exist under this illumination.** A fold has a canonical
+   physical diffraction width of **6.8 um** for this geometry (first Airy zero at
+   15.8 um; `tools/fringe_scale.py`, from the ray map's cubic term and Eq. 14).
+   But a source of finite angular size blurs the pattern by `angle x distance`:
+   the sun is 0.53 deg, and at ~100 mm to where the caustic forms that is
+   **925 um — 136x the fringe spacing**. The fringes are washed out. Under a real
+   sun, this caustic is a smooth bright ridge with no visible fringes at all. That
+   matches everyday experience: nobody sees fringes in a glass of water's caustic
+   in sunlight.
 
-2. **What we render is 12x coarser than even that.** Our `airy_scale` is
-   1500 um against a physical 123 um. It was chosen for *visibility* — at least
-   3 pixels per fringe at the bake resolution — and documented as such, but that
-   makes it a drawing, not a prediction.
+2. **What we render is 220x coarser than even that.** Our `airy_scale` is
+   1500 um against a canonical physical 6.8 um. It was chosen for *visibility* —
+   at least 3 pixels per fringe at the bake resolution — and documented as such,
+   but that makes it a drawing, not a prediction. The shipped ripple clips use
+   123 um (18x), an earlier estimate, and are likewise labelled operational.
 
 So the honest position: **the fringes in our renders make the wave correction
 legible; they do not depict reality, and no photograph can confirm them.** Any

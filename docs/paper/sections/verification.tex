@@ -53,7 +53,7 @@ governing law.
 The C++ baker and the Python reference were written separately from the same
 definitions and compared at $512^2$ with \texttt{airy\_scale}${}=1.0$:
 
-\begin{table}[tbp]
+\begin{table*}[tp]
 \centering
 \caption{C++ against Python reference at $512^2$. The maximum absolute difference
 ($0.61$) across wave channels is localized to a single boundary pixel where discrete
@@ -72,7 +72,7 @@ wave G    & 4.762 & 4.749 & \num{6.1e-01} & \num{3.4e-03} \\
 wave B    & 4.774 & 4.772 & \num{6.1e-01} & \num{3.6e-03} \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
 
 Peaks agree to \SI{0.3}{\percent}. Parallel against serial output agrees to
 \num{3.8e-06} absolute (\num{1.1e-08} relative), which is floating-point
@@ -107,27 +107,23 @@ correction leaves geometric flux unmodified ($I_i = G_i$).
 Inside the band, Lemma~\ref{lem:flux} proves the Airy redistribution \eqref{eq:kstar} is strictly flux-neutral ($\sum_{i \in B} I_i = \sum_{i \in B} G_i$).
 Across the receiver grid, the corrected field carries \SI{100.000}{\percent} of total geometric energy in double precision ($\num{1.000000}$, and $> \SI{99.999}{\percent}$ in 32-bit accumulation).
 Inside the band, the smoothed base reaches $2.94\times$ and the wave profile reaches $5.10\times$ ($< 1.35\kappa = 8.10\times$), so the ceiling is non-binding and causes no loss. The peak ($7.55\times$) occurs outside the band in the geometric core.
-This confirms that the wave correction strictly redistributes energy rather than creating
+The audit confirms that the wave correction redistributes energy without creating
 or destroying it.
 
 \subsection{An index model that was wrong}
 \label{sec:verify-index}
 
-An earlier version of this work used a fitted Cauchy dispersion model instead of
-the measured data of Section~\ref{sec:dispersion}. Evaluated at the render
+An earlier version of this work used a fitted Cauchy dispersion model. The measured data of Section~\ref{sec:dispersion} were the right choice. Evaluated at the render
 channels, that fit carried roughly \num{1.97} times too much dispersion in the
 water and gave a glass index about \num{0.0017} low at one channel. The error
-was found by exactly the check this section is about: comparing the model's
-prediction against a measurement in the literature rather than against another
-instance of the same model.
+was found by exactly the check this section is about: comparing the model's prediction against a measurement in the literature. Comparing against another instance of the same model would not catch it.
 
 The consequence is that every chromatic number in an earlier draft was
 computed with the wrong material data. The numbers in this paper are not: all
 of them use \eqref{eq:sellmeier} and \eqref{eq:rubin} with the coefficients of
 Daimon and Masumura \cite{daimon2007} and Rubin \cite{rubin1985}. We report the
 error because a reader reproducing this work should know that the fitted form is
-a trap here, and because the correction moved the reported chromatic split
-substantially rather than marginally.
+a trap here, and because the correction moved the reported chromatic split substantially.
 
 \subsection{A metric that manufactured a false refutation}
 \label{sec:verify-metric}
@@ -178,9 +174,7 @@ form at that point: substituting $t=au^4$ into $\int_{\mathbb{R}}e^{-au^4}
 \end{equation}
 
 Our evaluation reproduces this to a relative error of $1.2\times10^{-16}$, and
-agrees with an independent contour deformation to $1.6\times10^{-6}$ off axis. Two
-different contours with two different integrands is what makes that agreement
-evidence rather than self-consistency.
+agrees with an independent contour deformation to $1.6\times10^{-6}$ off axis. Two different contours and two different integrands make that agreement evidence. Self-consistency alone would not suffice.
 
 \paragraph{The divergence exponent changes, and must.}
 A fold's geometric amplitude diverges as $|\delta|^{-1/4}$, its intensity as
@@ -243,6 +237,6 @@ two-dimensional interpolation problem with its own accuracy question near the
 stratum.
 
 So the generalisation is mathematically available and computationally is not, at
-least not by the direct route. We report the measurement rather than a method: the
+least not by the direct route. We make a measurement claim here: the
 conjecture in earlier drafts of this paper was that the cost might carry over, and
 it does not.

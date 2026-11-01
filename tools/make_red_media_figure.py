@@ -68,7 +68,7 @@ def frame(path, which=36):
 
 
 def main():
-    fig, axes = plt.subplots(1, 4, figsize=(style.FULL_MM * style.MM, 62 * MM))
+    fig, axes = plt.subplots(1, 4, figsize=(style.FULL_MM * style.MM, 32 * MM))
     for ax, (name, label) in zip(axes, PANELS):
         p = os.path.join(MEDIA, name)
         if not os.path.exists(p):
@@ -84,7 +84,7 @@ def main():
         for s in ax.spines.values():
             s.set_linewidth(0.5)
             s.set_edgecolor("0.4")
-    fig.subplots_adjust(left=0.004, right=0.996, top=0.90, bottom=0.008, wspace=0.03)
+    fig.subplots_adjust(left=0.004, right=0.996, top=0.84, bottom=0.008, wspace=0.03)
     p = f"{OUT}/fig12_red_media.pdf"
     fig.savefig(p)
     plt.close(fig)

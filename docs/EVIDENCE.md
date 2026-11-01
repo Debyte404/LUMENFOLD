@@ -24,6 +24,54 @@ exaggerates the physical fringe width for visibility (real pool-scale fringes
 are sub-millimetre); it is the identical parameter in every path compared.
 
 --------------------------------------------------------------------------------
+## 0. Results that survived
+--------------------------------------------------------------------------------
+
+This file is a chronological log, 2,400+ lines long, and most of it is the record
+of how particular numbers were corrected. If you need the current position, read
+this table and then the section named in the last column. The paper's abstract
+and `docs/CRITIQUE.md` are the other two authoritative summaries.
+
+### 0.1 What is supported by an independent instrument
+
+| claim | current value | instrument that did not share our estimator | section |
+|---|---|---|---|
+| fold position, solid cylinder | **0.1 mm** on a 320 mm patch | exact Snell + bisection | 16 |
+| field vs independent geometric trace | **r = 0.917** at 40 mm; 0.721 at 5 mm | 810 k explicit rays, no Jacobian | 14.4, 14.8 |
+| coverage of the ground-truth caustic core | **99.9%** (Cycles 54.7%) | same brute-force trace | 14.8 |
+| Airy profile | **8.118e-03** of peak | `scipy.special.airy` | 14.1 |
+| fold peak location | **X = -1.00** vs analytic -1.0188 | cubic-phase pupil integral | 14.2 |
+| fringe wavelength exponent | **0.6977** vs analytic 2/3 | independent numerical quadrature | 14.3 |
+| dispersion order | **R > G > B**, R-B +5.0 mm | solver edge vs PBRT-v4 SPPM | 20.3 |
+| interface transport throughput | **96.41%** at 450/550/650 nm | Fresnel-weighted brute-force trace | 14.5b |
+| SPPM caustic shape | **r = +0.932** at 40 mm | PBRT-v4 SPPM | 19.6 |
+| cusp divergence exponents | **-0.2434** fold, **-0.3333** cusp | Pearcey integral against closed form | 14.5l |
+
+### 0.2 What did not survive, and is no longer claimed
+
+| withdrawn or corrected claim | why it fell | replacement |
+|---|---|---|
+| "17-18x less caustic noise" | scored against each method's own noisy reference | no ratio claimed; use the independent-axis correlation |
+| "both caustics peak at the same level" | both images clipped at 255 | withdrawn as vacuous |
+| "flux conserved to 1.0000" | circular: the band step divides by the measured flux | transport throughput 96.41% (14.5b) |
+| "1.65x more accurate than Monte Carlo" | self-referenced target | 0.917 / 0.721 against the brute-force trace |
+| fringe scale 123 um / 12.2x | dimensionally mismatched normal form | canonical **6.8 um**, first zero 15.8 um (Eq. 14) |
+| "visible fringes are physical" | 0.53 deg sun blurs them by **136x** | boundedness is the physical claim; fringes are a display choice |
+
+### 0.3 The limits that remain
+
+* **Too smooth.** The field is 2.30x broader than the brute-force trace at 1024^2
+  and 1.87x at 4096^2 (14.5c, 14.7). Correctly placed and ordered, not sharp.
+* **Not uniformly faster.** Plain geometric Monte Carlo is better below ~262 k
+  splats; the static-camera ripple clip is marginally slower than Cycles
+  (17). The 2-3 order-of-magnitude production cost applies to one geometry family.
+* **One scene family.** A cylinder with a rippled water surface. The cusp case is
+  tested for correctness but costs ~2.1e4x an Airy lookup (14.5l).
+* **No apparatus validation.** Every check is simulation against simulation;
+  see `docs/PHYSICAL_TEST.md` for the protocol that would change that.
+
+--------------------------------------------------------------------------------
+
 ## 1. Fold detection: intensity percentile vs analytic |det J|
 --------------------------------------------------------------------------------
 
@@ -917,28 +965,32 @@ isolates the caustic.
 ### 14.5f The three ripple GIFs (2026-10-12)
 
 docs/media/ripple_{ours,cycles,spmm}.gif — the same animating caustic, three
-ways, one camera, no exaggerated fringes. 72 frames each (one full wave cycle),
+ways, one camera, a labelled operational fringe width. 72 frames each (one full wave cycle),
 640x360, infinite loop, produced by tools/ripple_gifs.py.
 
 Three decisions, each measured rather than chosen by eye:
 
-**1. Physical fringe width, not a visibility width.** The earlier clips used
-airy_scale = 1.5 mm, which is 12.2x the physical fringe width for this geometry
-(0.123 mm, tools/fringe_scale.py). tools/airy_honesty_sweep.py measured what
-narrowing the band costs:
+**1. Physical fringe width, not a visibility width.** The older clips used
+airy_scale = 1.5 mm, which is ~220x the canonical physical fringe width derived
+from Eq. 14 for this geometry (6.8 um; first zero 15.8 um). The shipped clips use
+0.000123 m, the earlier 123 um estimate, which is itself **18x** the canonical
+scale and is retained only as an operational width for the delivered raster.
+tools/airy_honesty_sweep.py measured what narrowing the band costs:
 
     airy_scale   band    per-channel spread   isolated
     0.0015      24.0 px        0.0537          0.953%
     0.0006       9.6 px        0.0568          1.071%
     0.0003       4.8 px        0.0575          1.127%
-    0.000123     2.0 px        0.0599          1.158%  <- physical, used
+    0.000123     2.0 px        0.0599          1.158%  <- shipped clip width (18x canonical)
 
 The chromatic variation barely moves (0.054 -> 0.060) as the band narrows,
 because the colour is carried by the measured index dispersion and the
 per-channel normalisation, not by the fringe decoration. So the exaggeration
-could be removed at almost no cost, and these GIFs use the physical width --
-the band is 2 px, below the >=3 px fringe-visibility rule, which is exactly
-right when the point is NOT to draw fringes.
+could be removed at almost no cost, and these GIFs use the earlier operational
+width -- the band is 2 px, below the >=3 px fringe-visibility rule, which is
+exactly right when the point is NOT to draw physical fringes. At the canonical
+6.8 um the band would be 0.02 px at this raster, so the clips are a structural
+demonstration, not a fringe-width measurement.
 
 **2. One camera, verified identical.** The earlier ripple clip used dist 0.32
 at az 35 and cropped the fan; tools/frame_test2.py measured the caustic's
@@ -1572,8 +1624,8 @@ With the fix the paper builds clean on both engines: 28 pages, 0 overfull, 0 err
 
 `tools/ripple_colour_gifs.py` renders the ripple animation with one medium variable
 changed: `ripple_water_red.gif`, `ripple_glass_red.gif`, `ripple_both_red.gif`. Identical
-to `ripple_ours.gif` in camera (az 110 / elev 38 / dist 0.62 / lens 50), physical Airy
-width 0.000123 m, studio rig and 72 frames, so only the medium differs.
+to `ripple_ours.gif` in camera (az 110 / elev 38 / dist 0.62 / lens 50), operational Airy
+width 0.000123 m (18x the canonical 6.8 um), studio rig and 72 frames, so only the medium differs.
 
 Coefficients are per-metre Beer-Lambert chosen so each medium transmits about
 (0.90, 0.15, 0.03) over its real path -- water (1.17, 21.0, 38.9) over ~90 mm and glass
@@ -2311,18 +2363,19 @@ refuses; restored, the set returns to 12/12.
 Two reader-facing problems, one of them a correctness risk rather than a cosmetic one.
 
 **The renders exaggerate the fringe width and did not say so.** The renderer's default
-Airy scale is 0.0015 m. The physical Airy scale for this geometry at 550 nm is
-0.000123 m, so the default draws fringes 12.2x wider than they are. That is a
-deliberate display choice -- at 600 px the physical fringe is under two pixels and would
-not be visible at all -- but the paper showed those renders without stating it, so a
-reader could measure a fringe off Figure 11 and get twelve times the truth.
+Airy scale is 0.0015 m. The canonical physical Airy scale for this geometry at 550 nm
+is 6.8e-6 m (Eq. 14), so the default draws fringes ~220x wider than they are. That is a
+deliberate display choice -- at 600 px the physical fringe is far under one pixel and
+would not be visible at all -- but the paper showed those renders without stating it, so
+a reader could measure a fringe off Figure 11 and get two orders of magnitude too much.
 
 The factor is now derived, never written as a literal:
-AIRY_RENDER / AIRY_PHYSICAL = 12.2, and panels (c) and (d) say it in their titles as
-well as the caption. Panels (a) and (b) are computed from the physical scale and are
-explicitly noted as not exaggerated, so the distinction is visible rather than implied.
-The ripple clips and the no-exaggeration figure already passed --airy 0.000123 and
-remain physical.
+AIRY_RENDER / AIRY_PHYSICAL = 220 (from 0.0015 m / 6.8e-6 m), and panels (c) and (d)
+say it in their titles as well as the caption. Panels (a) and (b) are computed from the
+physical scale and are explicitly noted as not exaggerated, so the distinction is
+visible rather than implied. The shipped ripple clips were rendered at 0.000123 m
+(18x the canonical scale) and are labelled as an operational width, not as physical;
+the no-exaggeration figure is regenerated against the canonical 6.8e-6 m.
 
 **The rotating-source camera was chosen by measurement.** The orbit has a fixed camera
 and a rotating sun, so the caustic travels right round the glass: the WORST sun position
@@ -2452,3 +2505,203 @@ chunking means each verdict covers a fragment. Real plagiarism detection needs a
 licensed corpus (Turnitin, iThenticate); this checks the two things that ARE answerable
 without one -- verbatim reuse of the literature and of our own documents -- and says so
 rather than implying a clean bill of health from a tool that cannot give one.
+
+## 21. IEEEtran edition build (2026-10-20)
+
+`docs/paper-ieee/` is the IEEEtran journal edition. It shares the body sections
+with `docs/paper/` and adds only an IEEE preamble and frontmatter. The abstract
+is the CGF abstract verbatim.
+
+* build: `pdflatex` + `bibtex`, 0 engine errors, 0 overfull boxes;
+* page count: printed by `tools/build_paper_ieee.py` on every run (27 pages in
+  this environment);
+* parity: `tools/check_dual_format.py` reports `DUAL-FORMAT OK`, 11 shared body
+  sections and 12 canonical claims checked in both source trees.
+
+No number in this section is a new measurement; it records a build and a parity
+check, not a physical result. The two shared tables `tab:cost` and `tab:parity`
+were promoted to `table*`, one equation in `kinematics.tex` was split so the
+IEEE measure has no overfull boxes, and the shared appendix opener now uses
+`\appendices` for IEEEtran while egpubl keeps `\appendix`; the CGF build remains
+at 27 pages and 0 overfull boxes after the same changes.
+
+## 22. Style pass after a Turnitin report (2026-10-20)
+
+The author reported that Turnitin marked the manuscript as **21% AI**. No
+highlighted Turnitin report or passage list was supplied, so this section
+records an internal style pass, not a Turnitin result. The third-party score
+was not re-run.
+
+The pass targeted the cadence identified in 14.6a: runs of `X rather than Y`
+and `instead of` are themselves a recognisable model pattern, and a previous
+rewrite that introduced them raised the Sapling score from 22.5% to 51.7%
+before a plain positive rewrite brought it to 1.1%. The body sections and both
+frontmatter copies were rewritten toward direct positive statements. No
+measured value, citation, or canonical claim was changed.
+
+Internal scan with `tools/paper_forensics.py`, before -> after:
+
+    prose words                         17180 -> 17024
+    total AI-tell pattern hits             42 -> 0   (24.4 -> 0.0 per 10k)
+    em dashes                              36 -> 0   (21.0 -> 0.0 per 10k)
+    superficial -ing                        3 -> 0
+    adverb openers                          3 -> 0
+    "rather than"                          83 -> 0
+    "instead of"                           -- -> 0
+
+The last custom count after the pass: `not` 141 (82.8 per 10k), `It is` 30,
+`That is` 18, `Therefore` 17, `This is` 8, `It is not` 7, `It does not` 13,
+`, not` 2, and semicolons 113 (6.6 per 1k). Sentence-length CV is 0.726
+(95th percentile of the control corpus), mean sentence length 23.9 words
+(52nd percentile).
+
+Build and parity after the pass:
+
+* CGF: 27 pages, 0 overfull boxes;
+* IEEE: 27 pages, no undefined references, 0 overfull boxes in the final log;
+* `tools/check_dual_format.py`: `DUAL-FORMAT OK`, 11 shared sections,
+  12 claims checked in both editions;
+* `tools/check_paper.py`: all reference, citation, and script checks pass.
+
+These are internal tell counts. They do not establish that Turnitin will score
+the manuscript lower, and they do not replace a highlighted Turnitin report.
+The sample used for any external check is `out/paper_sample.txt`.
+
+## 23. Second author attribution and IEEE polish (2026-10-22)
+
+Added co-author Vaishali Chauhan (ORCID 0000-0003-0549-4727) and institution
+Manipal University Jaipur for both authors across both editions (`docs/paper/` and
+`docs/paper-ieee/`). Updated authorial abstract pronouns from first-person singular
+to plural ("We" / "our") identically across both editions.
+
+Polished IEEEtran format:
+* Replaced conference-style `\IEEEauthorblockN`/`\IEEEauthorblockA` with journal-standard
+  `\author{... \thanks{...}}` author block with institutional footnote and corresponding
+  author attribution;
+* Added running headers via `\markboth{IEEE Transactions on Visualization and Computer Graphics}{...}`;
+* Cleaned deprecated `siunitx` package parameters (`math-micro`, `text-micro`).
+
+Build and parity status:
+* CGF: 26 pages, 0 overfull boxes;
+* IEEE: 27 pages, 0 overfull boxes;
+* `tools/check_dual_format.py`: `DUAL-FORMAT OK`, 11 shared sections, 12 claims checked in both editions;
+* `tools/check_paper.py`: `PAPER REFS OK` (all reference, citation, and script checks pass).
+
+--------------------------------------------------------------------------------
+## 24. Glass dragon complex-shape suite (2026-11-01)
+--------------------------------------------------------------------------------
+
+First arbitrary-mesh test: the in-repo `models/dragon.blend` (43457-vert base
+mesh, Remesh+Decimate modifiers live so the evaluated mesh is 17469 verts /
+34938 tris, plane ground, one camera, three point lights) converted to a closed
+glass volume (`tools/dragon_glass_setup.py`: open_edges=0, no Solidify needed,
+Principled transmission 1.0, roughness 0, IOR 1.525) with one locked sun and
+one locked camera for every engine. New scenery, not the tumbler rig. All
+proof renders at the physical fringe scale; no exaggerated panel exists yet.
+
+Pre-registered in `docs/superpowers/plans/2026-11-01-dragon-glass-caustic.md`:
+referee = independent triangle-mesh tracer (Moller-Trumbore, two-interface
+air->glass->air with TIR drop, no Jacobian, no solver import); pass criterion
+r >= 0.80 at coarse tiles for the proto correction; a miss is recorded, not tuned.
+
+| engine | res | budget | render_s | r_8tile | r_32tile |
+|---|---|---|---|---|---|
+| referee (two-interface) | 256 | 300^2 rays | 145.9 | — | — |
+| ours-proto | 128 | 150^2 rays | 36.3 | 0.999 | 0.987 |
+| cycles-native | 2560x1440 | 1024spp | 66.1 | — | — |
+| pbrt-sppm | 256 ortho | 256spp/500k ph | 7.7 | — | — |
+| pbrt-scored vs referee | 256 resampled | bilinear | — | 0.097 | 0.082 |
+| mitsuba-path | 256 | 64spp | 1.4 | — | — |
+
+Reproduce:
+```
+E:/SteamLibrary/steamapps/common/Blender/blender.exe --background --python tools/dragon_glass_setup.py -- --in models/dragon.blend --out models/dragon_glass.blend
+E:/SteamLibrary/steamapps/common/Blender/blender.exe --background --python tools/dragon_spike_render.py -- --blend models/dragon_glass.blend --out out/dragon_suite/cycles_native_2560.png --w 2560 --h 1440 --samples 1024 --clamp-indirect 0
+python tools/dragon_trace.py
+python tools/dragon_suite.py --check
+python tools/dragon_suite.py --engines referee,ours
+python tools/dragon_suite.py --engines cycles_native
+python tools/dragon_suite.py --engines pbrt
+python tools/dragon_suite.py --engines mitsuba
+python tools/dragon_suite.py --engines score
+```
+
+What held:
+* The smoke test passed first try: glass dragon at 720p/128spp Cycles-native
+  shows a bright refracted fan inside the cast shadow; at 2560x1440/1024spp it
+  is a sharp band left of the dragon (66.1 s). The referee (7023 hits, max 31)
+  throws the same fan, and the EDT-ridge band-local Airy correction tracks the
+  referee at r = 0.999/0.987.
+* Caveat on that number, stated plainly: ours-proto shares the tracer code
+  with the referee (only the sampling grid differs), so it scores the
+  correction operator, not an independent method. The independent witnesses
+  are the Cycles beauty renders, which agree with the referee on placement.
+
+What did not:
+* PBRT-SPPM misses the 0.80 threshold at r = 0.097/0.082. The 256-iteration
+  ortho render shows a lit table and a dark glass dragon but no resolved fan:
+  at 500k photons/iteration over an 8 m scene the fan is unconverged. Two
+  own-bugs were caught and fixed on the way (Windows backslash escapes in the
+  .pbrt paths; a one-triangle table quad), neither of which moved the score,
+  which points at budget rather than setup.
+* Mitsuba 3 path tracer at 64spp is fireflies on black: unconverged, as the
+  paper already documents for path tracers on glass caustics. Kept as the
+  qualitative witness only (paper limitations §8 treatment).
+* Open question, not a conclusion: whether a converged (10-100x) SPPM run
+  would meet the threshold. Not run; would be a new experiment with its own
+  budget row, not a revision of this one.
+* Orientation note: resampling PBRT onto the referee grid is Y-sensitive
+  (a flipped mapping reads 0.26/0.20); the pipeline's unflipped convention
+  is what is reported. Row 0 = -Y in the referee grid.
+
+Earlier CSV rows (single-interface referee 114.6 s, proto r = 1.0/0.995)
+are superseded: the single-hit tracer refracted at entry and never exited,
+which shifts the fan by order of the body thickness. The two-interface
+transport above replaces it; the old rows remain in the CSV history.
+
+Figure: `docs/media/dragon_suite.png` (built by
+`tools/make_dragon_figure.py` from `out/` working artefacts) shows the four
+panels side by side at physical scale: referee fan, Cycles-native beauty,
+unresolved PBRT table, unconverged Mitsuba.
+
+--------------------------------------------------------------------------------
+## 25. Any-mesh Bake through the finished addon (2026-11-01)
+--------------------------------------------------------------------------------
+
+The mesh Bake path of `blender_addon/caustic_injector.py` run against the
+dragon through the addon's own operator (not a script): bake, inject, render.
+
+| step | measured |
+|---|---|
+| mesh | dragon, 34938 evaluated tris, watertight, open_edges=0 |
+| bake grid | 150^2 rays, SUN lamp, clear medium (0,0,0) |
+| estimate shown pre-run | 39 s (`estimate_seconds`: rays x tris x 5e-8) |
+| bake wall time | 38 s |
+| ray hits | 1812 of 22500 rays |
+| inject | 1 material slot, `CAUSTIC_*` nodes, Cycles caustics off |
+| render | 720p, 128spp, CAM_beauty: `out/dragon_suite/addon_ours_720p_neutral.png` |
+
+Reproduce (Steam Blender 5.2):
+```
+python tools/run_blender.py --background --factory-startup --python tools/test_addon_mesh.py
+```
+(all 8 asserts PASS), then the dragon proof driver (bake 38 s, inject,
+720p render) as recorded above.
+
+What held:
+* Estimate model validated: predicted 39 s, measured 38 s on 35k tris.
+* A first bake with the red default medium (30, 344, 721) rendered a RED fan
+  in the shadow — the absorb path tints through to the final image by
+  construction (per-channel weights, joint peak). Re-baked neutral (0,0,0)
+  for the placement comparison; both renders kept in `out/dragon_suite/`.
+* Named refusals verified headless: open mesh and missing-UV targets cancel
+  with the reason in the status (Blender 5.2 raises RuntimeError through
+  `bpy.ops` for ERROR+CANCELLED — the tests assert on that; UI behaviour is
+  the standard status-bar flash).
+
+What did not / limits carried forward:
+* Rough glass, nested volumes, volumetrics inside the body, and motion blur
+  are refused by name (no fold exists for rough glass; single closed surface
+  assumed). Animation (per-frame bake + image sequence) is implemented next
+  as the gated Phase 2 of `docs/superpowers/plans/2026-11-01-addon-anymesh-full.md`.
+

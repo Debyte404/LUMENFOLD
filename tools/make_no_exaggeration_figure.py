@@ -1,15 +1,17 @@
-"""make_no_exaggeration_figure.py -- show our solution at the physical fringe
-width next to the exaggerated version, for the README.
+"""make_no_exaggeration_figure.py -- show our solution at the canonical physical
+fringe width next to the exaggerated version, for the README.
 
 The repository's showcase stills were baked at airy_scale = 1.5 mm, which is
-12.2x the physical fringe width for this geometry (0.123 mm), and the real-time
-baker's own default is 0.02 m, 163x. Those numbers were chosen so the fringes
-are visible on screen, and they are exactly the exaggeration this paper removes.
-The ripple GIFs already use the physical width; this produces a still pair so the
+about 220x the canonical physical fringe scale for this geometry (6.8 um from
+Eq. 14; the earlier 123 um estimate is withdrawn as dimensionally mismatched).
+Those numbers were chosen so the fringes are visible on screen, and they are
+exactly the exaggeration this paper removes. The shipped ripple GIFs use
+0.123 mm (18x canonical), which is still an operational width rather than a
+physical one; this produces a still pair against the canonical scale so the
 difference is visible side by side, with the exaggerated one labelled as not
 used for any result.
 
-Run:  <system python> tools/make_no_exaggeration_figure.py
+Run:  <system python> tools/make_no_exaggeration_figure.py --force
 """
 import os
 import subprocess
@@ -30,8 +32,9 @@ EXE = f"{ROOT}/build/src/app/Release/showcase.exe"
 BLENDER = "C:/Program Files/Blender Foundation/Blender 4.2/blender.exe"
 SCENE = f"{ROOT}/tools/blender_scene.py"
 
-PHYS = 0.000123    # physical fringe width for this geometry
+PHYS = 6.77e-6     # canonical physical fringe scale for this geometry (Eq. 14)
 EXAG = 0.001500    # the visibility-chosen value used by the old stills
+RATIO = int(round((EXAG / 6.8e-6) / 10.0) * 10)  # 220x, the paper's two-figure value
 
 RIG = ["--sun", "8", "--sun-color", "0.98,0.98,1.00",
        "--world", "0.34", "--world-color", "0.45,0.55,0.80",
@@ -41,7 +44,7 @@ RIG = ["--sun", "8", "--sun-color", "0.98,0.98,1.00",
 
 def bake(airy, path, res=1024):
     cmd = [EXE, "--res", str(res), "--n", "400", "--ssaa", "1",
-           "--airy", f"{airy:.6f}", "--wave-t", "0.0",
+           "--airy", f"{airy:.8f}", "--wave-t", "0.0",
            "--out", f"{OUT}/_throw.png", "--dump-caustic", path]
     t0 = time.time()
     p = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
@@ -87,17 +90,17 @@ def main():
     b = np.asarray(Image.open(jobs[1][3]).convert("RGB"))
     fig, axes = plt.subplots(1, 3, figsize=(11.0, 4.3))
     axes[0].imshow(a); axes[0].set_title(
-        f"(a) physical fringe width\n{PHYS*1e3:.3f} mm  (no exaggeration)", fontsize=9, pad=8)
+        f"(a) canonical fringe scale\n{PHYS*1e6:.1f} um  (no exaggeration)", fontsize=9, pad=8)
     axes[1].imshow(b); axes[1].set_title(
-        f"(b) exaggerated {EXAG/PHYS:.1f}x\n{EXAG*1e3:.1f} mm  (old stills; not used)", fontsize=9, pad=8)
+        f"(b) exaggerated ~{RATIO}x\n{EXAG*1e3:.1f} mm  (old stills; not used)", fontsize=9, pad=8)
     d = np.abs(a.astype(np.int16) - b.astype(np.int16)).sum(axis=2)
     im = axes[2].imshow(d, cmap="inferno")
     axes[2].set_title("(c) absolute difference\n(sum over channels, 8-bit)", fontsize=9, pad=8)
     fig.colorbar(im, ax=axes[2], fraction=0.046, pad=0.02)
     for ax in axes:
         ax.set_xticks([]); ax.set_yticks([]); ax.grid(False)
-    fig.suptitle("Our solution: the fold band at the physical fringe width, and the "
-                 "same band stretched 12.2x for visibility", fontsize=10, y=0.98)
+    fig.suptitle("Our solution: the fold band at the canonical fringe scale, and the "
+                 "same band stretched ~220x for visibility", fontsize=10, y=0.98)
     fig.tight_layout(rect=[0, 0, 1, 0.90])
     p = f"{ROOT}/docs/media/no_exaggeration.png"
     fig.savefig(p, bbox_inches="tight")

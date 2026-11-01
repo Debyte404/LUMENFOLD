@@ -68,10 +68,12 @@ These share no code with the estimator, which is the point.
 | Tool | Purpose |
 |---|---|
 | `production_renders.py` | The deliverable stills and clips (`--combined-only`, `--cycles-clips`). |
-| `ripple_gifs.py` | The three ripple GIFs, one camera, physical Airy width (`--validate` for frame 0 only, `--encode-only`). |
-| `make_no_exaggeration_figure.py` | Physical fringe width vs the 12.2x exaggeration, side by side, for the README. |
+| `ripple_gifs.py` | The three ripple GIFs, one camera, operational 0.123 mm Airy width (18× canonical; `--validate` for frame 0 only, `--encode-only`). |
+| `make_no_exaggeration_figure.py` | Canonical physical fringe width (6.8 µm) vs the ~220× exaggeration, side by side, for the README. |
 | `make_paper_figures_pdf.py` | The paper's figures as vector PDF (incl. Fig. 1 as a to-scale technical drawing) with alpha flattened. |
-| `build_paper_pdf.py` | Compile the CGF paper with tectonic and report the page count. |
+| `build_paper_pdf.py` | Compile the CGF paper with tectonic or pdflatex and report the page count. |
+| `build_paper_ieee.py` | Compile the IEEEtran edition and fail on engine errors or overfull boxes. |
+| `check_dual_format.py` | Prove the CGF and IEEE editions share the same body, abstract, and canonical claim values. |
 | `check_paper.py` | Dangling \ref targets, uncited bibliography entries, missing citations. |
 | `scan_ai_tells.py` | AI-writing tells in the manuscript (strips LaTeX comments first; the naive version over-counted em dashes 20x). |
 | `verify_refs.py`, `verify_refs2.py` | Every citation checked against the Crossref API; caught three wrong references. |
@@ -223,4 +225,6 @@ assumes physical reality.
 `colour_experiments.AIRY_FACTOR` derives the number dynamically from the two lengths, so it cannot
 go stale. Panels (c) and (d) of Figure 11 state it in their titles and caption ($\approx 220\times$);
 panels (a) and (b) are computed from the canonical wave integral at micro-scale and say they are not
-exaggerated. The ripple clips run with physical parameters.
+exaggerated. The shipped ripple clips use 0.123 mm, which is **18×** the canonical 6.8 µm — an
+earlier operational width, still sub-pixel at the delivered raster, and labelled as such rather than
+called physical.

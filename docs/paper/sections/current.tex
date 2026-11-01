@@ -14,17 +14,15 @@ states what each was asked to do, what it cost, and what it produced.
 \label{sec:solvers}
 
 \paragraph{PBRT-v4 SPPM.} PBRT \cite{pharr2023} is the reference implementation
-of the book's rendering algorithms and its SPPM integrator
+of the book's rendering algorithms. Its SPPM integrator
 \cite{hachisuka2008} is the strongest conforming caustic solver available
-without special-purpose machinery. It is the solver we treat as the
+without special-purpose machinery, and it is the solver we treat as the
 \emph{reference conforming method}: it estimates the same integrand as we do,
 it does not use wave optics, and it is consistent in the limit. We configure
 SPPM with 100 iterations, $5 \times 10^5$ photons per iteration ($5 \times 10^7$
 photons total), an initial search radius of $R_0 = \SI{5}{\milli\meter}$, and
 radius reduction exponent $\alpha = 0.67$. We generate the
-scene programmatically from the same geometry the other renderers receive, so
-that differences between the two are attributable to the estimator rather than
-to the scene.
+scene programmatically from the same geometry the other renderers receive, so that differences between the two are attributable to the estimator.
 
 \paragraph{Blender Cycles.} Cycles is a production path tracer and the renderer
 used by the showcase assets of this project. It represents the backward family
@@ -35,8 +33,7 @@ caustics-on minus caustics-off, which is the positive-part differential defined
 in Section~\ref{sec:estimators}.
 
 \paragraph{Mitsuba 3.} Mitsuba \cite{jakob2022} is a research renderer with a
-spectral mode and well-documented integrators, and it was used as a third
-opinion on the transport physics rather than as a primary caustic competitor.
+spectral mode and well-documented integrators, and it was used as a third opinion on the transport physics; it is not a primary caustic competitor.
 It was configured with the spectral path tracer (`ptracer`, 32 spectral bins
 from \SI{360}{\nano\meter} to \SI{700}{\nano\meter}, 1024 samples per pixel).
 We report it where relevant and do not put it in the quality table, because its
@@ -47,8 +44,7 @@ solvers in a way that would confound a like-for-like comparison.
 \label{sec:protocol}
 
 A comparison of caustic renderers is easy to make meaningless. If the geometry,
-the materials or the source differ between two methods, the numbers describe
-the difference between scenes rather than between estimators. Three things have
+the materials or the source differ between two methods, the numbers describe the difference between scenes, not between estimators. Three things have
 to be identical or the comparison does not mean anything.
 
 \begin{enumerate}
@@ -72,15 +68,15 @@ caustic on this scene, against our bake. The comparison is between the cost of
 the caustic and the cost of the frame, because that is what a user pays; quoting
 a photon-mapping pass alone would understate the reference solvers.
 
-\begin{table}[tbp]
+\begin{table*}[tp]
 \centering
 \caption{Cost to produce the caustic. Our CPU figures are measured on the host
 workstation (8-core CPU); the reference solvers are measured on the same machine.
 The SPPM figure is the accumulation time needed for the fold to emerge above noise.
 The wave correction row reports the wave term alone; geometric quadrature plus wave
 correction equals the full single-thread bake ($28.7 + 49.8 = \SI{78.5}{\milli\second}$).
-Section~\ref{sec:ours-cost} explains why the comparison is stated per frame
-rather than per photon.}
+Section~\ref{sec:ours-cost} explains why the comparison is stated per frame,
+not per photon.}
 \label{tab:cost}
 \small
 \begin{tabular}{@{}lrrr@{}}
@@ -96,7 +92,7 @@ Full bake (8 threads, CPU)         & \SI{36.2}{\milli\second} & --- & --- \\
 Iterative / noisy                  & no & yes & yes \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
 
 The cost structure of our own method is worth stating because it is the obvious
 target for anyone continuing this work: the Airy correction is roughly twice the
@@ -111,25 +107,21 @@ Three measured properties of the reference solvers motivate the method in
 Section~\ref{sec:ourway}. Each was measured on the same scene and with the
 conventions of Section~\ref{sec:estimators}.
 
-\paragraph{Kernel smoothing versus physical diffraction.} The photon-map fold
-width and brightness track the kernel radius $h$ rather than the physics, as
-analyzed in Section~\ref{sec:photonmap} and Lemma~\ref{lem:kdebias}. SPPM reaches a finer feature scale than
+\paragraph{Kernel smoothing versus physical diffraction.} The photon-map fold width and brightness track the kernel radius $h$. The physics does not set them, as analyzed in Section~\ref{sec:photonmap} and Lemma~\ref{lem:kdebias}. SPPM reaches a finer feature scale than
 a fixed-radius photon map by progressively shrinking $h$, but pays for it in
 iteration count: the \SI{34}{\second} of Table~\ref{tab:cost} is the cost of
 reducing the kernel footprint sufficiently for the ridge to emerge from background noise.
-In contrast, our wave-corrected fold replaces geometric divergence with the
+Our wave-corrected fold, by contrast, replaces geometric divergence with the
 physically bounded Airy scale $w \propto \lambda^{2/3}$ without kernel blur.
 
 \paragraph{Coverage of the caustic core.} Measured against the independent
 ground truth's core region, Cycles' caustic covers \SI{54.7}{\percent} of it
-where ours covers \SI{99.9}{\percent}. This is a statement about how much of the
-feature a practical finite-sample frame actually reconstructs, where the path
+where ours covers \SI{99.9}{\percent}. The number describes how much of the
+feature a practical finite-sample frame actually reconstructs. The path
 tracer's deficit is concentrated near the fold where backward paths are least
 likely to sample the singular specular manifold.
 
-\paragraph{Temporal instability.} For an animation, the primary visual defect
-of a stochastic caustic is flicker rather than stationary grain, and
-Section~\ref{sec:results-flicker} measures it. A deterministic forward bake
+\paragraph{Temporal instability.} For an animation, the primary visual defect of a stochastic caustic is flicker; stationary grain is not the defect. Section~\ref{sec:results-flicker} measures it. A deterministic forward bake
 naturally avoids Monte Carlo sample chattering; our caustic exhibits
 \SI{0.001}{} levels of mean frame-to-frame change against \SI{0.010}{} for the
 path-traced clip, a factor of \num{7.9}. Both clips were denoised, which
@@ -146,8 +138,7 @@ renderers.
 \label{sec:current-shape}
 
 Independent of the ground-truth axis, the converged two-dimensional shape of our
-field and the SPPM field agree at $r = +0.932$ on 40\,mm tiles. This is a
-necessary check rather than an impressive one: two methods that disagree on
+field and the SPPM field agree at $r = +0.932$ on 40\,mm tiles. This is a necessary check: two methods that disagree on
 shape cannot both be describing the same caustic, and a high correlation here
 combined with a lower one against the ground truth would have indicated a shared
 error. Since SPPM also scores $0.853$ on the independent axis and ours scores
@@ -157,11 +148,9 @@ closer.
 \subsection{Mitsuba as a third opinion}
 \label{sec:current-mitsuba}
 
-Mitsuba was run in spectral mode on the same scene. Its role in this paper is to
-confirm the transport and the dispersive behaviour rather than to compete on
-caustic quality: its spectral sampling spreads energy across wavelength bins,
+Mitsuba was run in spectral mode on the same scene. Its role in this paper is to confirm the transport and the dispersive behaviour. It does not compete on caustic quality: its spectral sampling spreads energy across wavelength bins,
 so its per-channel noise is not comparable to a three-channel renderer's, and
-scoring it in the quality table would compare noise models rather than
+scoring it in the quality table would compare noise models, not
 estimators. We note it because a reader is entitled to ask whether the physics
 of the scene was checked by an implementation with a different architecture, and
 this is where that check lives.
