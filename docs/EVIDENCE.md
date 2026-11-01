@@ -2680,6 +2680,7 @@ dragon through the addon's own operator (not a script): bake, inject, render.
 | ray hits | 1812 of 22500 rays |
 | inject | 1 material slot, `CAUSTIC_*` nodes, Cycles caustics off |
 | render | 720p, 128spp, CAM_beauty: `out/dragon_suite/addon_ours_720p_neutral.png` |
+| high-res | 2560x1440, 1024spp: `out/dragon_suite/addon_ours_2560_neutral.png` (bake 256^2, 85 s vs 114 s predicted, 5353 hits, render 236 s) |
 
 Reproduce (Steam Blender 5.2):
 ```
@@ -2698,6 +2699,10 @@ What held:
   with the reason in the status (Blender 5.2 raises RuntimeError through
   `bpy.ops` for ERROR+CANCELLED — the tests assert on that; UI behaviour is
   the standard status-bar flash).
+* High-res чест finding: the 2560px ours-injected fan sits where Cycles puts
+  it, but the injected field shows visible grid blocks — 256^2 over an 8 m
+  receiver is ~3 cm/px, too coarse for a crisp beauty render. Bake resolution
+  must scale with receiver size; recorded as a limit, not retuned.
 
 What did not / limits carried forward:
 * Rough glass, nested volumes, volumetrics inside the body, and motion blur
