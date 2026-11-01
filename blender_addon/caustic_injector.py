@@ -212,7 +212,7 @@ def _emit_into_material(mat, image, gain):
     tex = nt.nodes.new("ShaderNodeTexImage")
     tex.name = "CAUSTIC_img"
     tex.image = image
-    tex.interpolation = "Linear"
+    tex.interpolation = "Cubic"  # smooths coarse-bake texels; detail still needs bake res
     tex.extension = "EXTEND"
     if image is not None:
         # the baked field is linear, not sRGB: 16-bit PNG scaled by 1/16

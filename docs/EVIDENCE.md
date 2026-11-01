@@ -2681,6 +2681,7 @@ dragon through the addon's own operator (not a script): bake, inject, render.
 | inject | 1 material slot, `CAUSTIC_*` nodes, Cycles caustics off |
 | render | 720p, 128spp, CAM_beauty: `out/dragon_suite/addon_ours_720p_neutral.png` |
 | high-res | 2560x1440, 1024spp: `out/dragon_suite/addon_ours_2560_neutral.png` (bake 256^2, 85 s vs 114 s predicted, 5353 hits, render 236 s) |
+| high-res 512 | 1920x1080, 1024spp: `out/dragon_suite/addon_ours_2560_r512.png` (bake 512^2, 334 s vs 458 s predicted, 21491 hits, render 133 s) |
 
 Reproduce (Steam Blender 5.2):
 ```
@@ -2703,6 +2704,12 @@ What held:
   it, but the injected field shows visible grid blocks — 256^2 over an 8 m
   receiver is ~3 cm/px, too coarse for a crisp beauty render. Bake resolution
   must scale with receiver size; recorded as a limit, not retuned.
+* Follow-up (same section): 512^2 re-bake halved the block size (1.6 cm/px),
+  confirming the grid as the cause and ruling out mesh facets (Cycles-native
+  is smooth on the identical mesh) and a correction bug (placement unchanged).
+  Residual blocks remain visible at high contrast; the injection texture now
+  defaults to Cubic (smooths edges, does not recover detail). Next step if
+  needed: 1024^2 (~22 min bake) or a fan-framed receiver patch.
 
 What did not / limits carried forward:
 * Rough glass, nested volumes, volumetrics inside the body, and motion blur
