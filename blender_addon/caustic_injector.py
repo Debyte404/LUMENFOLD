@@ -474,7 +474,7 @@ class CAUSTIC_OT_bake_mesh(bpy.types.Operator):
         dg = context.evaluated_depsgraph_get()
         verts, faces = _mesh_tris(obj, dg)
         tris_n = len(faces)
-        est = MT.estimate_seconds(tris_n, p.mesh_resolution, nchan=3)
+        est = MT.estimate_seconds(tris_n, p.mesh_resolution * 2, nchan=3)
         try:
             MT.check_closed(faces)
             recv = _resolve_target(p.target)
@@ -484,7 +484,7 @@ class CAUSTIC_OT_bake_mesh(bpy.types.Operator):
             eta = MT.ior_rgb(mat["ior"])
             fld, res = _bake_field(MT, MB, verts, faces, lights, recv,
                                    p.mesh_resolution, p.mesh_airy,
-                                   absorb, eta)
+                                   absorb, eta, ray_mult=2)
         except ValueError as e:
             p.status = str(e)
             self.report({"ERROR"}, p.status)
@@ -621,16 +621,20 @@ def _resolve_material(obj):
     return {"ior": ior, "roughness": rough, "absorb": absorb, "tint": tint}
 
 
-def _bake_field(MT, MB, verts, faces, lights, recv, res, airy, absorb, eta):
+def _bake_field(MT, MB, verts, faces, lights, recv, res, airy, absorb, eta,
+                ray_mult=1):
     """Trace + band-correct. Returns (fld01 RGB peak 1.0 row0=+Y, trace dict).
-    eta is scalar or (R,G,B); absorb is per-channel. Raises ValueError from
-    the tracer (not watertight / inside light / ...) or the no-hits guard."""
+    ray_mult supersamples rays above grid resolution so shot noise, not texel
+    size, stops being the visible structure. eta is scalar or (R,G,B);
+    absorb is per-channel. Raises ValueError from the tracer or the
+    no-hits guard."""
     import numpy as _np
     n = res
     cx, cy, half, rz = recv["cx"], recv["cy"], recv["half"], recv["z"]
     r = MT.trace_mesh(_np.asarray(verts), faces, lights,
                       {"z": rz, "patch_half": half, "center": (cx, cy)},
-                      {"n_side": n, "eta": eta, "absorb_rgb": tuple(absorb)})
+                      {"n_side": n * max(int(ray_mult), 1), "eta": eta,
+                       "absorb_rgb": tuple(absorb)})
     outs = []
     for c in range(3):
         m = (r["chan"] == c) if len(r["hits"]) else None

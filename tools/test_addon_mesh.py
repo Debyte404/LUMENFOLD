@@ -202,8 +202,30 @@ bb = sum(img[4 * i + 2] for i in range(n))
 check("volume_node_tints_bake", rr > 2.0 * max(bb, 1e-9),
       f"R/B={rr / max(bb, 1e-9):.1f} (material volume node, no panel absorb)")
 
-# ---- 9. sequence bake: 3 frames differ, sequence injection ----------------
+# ---- 8c2. supersampled rays keep grid shape, raise hit count ---------------
 fresh_scene()
+import sys as _sys
+_sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+import importlib.util as _ilu
+_spec = _ilu.spec_from_file_location(
+    "caustic_injector",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                 "blender_addon", "caustic_injector.py"))
+_mod = _ilu.module_from_spec(_spec)
+_sys.modules["caustic_injector"] = _mod
+_spec.loader.exec_module(_mod)
+from mesh_caustic import trace as _MT, band as _MB
+from caustic_injector import _mesh_tris as _mesh_tris_fn, _resolve_target as _resolve_tgt, _collect_lights as _collect_l, _bake_field as _bake_field_fn
+dg = bpy.context.evaluated_depsgraph_get()
+_vv, _ff = _mesh_tris_fn(glass(), dg)
+_rr = _resolve_tgt(plane())
+_ll = _collect_l(bpy.context.scene.objects, (0.80, 0.42, -0.43))
+_f1, _r1 = _bake_field_fn(_MT, _MB, _vv, _ff, _ll, _rr, 32, 0.006, (0.0, 0.0, 0.0), 1.5251, ray_mult=1)
+_f2, _r2 = _bake_field_fn(_MT, _MB, _vv, _ff, _ll, _rr, 32, 0.006, (0.0, 0.0, 0.0), 1.5251, ray_mult=2)
+check("supersample_keeps_grid", _f1.shape == (32, 32, 3) and _f2.shape == (32, 32, 3),
+      f"{_f1.shape} vs {_f2.shape}")
+check("supersample_adds_hits", len(_r2["hits"]) > len(_r1["hits"]),
+      f"{len(_r1['hits'])} -> {len(_r2['hits'])}")
 sun = bpy.data.objects.get("sun")
 sun.rotation_mode = "XYZ"
 for f, ang in ((1, 0.0), (2, 0.1), (3, 0.2)):
