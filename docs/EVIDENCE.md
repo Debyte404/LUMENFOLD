@@ -2798,3 +2798,28 @@ twice) but shot noise persists: 258k hits over 1M texels is < 1 hit/texel,
 and band-local flux conservation preserves that noise by design. The fix
 is supersampling rays above grid resolution (decouple n_side from n_grid)
 plus a feathered band edge — recorded here as prescribed work, not done.
+
+--------------------------------------------------------------------------------
+## 29. The mesh loads fully everywhere; the darkness was visualization (2026-11-02)
+--------------------------------------------------------------------------------
+
+A "mesh not fully loaded" suspicion was checked directly and refuted:
+the OBJ is clean (17469 verts, 34938 triangles, one object, no negative
+indices), Mitsuba loads all 34938 tris with the correct bbox and a
+SmoothDielectric bsdf attached, and PBRT renders the complete silhouette.
+What looked broken was three stacked visualization artifacts, now fixed:
+
+* Max-normalized 8-bit previews crush everything under one firefly.
+  All EXR previews are now percentile-mapped (p1-p99.9). The "black"
+  PBRT corners measure exactly 0.70 — the infinite environment light,
+  working as intended and merely crushed by the old mapping.
+* Missing environment light (void black behind the glass) is now a
+  uniform 0.7 gray on all three non-Cycles engines.
+* Mitsuba's sun is auto-calibrated to Cycles' ground level in linear
+  light (0.694 vs 0.694).
+
+What remains genuinely dark is Mitsuba's glass dragon at 1024spp:
+fireflies on black glass, no fan. With the mesh, material, sun, camera,
+and ground all verified, that is the path tracer's answer, not a setup
+bug — consistent with this project's standing result on glass caustics.
+`docs/media/dragon_beauty_compare.png` is the corrected four-way figure.

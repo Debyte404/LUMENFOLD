@@ -17,3 +17,5 @@ pbrt-scored,256,resample-to-referee,,0.097,0.082,bilinear PBRT ortho onto refere
 pbrt-beauty,2560x1440,128spp/500000ph,85.9,,,"perspective 39.6deg, same eye/target as CAM_beauty"
 mitsuba-beauty,640,256spp/rad~5252,33.9,,,"perspective 40deg, 2.4deg disk sun, ground-matched to Cycles beauty"
 pbrt-scored,256,resample-to-referee,,0.097,0.082,bilinear PBRT ortho onto referee grid; orientation per pipeline
+pbrt-beauty,2560x1440,256spp/500000ph,155.2,,,"perspective 39.6deg, same eye/target as CAM_beauty"
+mitsuba-beauty,640,1024spp/rad~5252,106.4,,,"perspective 40deg, 2.4deg disk sun, ground-matched; bdpt unless fallback"
