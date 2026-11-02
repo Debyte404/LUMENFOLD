@@ -2823,3 +2823,14 @@ fireflies on black glass, no fan. With the mesh, material, sun, camera,
 and ground all verified, that is the path tracer's answer, not a setup
 bug — consistent with this project's standing result on glass caustics.
 `docs/media/dragon_beauty_compare.png` is the corrected four-way figure.
+
+Diffuse-gray control (2026-11-02): the same dragon mesh rendered in
+Mitsuba with a plain diffuse 0.7 material (no glass) shows the complete
+animal — head, wings, coiled body, tail, cast shadow — correctly lit.
+The mesh was never partially loaded in any engine (Mitsuba: 34938 tris,
+full bbox, SmoothDielectric attached; PBRT: complete silhouette in every
+render). What reads as "missing geometry" is transport, not loading:
+a dielectric body lit by one small disk over a dim world goes black
+with fireflies at any affordable path-tracing budget, while the
+photon-mapped reference (PBRT-SPPM) puts the fan on the table.
+`out/dragon_suite/mitsuba_diffuse_vis.png` is the control image.
