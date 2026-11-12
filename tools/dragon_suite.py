@@ -138,31 +138,34 @@ def run_cycles_native(w=2560, h=1440, samples=1024):
     print(f"CYCLES_OK {dt:.1f}s")
 
 
+def _obj_to_ply(src, dst):
+    verts, faces = [], []
+    for line in Path(src).read_text().splitlines():
+        if line.startswith("v "):
+            verts.append(tuple(map(float, line.split()[1:4])))
+        elif line.startswith("f "):
+            idx = [int(t.split("/")[0]) - 1 for t in line.split()[1:]]
+            for i in range(1, len(idx) - 1):
+                faces.append((idx[0], idx[i], idx[i + 1]))
+    if not verts or not faces:
+        raise SystemExit(f"{src}: no geometry to convert")
+    with open(dst, "w") as f:
+        f.write("ply\nformat ascii 1.0\n")
+        f.write(f"element vertex {len(verts)}\nproperty float x\nproperty float y\nproperty float z\n")
+        f.write(f"element face {len(faces)}\nproperty list uchar int vertex_indices\nend_header\n")
+        for v in verts:
+            f.write(f"{v[0]:.6f} {v[1]:.6f} {v[2]:.6f}\n")
+        for a, b, c in faces:
+            f.write(f"3 {a} {b} {c}\n")
+
+
 def run_pbrt(res=256, spp=256, photons=500000, radius=0.05):
-    import struct
     pbrt = ROOT / "third_party" / "pbrt-v4" / "build" / "Release" / "pbrt.exe"
     if not pbrt.exists():
         raise SystemExit(f"pbrt not built at {pbrt}")
     outd = ROOT / "out" / "dragon_pbrt"
     outd.mkdir(parents=True, exist_ok=True)
-    def convert(src, dst):
-        verts, faces = [], []
-        for line in Path(src).read_text().splitlines():
-            if line.startswith("v "):
-                verts.append(tuple(map(float, line.split()[1:4])))
-            elif line.startswith("f "):
-                idx = [int(t.split("/")[0]) - 1 for t in line.split()[1:]]
-                for i in range(1, len(idx) - 1):
-                    faces.append((idx[0], idx[i], idx[i + 1]))
-        with open(dst, "w") as f:
-            f.write("ply\nformat ascii 1.0\n")
-            f.write(f"element vertex {len(verts)}\nproperty float x\nproperty float y\nproperty float z\n")
-            f.write(f"element face {len(faces)}\nproperty list uchar int vertex_indices\nend_header\n")
-            for v in verts:
-                f.write(f"{v[0]:.6f} {v[1]:.6f} {v[2]:.6f}\n")
-            for a, b, c in faces:
-                f.write(f"3 {a} {b} {c}\n")
-    convert(GEO / "dragon.obj", outd / "dragon.ply")
+    _obj_to_ply(GEO / "dragon.obj", outd / "dragon.ply")
     r = _recv()
     rx = r["receiver"]
     cx, cy = (rx["x0"] + rx["x1"]) / 2, (rx["y0"] + rx["y1"]) / 2
@@ -226,7 +229,7 @@ def run_mitsuba(res=256, spp=64):
     luxpy = ROOT / "third_party" / "luxvenv" / "Scripts" / "python.exe"
     if not luxpy.exists():
         raise SystemExit("luxvenv python missing")
-    script = OUT / "mitsu_dragon.py"
+    script = OUT / "mitsu_legacy.py"
     obj = (GEO / "dragon.obj").as_posix()
     exr = (OUT / "mitsuba_dragon.exr").as_posix()
     lines = [
@@ -294,9 +297,41 @@ def run_score():
     print(f"SCORE_OK pbrt_vs_referee r8={r8:.3f} r32={r32:.3f}")
 
 
-EYE = (1.47, 2.03, 1.29)
-LOOK = (0.0, 0.0, 0.1)
-BEAUTY_FOV = 39.6  # Blender 50mm default lens
+CAM_JSON = GEO / "cam_beauty.json"
+
+
+def _beauty_view():
+    """The exact CAM_beauty optical axis, single-sourced from the blend dump.
+
+    The nominal (1.47, 2.03, 1.29) -> (0, 0, 0.1) is 1.36 deg off the camera
+    that produced the Cycles reference; matching the reference means matching
+    its actual axis, not the number someone typed into the plan.
+    """
+    if CAM_JSON.exists():
+        m = json.loads(CAM_JSON.read_text())["matrix"]
+        eye = (m[0][3], m[1][3], m[2][3])
+        fwd = (-m[0][2], -m[1][2], -m[2][2])
+        t = 2.7745  # keep the historical look distance
+        return eye, tuple(eye[i] + t * fwd[i] for i in range(3))
+    return (1.47, 2.03, 1.29), (0.0, 0.0, 0.1)
+
+
+EYE, LOOK = _beauty_view()
+BEAUTY_HFOV = 39.6  # Blender 50mm default lens, horizontal
+
+
+def pbrt_fov_from_hfov(hfov_deg, aspect):
+    """PBRT measures `fov` on the narrower film axis (cameras.cpp)."""
+    half = np.radians(hfov_deg) / 2
+    if aspect >= 1.0:
+        return float(np.degrees(2 * np.arctan(np.tan(half) / aspect)))
+    return float(hfov_deg)
+
+
+def hfov_from_pbrt(fov_deg, aspect):
+    """Inverse of pbrt_fov_from_hfov for a landscape or square film."""
+    half = np.radians(fov_deg) / 2
+    return float(np.degrees(2 * np.arctan(np.tan(half) * max(aspect, 1.0))))
 
 
 def _write_table_ply(outd, rx):
@@ -305,24 +340,15 @@ def _write_table_ply(outd, rx):
         f.write(f"{rx['x0']} {rx['y0']} {rx['z']}\n{rx['x1']} {rx['y0']} {rx['z']}\n{rx['x1']} {rx['y1']} {rx['z']}\n{rx['x0']} {rx['y1']} {rx['z']}\n3 0 1 2\n3 0 2 3\n")
 
 
-def run_pbrt_beauty(w=2560, h=1440, spp=256, photons=500000, radius=0.05):
-    """Perspective beauty through the same eye/target/fov as CAM_beauty."""
-    import struct
-    pbrt = ROOT / "third_party" / "pbrt-v4" / "build" / "Release" / "pbrt.exe"
-    if not pbrt.exists():
-        raise SystemExit(f"pbrt not built at {pbrt}")
-    outd = ROOT / "out" / "dragon_pbrt"
-    outd.mkdir(parents=True, exist_ok=True)
-    fpath = (outd / "pbrt_beauty.exr").as_posix()
-    dply = (outd / "dragon.ply").as_posix()
-    tply = (outd / "table.ply").as_posix()
-    r = _recv()
-    rx = r["receiver"]
-    _write_table_ply(outd, rx)
+def _pbrt_beauty_scene(w, h, spp, photons, radius, fpath, dply, tply, rx):
     ex, ey, ez = EYE
     tx, ty, tz = LOOK
-    scene = f"""LookAt {ex} {ey} {ez}   {tx} {ty} {tz}   0 0 1
-Camera "perspective" "float fov" [{BEAUTY_FOV}]
+    fov = pbrt_fov_from_hfov(BEAUTY_HFOV, w / h)
+    # PBRT's LookAt builds a left-handed frame, so its image is mirrored
+    # relative to Cycles/Mitsuba; Scale -1 1 1 restores the handedness.
+    return f"""Scale -1 1 1
+LookAt {ex} {ey} {ez}   {tx} {ty} {tz}   0 0 1
+Camera "perspective" "float fov" [{fov:.4f}]
        "float frameaspectratio" [{w / h:.6f}]
 Film "rgb" "string filename" "{fpath}"
      "integer xresolution" [{w}] "integer yresolution" [{h}]
@@ -344,6 +370,22 @@ AttributeBegin
   Shape "plymesh" "string filename" "{dply}"
 AttributeEnd
 """
+
+
+def run_pbrt_beauty(w=2560, h=1440, spp=256, photons=500000, radius=0.05):
+    """Perspective beauty through the same eye/target/fov as CAM_beauty."""
+    pbrt = ROOT / "third_party" / "pbrt-v4" / "build" / "Release" / "pbrt.exe"
+    if not pbrt.exists():
+        raise SystemExit(f"pbrt not built at {pbrt}")
+    outd = ROOT / "out" / "dragon_pbrt"
+    outd.mkdir(parents=True, exist_ok=True)
+    fpath = (outd / "pbrt_beauty.exr").as_posix()
+    dply = (outd / "dragon.ply").as_posix()
+    tply = (outd / "table.ply").as_posix()
+    rx = _recv()["receiver"]
+    _write_table_ply(outd, rx)
+    _obj_to_ply(GEO / "dragon.obj", outd / "dragon.ply")
+    scene = _pbrt_beauty_scene(w, h, spp, photons, radius, fpath, dply, tply, rx)
     sp = outd / "dragon_beauty.pbrt"
     sp.write_text(scene)
     t0 = time.time()
@@ -368,12 +410,31 @@ AttributeEnd
     row = {"engine": "pbrt-beauty", "res": f"{w}x{h}",
            "budget": f"{spp}spp/{photons}ph", "render_s": round(dt, 1),
            "r_8tile": "", "r_32tile": "",
-           "note": "perspective 39.6deg, same eye/target as CAM_beauty"}
+           "note": f"perspective {BEAUTY_HFOV:g}deg h, {w}x{h}, "
+                   "same eye/target as CAM_beauty"}
     _append_row(row)
     print(f"PBRT_BEAUTY_OK {dt:.1f}s")
 
 
-def _mitsu_scene(obj, radiance, res, spp, exr, integrator="path"):
+def _assert_calibrated(got, target, tol=0.20):
+    """Fail unless the measured ground level is within `tol` of the target."""
+    rel = abs(got - target) / max(abs(target), 1e-9)
+    if rel > tol:
+        raise SystemExit(f"mitsuba calibration missed: {got:.3f} vs "
+                         f"{target:.3f} ({100 * rel:.0f}% > {100 * tol:.0f}%)")
+
+
+def _mitsu_scene(obj, radiance, width, height, spp, exr, integrator="path",
+                 sun_scale=100.0, ground_z=-0.2763):
+    """Beauty scene matched to CAM_beauty: 39.6 deg horizontal, 16:9.
+
+    The sun is a 2.4-degree disk moved `sun_scale` times farther away (its
+    radius scaled with it) so the irradiance is directional-equivalent
+    across the scene while the penumbra stays physical.
+    """
+    cx, cy, cz = (round(-4.8 * sun_scale, 6), round(-2.52 * sun_scale, 6),
+                  round(2.58 * sun_scale, 6))
+    sun_r = round(0.126 * sun_scale, 6)
     return "\n".join([
         "import mitsuba as mi",
         "mi.set_variant('scalar_spectral')",
@@ -381,13 +442,13 @@ def _mitsu_scene(obj, radiance, res, spp, exr, integrator="path"):
         "scene = mi.load_dict({",
         "    'type': 'scene',",
         f"    'integrator': {{'type': '{integrator}'}},",
-        "    'sensor': {'type': 'perspective', 'fov': 40,",
-        "               'to_world': T.look_at(origin=[1.47, 2.03, 1.29], target=[0, 0, 0.1], up=[0, 0, 1]),",
-        f"               'film': {{'type': 'hdrfilm', 'width': {res}, 'height': {res}}}}},",
+        f"    'sensor': {{'type': 'perspective', 'fov': {BEAUTY_HFOV}, 'fov_axis': 'x',",
+        f"               'to_world': T.look_at(origin={list(EYE)}, target={list(LOOK)}, up=[0, 0, 1]),",
+        f"               'film': {{'type': 'hdrfilm', 'width': {width}, 'height': {height}}}}},",
         f"    'dragon': {{'type': 'obj', 'filename': '{obj}', 'material': {{'type': 'dielectric', 'int_ior': 1.525}}}},",
-        "    'sun': {'type': 'sphere', 'center': [-4.8, -2.52, 2.58], 'radius': 0.126,"
+        f"    'sun': {{'type': 'sphere', 'center': [{cx}, {cy}, {cz}], 'radius': {sun_r},",
         f" 'emitter': {{'type': 'area', 'radiance': {radiance}}}}},",
-        "    'ground': {'type': 'rectangle', 'to_world': T.translate([0, 0, -0.28]).scale([8, 7, 1]), 'material': {'type': 'diffuse'}},",
+        f"    'ground': {{'type': 'rectangle', 'to_world': T.translate([0, 0, {ground_z}]).scale([8, 7, 1]), 'material': {{'type': 'diffuse'}}}},",
         "    'world': {'type': 'constant', 'radiance': 0.7},",
         "})",
         f"img = mi.render(scene, spp={spp})",
@@ -397,12 +458,14 @@ def _mitsu_scene(obj, radiance, res, spp, exr, integrator="path"):
     ])
 
 
-def run_mitsuba_beauty(res=256, spp=64, radiance=6000.0, integrator="path"):
-    """Perspective beauty, 2.4deg disk sun. Calibrates radiance once at 128px
-    against the Cycles beauty ground level, then renders full res.
-    Default integrator is bdpt: plain path tracing cannot find the
-    sun->glass->ground caustic paths at any sane spp; bidirectional can,
-    via light-traced subpaths. Falls back to path on load failure."""
+def run_mitsuba_beauty(w=1600, h=900, spp=1024, radiance=6000.0, integrator="path"):
+    """Perspective beauty matched to CAM_beauty: 39.6 deg horizontal, 16:9.
+
+    Radiance is calibrated once at 128x72 against the Cycles beauty ground
+    level, then the full frame is rendered. This Mitsuba build exposes only
+    `path` and `direct` (no bdpt/photonmapper), so the glass caustic verdict
+    here is the path tracer's, recorded rather than retuned.
+    """
     import numpy as np
     luxpy = ROOT / "third_party" / "luxvenv" / "Scripts" / "python.exe"
     if not luxpy.exists():
@@ -414,11 +477,15 @@ def run_mitsuba_beauty(res=256, spp=64, radiance=6000.0, integrator="path"):
     cyc = np.array(Image.open(ROOT / "out/dragon_suite/cycles_native_2560.png").convert("L"),
                    dtype=float) / 255.0
     lin = cyc ** 2.2  # Cycles PNG is gamma-encoded; match in linear light
-    tgt = float(np.median(np.sort(lin)[:len(lin) // 2]))
+    # The ground is the lower half of the frame; `np.sort(lin)[:n//2]` would
+    # take the upper (background) half, which is what shipped before.
+    tgt = float(np.median(lin[lin.shape[0] // 2:, :]))
+    ground_z = _recv()["receiver"]["z"]
     rad = float(radiance)
     for attempt in range(2):
         exr = (OUT / "mitsuba_calib.exr").as_posix()
-        script.write_text(_mitsu_scene(obj, rad, 128, 32, exr, integrator))
+        script.write_text(_mitsu_scene(obj, rad, 128, 72, 32, exr, integrator,
+                                       ground_z=ground_z))
         p = subprocess.run([str(luxpy), str(script)], capture_output=True,
                            text=True, timeout=1800)
         if "MITSUBA_DONE" not in p.stdout:
@@ -427,17 +494,21 @@ def run_mitsuba_beauty(res=256, spp=64, radiance=6000.0, integrator="path"):
         q = subprocess.run(
             [str(luxpy), "-c", "import mitsuba as mi; mi.set_variant('scalar_rgb');"
              "import numpy as np;"
-             f"a = np.array(mi.Bitmap(r'{exr}'))[..., :3].mean(axis=-1).ravel();"
-             "print(float(np.median(np.sort(a)[:len(a)//2])))"],
+             f"a = np.array(mi.Bitmap(r'{exr}'))[..., :3].mean(axis=-1);"
+             "print(float(np.median(a[a.shape[0]//2:].ravel())))"],
             capture_output=True, text=True, timeout=600)
+        if q.returncode != 0:
+            raise SystemExit(f"mitsuba calibration read failed: {q.stderr[-300:]}")
         got = float(q.stdout.strip().split()[-1])
         print(f"CALIB attempt {attempt}: radiance {rad:.0f} -> ground {got:.3f} (target {tgt:.3f} linear)")
         if got <= 0:
             rad *= 4.0
             continue
         rad *= tgt / got
+    _assert_calibrated(got, tgt)
     exr = (OUT / "mitsuba_beauty.exr").as_posix()
-    script.write_text(_mitsu_scene(obj, rad, res, spp, exr, integrator))
+    script.write_text(_mitsu_scene(obj, rad, w, h, spp, exr, integrator,
+                                   ground_z=ground_z))
     t0 = time.time()
     p = subprocess.run([str(luxpy), str(script)], capture_output=True,
                        text=True, timeout=3600)
@@ -445,6 +516,17 @@ def run_mitsuba_beauty(res=256, spp=64, radiance=6000.0, integrator="path"):
     print((p.stdout[-600:] or "") + (p.stderr[-600:] or ""))
     if "MITSUBA_DONE" not in p.stdout:
         raise SystemExit("mitsuba beauty render failed")
+    qg = subprocess.run(
+        [str(luxpy), "-c", "import mitsuba as mi; mi.set_variant('scalar_rgb');"
+         "import numpy as np;"
+         f"a = np.array(mi.Bitmap(r'{exr}'))[..., :3].mean(axis=-1);"
+         "print(float(np.median(a[a.shape[0]//2:].ravel())))"],
+        capture_output=True, text=True, timeout=600)
+    if qg.returncode != 0:
+        raise SystemExit(f"mitsuba ground read failed: {qg.stderr[-300:]}")
+    got_final = float(qg.stdout.strip().split()[-1])
+    print(f"GROUND final {got_final:.3f} (target {tgt:.3f} linear)")
+    _assert_calibrated(got_final, tgt)
     q = subprocess.run(
         [str(luxpy), "-c", "import mitsuba as mi; mi.set_variant('scalar_rgb');"
          "import numpy as np; from PIL import Image;"
@@ -455,10 +537,11 @@ def run_mitsuba_beauty(res=256, spp=64, radiance=6000.0, integrator="path"):
          "print('MITSUBA_VIS_OK', float(a.max()))"],
         capture_output=True, text=True, timeout=600)
     print((q.stdout[-400:] or "") + (q.stderr[-400:] or ""))
-    row = {"engine": "mitsuba-beauty", "res": res,
+    row = {"engine": "mitsuba-beauty", "res": f"{w}x{h}",
            "budget": f"{spp}spp/rad~{rad:.0f}", "render_s": round(dt, 1),
            "r_8tile": "", "r_32tile": "",
-           "note": "perspective 40deg, 2.4deg disk sun, ground-matched; bdpt unless fallback"}
+           "note": f"perspective {BEAUTY_HFOV:g}deg h, {w}x{h}, 2.4deg disk "
+                   "sun at 100x, ground-matched; path only"}
     _append_row(row)
     print(f"MITSUBA_BEAUTY_OK {dt:.1f}s")
 
@@ -469,6 +552,45 @@ def _check():
     assert abs(corr(a, a, 8) - 1.0) < 1e-9, "identical grids must correlate 1.0"
     b = rng.random((128, 128))
     assert corr(a, b, 8) < 0.5, "independent grids must not correlate"
+    assert abs(pbrt_fov_from_hfov(39.6, 16 / 9) - 22.91) < 0.05, \
+        "PBRT fov at 16:9 must be the vertical angle"
+    assert abs(pbrt_fov_from_hfov(39.6, 1.0) - 39.6) < 1e-9, \
+        "square film must leave the angle unchanged"
+    assert abs(hfov_from_pbrt(pbrt_fov_from_hfov(39.6, 16 / 9), 16 / 9) - 39.6) < 1e-9, \
+        "fov conversion must round-trip"
+    assert abs(hfov_from_pbrt(39.6, 16 / 9) - 65.3) < 0.3, \
+        "the old PBRT fov was measured on the narrow axis"
+    rx = {"x0": -1.0, "x1": 1.0, "y0": -1.0, "y1": 1.0, "z": 0.0}
+    scene = _pbrt_beauty_scene(2560, 1440, 64, 500000, 0.05,
+                               "x.exr", "d.ply", "t.ply", rx)
+    line = next(l for l in scene.splitlines() if '"float fov"' in l)
+    got = float(line.split("[")[1].split("]")[0])
+    assert abs(hfov_from_pbrt(got, 2560 / 1440) - 39.6) < 1e-3, \
+        "PBRT beauty scene must reconstruct the Cycles horizontal fov"
+    assert scene.startswith("Scale -1 1 1\nLookAt"), \
+        "PBRT LookAt is left-handed; the camera must flip x to match Cycles"
+    ms = _mitsu_scene("x.obj", 1000.0, 1600, 900, 32, "x.exr")
+    assert "'fov': 39.6" in ms and "'fov_axis': 'x'" in ms, \
+        "Mitsuba must use the Cycles horizontal fov"
+    assert "'width': 1600" in ms and "'height': 900" in ms, \
+        "Mitsuba film must be 16:9"
+    assert "'center': [-480.0, -252.0, 258.0]" in ms, \
+        "sun centre must be scaled away from the scene"
+    assert "'radius': 12.6" in ms, "sun radius must keep the 2.4 deg disk"
+    assert "translate([0, 0, -0.2763])" in ms, \
+        "ground must sit at the receiver height"
+    assert f"origin={list(EYE)}" in ms and f"target={list(LOOK)}" in ms, \
+        "Mitsuba must use the exact CAM_beauty axis, not a nominal target"
+    if CAM_JSON.exists():
+        assert abs(EYE[0] - 1.4738) < 1e-3, \
+            "the camera must come from cam_beauty.json when it exists"
+    try:
+        _assert_calibrated(0.30, 0.694)
+    except SystemExit:
+        pass
+    else:
+        raise AssertionError("a 57% calibration miss must raise")
+    _assert_calibrated(0.70, 0.694)
     print("DRAGON_SUITE_CHECK_OK")
 
 
@@ -476,6 +598,10 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--engines", default="referee")
+    ap.add_argument("--pbrt-spp", type=int, default=256)
+    ap.add_argument("--mitsuba-w", type=int, default=1600)
+    ap.add_argument("--mitsuba-h", type=int, default=900)
+    ap.add_argument("--mitsuba-spp", type=int, default=1024)
     args = ap.parse_args()
     if args.check:
         _check()
@@ -485,5 +611,7 @@ if __name__ == "__main__":
             {"referee": run_referee, "ours": run_ours,
              "cycles_native": run_cycles_native, "pbrt": run_pbrt,
              "mitsuba": run_mitsuba, "score": run_score,
-             "pbrt_beauty": run_pbrt_beauty,
-             "mitsuba_beauty": lambda: run_mitsuba_beauty(res=640, spp=1024, integrator="path")}[e]()
+             "pbrt_beauty": lambda: run_pbrt_beauty(spp=args.pbrt_spp),
+             "mitsuba_beauty": lambda: run_mitsuba_beauty(
+                 w=args.mitsuba_w, h=args.mitsuba_h,
+                 spp=args.mitsuba_spp)}[e]()

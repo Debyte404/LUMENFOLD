@@ -19,3 +19,12 @@ mitsuba-beauty,640,256spp/rad~5252,33.9,,,"perspective 40deg, 2.4deg disk sun, g
 pbrt-scored,256,resample-to-referee,,0.097,0.082,bilinear PBRT ortho onto referee grid; orientation per pipeline
 pbrt-beauty,2560x1440,256spp/500000ph,155.2,,,"perspective 39.6deg, same eye/target as CAM_beauty"
 mitsuba-beauty,640,1024spp/rad~5252,106.4,,,"perspective 40deg, 2.4deg disk sun, ground-matched; bdpt unless fallback"
+mitsuba-beauty,640,1024spp/rad~5157,101.9,,,"perspective 40deg, 2.4deg disk sun, ground-matched; bdpt unless fallback"
+pbrt-beauty,2560x1440,256spp/500000ph,1649.7,,,"perspective 39.6deg h, 2560x1440, same eye/target as CAM_beauty"
+mitsuba-beauty,1600x900,1024spp/rad~4539,3195.8,,,"perspective 39.6deg h, 1600x900, 2.4deg disk sun at 100x, ground-matched; path only"
+referee,256,300^2 rays,431.2,,,receiver_z=-0.276 patch_half=2.17m
+ours-proto,128,150^2 rays,94.9,1.0,0.99,EDT-ridge band + Airy 6.77um vs referee-256 block-averaged
+pbrt-sppm,256,256spp/500000ph,23.6,,,ortho over receiver; scored vs referee in EVIDENCE step
+pbrt-scored,256,resample-to-referee,,0.158,0.137,bilinear PBRT ortho onto referee grid; orientation per pipeline
+pbrt-beauty,2560x1440,128spp/500000ph,527.5,,,"perspective 39.6deg h, 2560x1440, same eye/target as CAM_beauty"
+mitsuba-beauty,1200x675,512spp/rad~3978,904.4,,,"perspective 39.6deg h, 1200x675, 2.4deg disk sun at 100x, ground-matched; path only"

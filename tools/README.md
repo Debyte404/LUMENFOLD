@@ -228,3 +228,17 @@ panels (a) and (b) are computed from the canonical wave integral at micro-scale 
 exaggerated. The shipped ripple clips use 0.123 mm, which is **18×** the canonical 6.8 µm — an
 earlier operational width, still sub-pixel at the delivered raster, and labelled as such rather than
 called physical.
+
+## Complex geometry: the glass dragon
+
+The dragon rig is separate from the tumbler measurements and appears in
+`docs/EVIDENCE.md` sections 24-30, never in the paper.
+
+| Tool | Purpose |
+|---|---|
+| `dragon_glass_setup.py` | Convert `models/dragon.blend` to a closed glass volume with one sun and two cameras. |
+| `dragon_export.py` | Export the shared OBJ and `receiver.json`; `--dump-camera` also writes `cam_beauty.json` (camera matrix, lens, and the dragon world bbox). The OBJ is written with `up_axis='Z'` so every engine gets Blender's world coordinates. |
+| `dragon_trace.py` | Independent triangle-mesh tracer: the referee. |
+| `dragon_suite.py` | Engine runners and the append-only CSV. `--check` covers the metric and the FOV conversions. |
+| `check_dragon_framing.py` | Reconstructs the Cycles, PBRT and Mitsuba cameras from their own scene files, projects the dragon bbox, and fails unless all three agree and the OBJ pose matches the blend world bbox. |
+| `make_dragon_beauty_figure.py` | The four-engine figure; refuses a non-16:9 panel instead of squashing it. |

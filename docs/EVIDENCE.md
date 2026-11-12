@@ -2591,6 +2591,10 @@ Build and parity status:
 ## 24. Glass dragon complex-shape suite (2026-11-01)
 --------------------------------------------------------------------------------
 
+*Superseded by section 30: the shared OBJ was exported Y-up, so the referee
+and PBRT ortho here traced a lying dragon. Re-measured numbers are in
+section 30.*
+
 First arbitrary-mesh test: the in-repo `models/dragon.blend` (43457-vert base
 mesh, Remesh+Decimate modifiers live so the evaluated mesh is 17469 verts /
 34938 tris, plane ground, one camera, three point lights) converted to a closed
@@ -2723,6 +2727,10 @@ What did not / limits carried forward:
 ## 26. Matched four-engine beauty comparison (2026-11-01)
 --------------------------------------------------------------------------------
 
+*Superseded by section 30: the PBRT and Mitsuba panels here were not actually
+matched (OBJ pose, fov axis, handedness, film aspect, sun model). The fan
+verdicts stand.*
+
 Same eye/target (CAM_beauty (1.47, 2.03, 1.29) -> (0, 0, 0.1), fov 39.6),
 same 2.4-degree sun direction, ground levels matched (Mitsuba sun radiance
 auto-calibrated to Cycles ground median in linear light: 0.694 vs 0.694),
@@ -2775,6 +2783,10 @@ Weight must exceed 0.
 ## 28. Matched-beauty final: 1024^2 ours, PBRT at 256 iters, Mitsuba at 1024spp
 --------------------------------------------------------------------------------
 
+*Superseded by section 30: the PBRT and Mitsuba cameras were not matched to
+Cycles (OBJ pose, fov axis, handedness, film aspect, sun model). The fan
+verdicts stand.*
+
 Same rig for all four (CAM_beauty eye/target, fov 39.6, one 2.4-degree sun;
 Mitsuba sun auto-calibrated to Cycles ground in linear light, 0.694 vs
 0.694; uniform gray environment on the three non-Cycles engines).
@@ -2822,7 +2834,8 @@ What remains genuinely dark is Mitsuba's glass dragon at 1024spp:
 fireflies on black glass, no fan. With the mesh, material, sun, camera,
 and ground all verified, that is the path tracer's answer, not a setup
 bug — consistent with this project's standing result on glass caustics.
-`docs/media/dragon_beauty_compare.png` is the corrected four-way figure.
+`docs/media/dragon_beauty_compare.png` is the four-way figure; section 30
+corrects its pose and camera matching.
 
 Diffuse-gray control (2026-11-02): the same dragon mesh rendered in
 Mitsuba with a plain diffuse 0.7 material (no glass) shows the complete
@@ -2834,3 +2847,98 @@ a dielectric body lit by one small disk over a dim world goes black
 with fireflies at any affordable path-tracing budget, while the
 photon-mapped reference (PBRT-SPPM) puts the fan on the table.
 `out/dragon_suite/mitsuba_diffuse_vis.png` is the control image.
+
+--------------------------------------------------------------------------------
+## 30. The matched beauty rig was not matched: pose and camera (2026-11-12)
+--------------------------------------------------------------------------------
+
+An audit of the four-engine dragon comparison found six setup bugs, one of
+them fatal to the comparison. None touches the method. The gate is now
+`tools/check_dragon_framing.py`: it reconstructs each camera from its own
+scene description, projects the dragon bounding box, and requires the OBJ pose
+to match the blend's world bounding box.
+
+1. **Pose (fatal).** `dragon.obj` was exported with Blender's default
+   `up_axis='Y'`, so the mesh was 90 deg about X away from the object Cycles
+   renders (the object carries a +90 deg X matrix). Every PBRT and Mitsuba
+   render, and the triangle-mesh referee, traced a dragon lying on its side.
+   `dragon_export.py` now writes `up_axis='Z'` (Blender world coordinates);
+   the dump records the world bbox and the check fails on a pose error over
+   1 mm. Measured: 0.000 mm.
+2. **PBRT fov.** PBRT measures `fov` on the narrower film axis (pbrt-v4
+   `cameras.cpp` L495-527). At 2560x1440, `fov 39.6` is 39.6 deg vertical,
+   65.2 deg horizontal. Corrected to 22.90 deg vertical for 39.6 deg
+   horizontal.
+3. **PBRT handedness.** `LookAt` builds a left-handed frame, so the image was
+   mirrored against Cycles and Mitsuba. A two-sphere probe puts world +X at
+   image-left in PBRT and image-right in Mitsuba; `Scale -1 1 1` restores it
+   (pbrt-v2 release notes, pbrt-v4 issue #444).
+4. **Mitsuba film.** A 640x640 film at `fov 40` matched the horizontal angle
+   but not the vertical (40 vs 22.9), and the figure squashed the square into
+   16:9. Now `fov 39.6`, `fov_axis='x'`.
+5. **Camera axis.** The nominal target (0,0,0.1) is 1.36 deg (6% of frame
+   height) off CAM_beauty's optical axis, and the nominal eye is 5.6 mm off.
+   `dragon_suite.py` derives both from `cam_beauty.json`.
+6. **Sun model.** The Mitsuba disk is now at 100x distance (radius 12.6 m),
+   keeping the 2.4 deg angular size while removing the inverse-square falloff
+   across the receiver. PBRT still uses a delta `distant` light, so the figure
+   says "one sun direction", not "one 2.4 deg sun".
+
+Framing check on the generated scenes (`python tools/check_dragon_framing.py`):
+
+| engine | hfov (deg) | aspect | bbox x0 | x1 | y0 | y1 |
+|---|---|---|---|---|---|---|
+| Cycles | 39.598 | 1.7778 | 0.2790 | 0.7742 | 0.0224 | 0.9935 |
+| PBRT | 39.600 | 1.7778 | 0.2790 | 0.7742 | 0.0225 | 0.9935 |
+| Mitsuba | 39.600 | 1.7778 | 0.2790 | 0.7742 | 0.0225 | 0.9935 |
+
+Re-measured on the corrected mesh (rows appended to the CSV; earlier rows
+stay):
+
+| step | before | after |
+|---|---|---|
+| referee hits / wall | 7023 / 145.9 s | 8343 / 431.2 s |
+| ours-proto r8 / r32 | 0.999 / 0.987 | 1.000 / 0.990 |
+| PBRT ortho score r8 / r32 | 0.097 / 0.082 | 0.158 / 0.137 |
+| PBRT beauty | 2560x1440/256spp, 155.2 s | 2560x1440/128spp, 527.5 s |
+| Mitsuba beauty | 640/1024spp, 106.4 s | 1200x675/512spp, 904.4 s |
+
+The beauty budgets were halved by decision after the pose fix; they are
+recorded in the CSV and the figure titles. Wall times are on a loaded machine
+(the same PBRT beauty took 155.2 s in section 28) and are not comparable to
+the earlier rows.
+
+Mitsuba calibrated to a final EXR ground of 0.721 against the 0.659 Cycles
+ground target (9% high), inside the 20% gate now enforced on the final frame.
+The target uses the lower half of the Cycles frame; the old code sorted the
+image and took the upper half (background).
+
+What still stands:
+* PBRT-SPPM resolves the fan: a bright rim at the base, in the same place as
+  Cycles, in the corrected panel.
+* Mitsuba path tracing still shows no fan: black glass and fireflies at
+  512spp. This build has only `path` and `direct`.
+* The PBRT ortho score is still a miss (0.158/0.137 against the 0.80
+  criterion from section 24). The rise over 0.097/0.082 is the pose fix, not
+  a budget change, so the "budget, not setup" reading is now measured on the
+  correct mesh rather than a lying one.
+* The PBRT ortho camera remains left-handed. Flipping its luminance map x
+  leaves the score at 0.158/0.137 (measured), so no flip is applied and the
+  "orientation per pipeline" note stays.
+
+Reproduce:
+```
+blender --background --python tools/dragon_export.py -- --blend models/dragon_glass.blend --out out/dragon_geo --dump-camera
+python tools/check_dragon_framing.py --self-test
+python tools/dragon_suite.py --check
+python tools/dragon_suite.py --engines referee,ours
+python tools/dragon_suite.py --engines pbrt,score
+python tools/dragon_suite.py --engines pbrt_beauty,mitsuba_beauty --pbrt-spp 128 --mitsuba-w 1200 --mitsuba-h 675 --mitsuba-spp 512
+python tools/check_dragon_framing.py
+python tools/make_dragon_beauty_figure.py
+```
+
+Figure: `docs/media/dragon_beauty_compare.png`, rebuilt with an aspect
+assertion (a non-16:9 panel fails instead of being squashed). The Mitsuba
+panel is nearly black because the p1-p99.9 preview maps the fireflies' tail;
+the EXR ground is 0.721.
