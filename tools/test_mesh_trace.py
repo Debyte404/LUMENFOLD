@@ -84,10 +84,154 @@ def test_estimate_scales_with_channels():
     assert estimate_seconds(1000, 48, 3) > 2.5 * estimate_seconds(1000, 48, 1)
 
 
+# ---- BVH parity: nearest hit must match the brute-force tracer ----------------
+
+def test_bvh_matches_bruteforce_on_random_rays():
+    from mesh_caustic import bvh
+    from mesh_caustic.trace import _prep, _first_hit
+    v, f = _sphere()
+    A, E1, E2 = _prep(v, f)
+    bb = bvh.build(v, f)
+    rng = np.random.default_rng(7)
+    lo, hi = v.min(axis=0) - 0.1, v.max(axis=0) + 0.1
+    for _ in range(2000):
+        o = rng.uniform(lo, hi)
+        d = rng.normal(size=3)
+        d /= np.linalg.norm(d)
+        pvec = np.cross(d, E2)
+        det = np.einsum("ij,ij->i", E1, pvec)
+        inv = np.zeros_like(det)
+        good = np.abs(det) > 1e-14
+        inv[good] = 1.0 / det[good]
+        bf = _first_hit(o, d, A, E1, E2, pvec, det, inv)
+        ac = bvh.nearest(bb, o, d)
+        assert (ac is None) == (bf[0] is None)
+        if ac is not None:
+            assert ac[0] == bf[0], "nearest face must match brute force"
+            assert np.allclose(o + ac[1] * d, bf[1][0], atol=1e-9)
+
+
+# ---- frame_patch: the fan-framed receiver patch ------------------------------
+
+def _bw(recv, bins=64):
+    return 2.0 * recv["half"] / bins
+
+
+def test_frame_patch_hugs_hits_with_margin():
+    from mesh_caustic.trace import frame_patch
+    hits = np.array([[0.0, 0.0], [0.4, -0.3], [0.1, 0.2]])
+    recv = {"cx": 0.0, "cy": 0.0, "half": 4.18, "z": -0.28}
+    cx, cy, half = frame_patch(hits, recv, margin=0.15)
+    # square patch around the dense support: x spans 0.4, y spans 0.5
+    # -> side 0.5 (+ bin quantisation: the bbox is read off bin edges)
+    tol = 1.5 * _bw(recv)
+    assert abs(half - (0.25 + 0.15)) < tol, half
+    assert abs(cx - 0.2) < tol and abs(cy - (-0.05)) < tol, (cx, cy)
+
+
+def test_frame_patch_drops_sparse_spray():
+    from mesh_caustic.trace import frame_patch
+    recv = {"cx": 0.0, "cy": 0.0, "half": 4.18, "z": -0.28}
+    # one tight cluster, deterministically inside a single probe bin
+    # (bin width 8.36/64 = 0.13 m; the cluster spans 4 mm), plus one stray
+    # hit 4.2 m out
+    dense = 0.05 + np.linspace(-0.002, 0.002, 20)[:, None] * np.ones((1, 2))
+    hits = np.vstack([dense, [[3.0, 3.0]]])
+    cx, cy, half = frame_patch(hits, recv, margin=0.15)
+    # one stray hit 4.2 m out must not stretch the frame to it
+    assert half < 1.0, half
+    _, _, half_all = frame_patch(hits, recv, margin=0.15, density=0.0)
+    assert half_all > 1.5 and half_all > 5 * half, \
+        f"density 0 must keep the spray: {half_all:.2f} vs {half:.2f}"
+
+
+def test_frame_patch_clamps_inside_receiver():
+    from mesh_caustic.trace import frame_patch
+    hits = np.array([[3.9, -3.9], [3.95, -3.95]])
+    recv = {"cx": 0.0, "cy": 0.0, "half": 4.18, "z": -0.28}
+    cx, cy, half = frame_patch(hits, recv, margin=0.5, min_half=0.05)
+    assert half <= 4.18 + 1e-12
+    assert abs(cx) + half <= 4.18 + 1e-9, "frame must stay inside the receiver"
+    assert abs(cy) + half <= 4.18 + 1e-9
+
+
+def test_frame_patch_enforces_min_half():
+    from mesh_caustic.trace import frame_patch
+    hits = np.array([[0.0, 0.0]])
+    recv = {"cx": 0.0, "cy": 0.0, "half": 4.18, "z": -0.28}
+    _, _, half = frame_patch(hits, recv, margin=0.01, min_half=0.3)
+    assert half >= 0.3 - 1e-12
+
+
+def test_frame_patch_empty_hits_raise():
+    from mesh_caustic.trace import frame_patch
+    try:
+        frame_patch(np.zeros((0, 2)), {"cx": 0, "cy": 0, "half": 4.18}, 0.15)
+    except ValueError as e:
+        assert "no receiver hits" in str(e)
+    else:
+        raise AssertionError("empty probe hits must raise the named refusal")
+
+
+# ---- band.correct feather ----------------------------------------------------
+
+def _grid_with_exact_distance():
+    """Ridge field with an EXACT distance map (metres, 1 m/px) so the feather
+    alpha can be asserted at exact distances."""
+    yy, xx = np.mgrid[0:32, 0:32]
+    field = np.exp(-((yy - 16) ** 2) / 2.0)
+    d = np.abs(yy - 16.0)
+    return field, d
+
+
+def test_feather_zero_is_bit_identical():
+    from mesh_caustic.band import correct
+    field, d = _grid_with_exact_distance()
+    ref = correct(field, d, 4.0, 0.5, feather=0.0)
+    old = correct(field, d, 4.0, 0.5)
+    assert np.array_equal(ref, old), "feather=0 must not change the operator"
+
+
+def test_feather_edge_returns_to_raw_inner_keeps_profile():
+    from mesh_caustic.band import correct
+    field, d = _grid_with_exact_distance()
+    bw, airy = 4.0, 0.5
+    strict = correct(field, d, bw, airy, feather=0.0)
+    feath = correct(field, d, bw, airy, feather=0.5)
+    inner = d <= bw * 0.5                     # alpha == 1 zone
+    outer = d == bw                           # alpha == 0 zone
+    edge = (d > bw * 0.5) & (d <= bw)         # the blend
+    assert np.allclose(feath[inner], strict[inner]), \
+        "the inner band keeps the strict profile"
+    assert np.allclose(feath[outer], field[outer]), \
+        "the band edge returns to the raw field"
+    lo = np.minimum(strict[edge], field[edge])
+    hi = np.maximum(strict[edge], field[edge])
+    assert (feath[edge] >= lo - 1e-12).all() and (feath[edge] <= hi + 1e-12).all(), \
+        "the blend must stay between the profile and the raw field"
+
+
+def test_feather_leaves_outside_band_alone():
+    from mesh_caustic.band import correct
+    field, d = _grid_with_exact_distance()
+    feath = correct(field, d, 4.0, 0.5, feather=0.5)
+    outside = d > 4.0
+    assert np.array_equal(feath[outside], field[outside])
+
+
 if __name__ == "__main__":
     test_sphere_focuses()
     test_open_cube_refused()
     test_inside_point_light_refused()
     test_per_channel_ior_separates_folds()
     test_estimate_scales_with_channels()
+    test_frame_patch_hugs_hits_with_margin()
+    test_frame_patch_drops_sparse_spray()
+    test_frame_patch_clamps_inside_receiver()
+    test_frame_patch_enforces_min_half()
+    test_frame_patch_empty_hits_raise()
+    test_feather_zero_is_bit_identical()
+    test_feather_edge_returns_to_raw_inner_keeps_profile()
+    test_feather_leaves_outside_band_alone()
+    test_bvh_matches_bruteforce_on_random_rays()
     print("MESH_TRACE_TESTS_OK")
