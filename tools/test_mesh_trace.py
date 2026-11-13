@@ -84,7 +84,56 @@ def test_estimate_scales_with_channels():
     assert estimate_seconds(1000, 48, 3) > 2.5 * estimate_seconds(1000, 48, 1)
 
 
-# ---- BVH parity: nearest hit must match the brute-force tracer ----------------
+# ---- BVH build and traversal -------------------------------------------------
+
+def test_bvh_partitions_every_triangle_once():
+    from mesh_caustic import bvh
+    v, f = _sphere()
+    bb = bvh.build(v, f)
+    assert len(bb.order) == len(f)
+    assert sorted(bb.orig.tolist()) == list(range(len(f)))
+    assert len(bb.bounds) <= 2 * len(f) + 1, "a build bug doubles node count"
+    root = bb.bounds[0]
+    assert (root[:3] <= v.min(axis=0) + 1e-9).all()
+    assert (root[3:] >= v.max(axis=0) - 1e-9).all()
+
+
+def test_bvh_tie_breaks_to_lowest_index():
+    from mesh_caustic import bvh
+    v = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]] * 2, float)
+    f = np.array([[0, 1, 2], [3, 4, 5]])
+    b = bvh.build(v, f, leaf_size=1)
+    hit = bvh.nearest(b, np.array([0.2, 0.2, 1.0]), np.array([0.0, 0.0, -1.0]))
+    assert hit is not None and hit[0] == 0 and abs(hit[1] - 1.0) < 1e-12
+
+
+def test_bvh_skip_and_degenerate():
+    from mesh_caustic import bvh
+    v = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 0]], float)
+    f = np.array([[0, 1, 2], [0, 1, 3]])  # second triangle is degenerate
+    b = bvh.build(v, f, leaf_size=1)
+    o, d = np.array([0.2, 0.2, 1.0]), np.array([0.0, 0.0, -1.0])
+    hit = bvh.nearest(b, o, d)
+    assert hit is not None and hit[0] == 0 and abs(hit[1] - 1.0) < 1e-12
+    assert bvh.nearest(b, o, d, skip=0) is None
+
+
+def test_bvh_hits_on_a_shared_edge():
+    from mesh_caustic import bvh
+    v = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0]], float)
+    f = np.array([[0, 1, 2], [1, 3, 2]])
+    b = bvh.build(v, f, leaf_size=1)
+    o, d = np.array([0.5, 0.5, 1.0]), np.array([0.0, 0.0, -1.0])
+    hit = bvh.nearest(b, o, d)
+    assert hit is not None and abs(hit[1] - 1.0) < 1e-12
+
+
+def test_bvh_origin_inside_mesh():
+    from mesh_caustic import bvh
+    v, f = _sphere()
+    b = bvh.build(v, f)
+    hit = bvh.nearest(b, np.array([0.0, 0.0, 0.0]), np.array([1.0, 0.0, 0.0]))
+    assert hit is not None and hit[1] > 0.0
 
 def test_bvh_matches_bruteforce_on_random_rays():
     from mesh_caustic import bvh
@@ -234,4 +283,9 @@ if __name__ == "__main__":
     test_feather_edge_returns_to_raw_inner_keeps_profile()
     test_feather_leaves_outside_band_alone()
     test_bvh_matches_bruteforce_on_random_rays()
+    test_bvh_partitions_every_triangle_once()
+    test_bvh_tie_breaks_to_lowest_index()
+    test_bvh_skip_and_degenerate()
+    test_bvh_hits_on_a_shared_edge()
+    test_bvh_origin_inside_mesh()
     print("MESH_TRACE_TESTS_OK")

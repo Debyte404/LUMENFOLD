@@ -17,6 +17,24 @@ from collections import Counter
 
 import numpy as np
 
+from . import bvh as _bvh_mod
+
+
+def _first_hit_bvh(bv, o, d, skip=-1):
+    """BVH-backed nearest hit, returning the same (face, (p, n)) shape."""
+    res = _bvh_mod.nearest(bv, np.asarray(o, float), np.asarray(d, float),
+                           skip=skip)
+    if res is None:
+        return None, None
+    fi, dist = res
+    pos = int(bv.pos_of[fi])
+    p = np.asarray(o, float) + dist * np.asarray(d, float)
+    n = np.cross(bv.E1[pos], bv.E2[pos])
+    nrm = np.linalg.norm(n)
+    if nrm > 0:
+        n = n / nrm
+    return int(fi), (p, n)
+
 
 def estimate_seconds(n_tris, n_side, nchan=1):
     """Wall-time estimate for trace_mesh at this budget.
@@ -129,17 +147,71 @@ def ior_rgb(ior_550, lambdas=(0.65, 0.55, 0.45)):
     return tuple(float(ior_550) + (bk7_n(l) - base) for l in lambdas)
 
 
-def _shoot(o, d, geo, eta_c, receiver_z, patch_half, cx, cy):
+def frame_patch(hits, recv, margin, min_half=0.05, density=0.10, bins=64):
+    """Fan-framed square receiver patch from probe hits, world metres.
+
+    The tracer launches rays over the mesh bounding sphere, so the receiver
+    patch only filters and bins hits: re-binning the SAME hits into a smaller
+    patch buys texel resolution and hits-per-texel for free. This returns the
+    (cx, cy, half) of the square patch that hugs the DENSE caustic support
+    with `margin`, at least `min_half`, clamped inside the receiver.
+
+    density: keep only probe bins (a `bins` x `bins` grid over the receiver)
+    holding at least this fraction of the peak bin's hit count. The faint
+    spray around the fan would stretch the frame to the receiver's full
+    extent and give back the texels the framing exists to buy; hits outside
+    the frame are simply not binned, and the injected image's EXTEND
+    continues the edge texel outward, so nothing is cut to black.
+
+    hits: (M, 2) world xy. recv: dict(cx, cy, half). Raises ValueError with
+    the named refusal when the probe found nothing.
+    """
+    hits = np.asarray(hits, dtype=np.float64)
+    if hits.size == 0:
+        raise ValueError("no receiver hits: probe found nothing on the "
+                         "receiver, so there is nothing to frame")
+    rcx, rcy, rhalf = (float(recv["cx"]), float(recv["cy"]),
+                       float(recv["half"]))
+    H, xe, ye = np.histogram2d(
+        hits[:, 0], hits[:, 1], bins=int(bins),
+        range=[[rcx - rhalf, rcx + rhalf], [rcy - rhalf, rcy + rhalf]])
+    peak = float(H.max())
+    if peak <= 0.0:
+        raise ValueError("no receiver hits: probe found nothing on the "
+                         "receiver, so there is nothing to frame")
+    keep = H > 0.0 if density <= 0.0 else H >= float(density) * peak
+    if not keep.any():
+        raise ValueError("no receiver hits: dense support empty at density "
+                         f"{density}")
+    ix, iy = np.nonzero(keep)
+    x0, x1 = float(xe[ix.min()]), float(xe[ix.max() + 1])
+    y0, y1 = float(ye[iy.min()]), float(ye[iy.max() + 1])
+    half = max(max(x1 - x0, y1 - y0) / 2.0 + float(margin), float(min_half))
+    if half > rhalf:
+        half = rhalf
+    cx = float(np.clip((x0 + x1) / 2.0, rcx - (rhalf - half),
+                       rcx + (rhalf - half)))
+    cy = float(np.clip((y0 + y1) / 2.0, rcy - (rhalf - half),
+                       rcy + (rhalf - half)))
+    return cx, cy, half
+
+
+def _shoot(o, d, geo, eta_c, receiver_z, patch_half, cx, cy, bv=None):
     """Single interface-pair traversal at one channel index. Returns
     (x, y, path_length_mm_inside) or None (miss / TIR / off-receiver). The
-    caller applies Beer-Lambert from the path length."""
+    caller applies Beer-Lambert from the path length. bv, when given, is a
+    mesh_caustic.bvh.BVH used for the nearest-hit tests (bit-identical to
+    the brute-force path)."""
     A, E1, E2 = geo
-    pvec = np.cross(d, E2)
-    det = np.einsum("ij,ij->i", E1, pvec)
-    inv = np.zeros_like(det)
-    g = np.abs(det) > 1e-14
-    inv[g] = 1.0 / det[g]
-    ie, hp = _first_hit(o, d, A, E1, E2, pvec, det, inv)
+    if bv is None:
+        pvec = np.cross(d, E2)
+        det = np.einsum("ij,ij->i", E1, pvec)
+        inv = np.zeros_like(det)
+        g = np.abs(det) > 1e-14
+        inv[g] = 1.0 / det[g]
+        ie, hp = _first_hit(o, d, A, E1, E2, pvec, det, inv)
+    else:
+        ie, hp = _first_hit_bvh(bv, o, d)
     if ie is None:
         return None
     p, n = hp
@@ -149,12 +221,15 @@ def _shoot(o, d, geo, eta_c, receiver_z, patch_half, cx, cy):
     if t is None:
         return None
     p2 = p + t * 1e-6
-    pvec2 = np.cross(t, E2)
-    det2 = np.einsum("ij,ij->i", E1, pvec2)
-    inv2 = np.zeros_like(det2)
-    g2 = np.abs(det2) > 1e-14
-    inv2[g2] = 1.0 / det2[g2]
-    ix, hx = _first_hit(p2, t, A, E1, E2, pvec2, det2, inv2, skip=ie)
+    if bv is None:
+        pvec2 = np.cross(t, E2)
+        det2 = np.einsum("ij,ij->i", E1, pvec2)
+        inv2 = np.zeros_like(det2)
+        g2 = np.abs(det2) > 1e-14
+        inv2[g2] = 1.0 / det2[g2]
+        ix, hx = _first_hit(p2, t, A, E1, E2, pvec2, det2, inv2, skip=ie)
+    else:
+        ix, hx = _first_hit_bvh(bv, p2, t, skip=ie)
     if ix is None:
         return None
     q0, n2 = hx
@@ -192,11 +267,13 @@ def trace_mesh(verts, faces, lights, receiver, opts):
         nchan = 3 if len({round(e, 9) for e in etas}) > 1 else 1
     absorb = tuple(opts.get("absorb_rgb", (0.0, 0.0, 0.0)))
     n_side = int(opts.get("n_side", 150))
+    accel = bool(opts.get("accel", True))
     rz = float(receiver["z"])
     ph = float(receiver["patch_half"])
     cxy = receiver.get("center", (0.0, 0.0))
     cx, cy = float(cxy[0]), float(cxy[1])
     geo = _prep(verts, faces)
+    bv = _bvh_mod.build(verts, faces) if accel else None
     lo, hi = verts.min(axis=0) - 0.02, verts.max(axis=0) + 0.02
     centre = 0.5 * (lo + hi)
     radius = 0.5 * float(np.linalg.norm(hi - lo)) + 0.01
@@ -210,7 +287,7 @@ def trace_mesh(verts, faces, lights, receiver, opts):
 
     def shoot_all(o, d):
         if nchan == 1:
-            r = _shoot(o, d, geo, etas[0], rz, ph, cx, cy)
+            r = _shoot(o, d, geo, etas[0], rz, ph, cx, cy, bv)
             if r is None:
                 return
             _, _, L = r
@@ -218,7 +295,7 @@ def trace_mesh(verts, faces, lights, receiver, opts):
                 outs.append((r[0], r[1], c, float(np.exp(-absorb[c] * L))))
         else:
             for c in range(3):
-                r = _shoot(o, d, geo, etas[c], rz, ph, cx, cy)
+                r = _shoot(o, d, geo, etas[c], rz, ph, cx, cy, bv)
                 if r is None:
                     continue
                 _, _, L = r
@@ -285,4 +362,4 @@ def trace_mesh(verts, faces, lights, receiver, opts):
         chan = np.zeros((0,), dtype=np.int64)
         wght = np.zeros((0,))
     return {"hits": hits, "chan": chan, "weights": wght,
-            "extent_m": (2 * ph, 2 * ph)}
+            "extent_m": (2 * ph, 2 * ph), "accel": accel}

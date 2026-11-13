@@ -13,6 +13,9 @@ Checks, in order:
   6. absorb coefficients change channel ratios vs clear
   7. time estimate is shown and scales with budget
   8. inject/remove round-trip works on a mesh bake
+  8e. fan-framed bake: finishes, reports the frame, finer texels, the bright
+      centroid stays at the same world place as a FULL bake, and the inject
+      places it through the target's affine UV fit (identity for FULL)
 Prints PASS/FAIL lines and exits non-zero on failure.
 """
 import importlib.util
@@ -220,12 +223,100 @@ dg = bpy.context.evaluated_depsgraph_get()
 _vv, _ff = _mesh_tris_fn(glass(), dg)
 _rr = _resolve_tgt(plane())
 _ll = _collect_l(bpy.context.scene.objects, (0.80, 0.42, -0.43))
-_f1, _r1 = _bake_field_fn(_MT, _MB, _vv, _ff, _ll, _rr, 32, 0.006, (0.0, 0.0, 0.0), 1.5251, ray_mult=1)
-_f2, _r2 = _bake_field_fn(_MT, _MB, _vv, _ff, _ll, _rr, 32, 0.006, (0.0, 0.0, 0.0), 1.5251, ray_mult=2)
+_f1, _r1, _rect1 = _bake_field_fn(_MT, _MB, _vv, _ff, _ll, _rr, 32, 0.006, (0.0, 0.0, 0.0), 1.5251, ray_mult=1)
+_f2, _r2, _rect2 = _bake_field_fn(_MT, _MB, _vv, _ff, _ll, _rr, 32, 0.006, (0.0, 0.0, 0.0), 1.5251, ray_mult=2)
 check("supersample_keeps_grid", _f1.shape == (32, 32, 3) and _f2.shape == (32, 32, 3),
       f"{_f1.shape} vs {_f2.shape}")
 check("supersample_adds_hits", len(_r2["hits"]) > len(_r1["hits"]),
       f"{len(_r1['hits'])} -> {len(_r2['hits'])}")
+check("supersample_full_has_no_frame", _rect1 is None and _rect2 is None,
+      f"rects={_rect1},{_rect2}")
+
+# ---- 8e. fan-framed bake: same caustic, finer texels, placed by UV fit ------
+fresh_scene()
+import numpy as _np
+
+# A receiver LARGER than the caustic: the fixture sphere's fan fills the
+# fixture table (framing clamps to FULL there, which is correct but proves
+# nothing), so these checks bake onto a 1 m plane placed at the table's z.
+_tbl = plane()
+bpy.ops.mesh.primitive_plane_add(size=1.0, location=_tbl.location)
+_big = bpy.context.active_object
+_big.name = "big_receiver"
+
+
+def big():
+    return bpy.data.objects["big_receiver"]
+
+
+r, p = run_bake(mesh_object=glass(), mesh_resolution=48, mesh_airy=0.006,
+                target=big(), mesh_frame="FULL")
+_fvrect = _resolve_tgt(big())
+r, p = run_bake(mesh_object=glass(), mesh_resolution=48, mesh_airy=0.006,
+                target=big(), mesh_frame="AUTO", mesh_frame_margin=0.05)
+img = bpy.data.images.get("CAUSTIC_bake")
+check("frame_auto_bakes", r == {"FINISHED"} and img is not None
+      and "frame" in p.status, p.status[:90])
+u0, v0, du, dv = tuple(p.frame_uv)
+check("frame_uv_is_subrect",
+      -1e-6 <= u0 and u0 + du <= 1.0 + 1e-6
+      and -1e-6 <= v0 and v0 + dv <= 1.0 + 1e-6
+      and 0.02 < du < 1.0 and 0.02 < dv < 1.0,
+      f"uv=({u0:.3f},{v0:.3f},{du:.3f},{dv:.3f})")
+check("frame_rect_recorded", p.frame_rect[2] > 0.0,
+      f"rect=({p.frame_rect[0]:.3f},{p.frame_rect[1]:.3f},{p.frame_rect[2]:.3f})")
+texel_full = 2 * _fvrect["half"] / 48
+telem_auto = 2 * p.frame_rect[2] / 48
+check("frame_never_coarser_than_full",
+      telem_auto <= texel_full + 1e-9 and p.frame_rect[2] < _fvrect["half"],
+      f"auto {1000 * telem_auto:.1f} mm vs full {1000 * texel_full:.1f} mm")
+
+# Same caustic in the same world place. The framed trace carries the SAME
+# ray set (n_side is unchanged; the patch only filters hits), so AUTO's raw
+# hits must be exactly FULL's hits inside the framed rect. The corrected
+# IMAGE centroid is not comparable across bin sizes: the ridge percentile
+# and band width are texel-size dependent, which is why this is asserted on
+# the hits and not on the corrected field.
+_dg2 = bpy.context.evaluated_depsgraph_get()
+_vv2, _ff2 = _mesh_tris_fn(glass(), _dg2)
+_ll2 = _collect_l(bpy.context.scene.objects, (0.80, 0.42, -0.43))
+_fF, rF, _ = _bake_field_fn(_MT, _MB, _vv2, _ff2, _ll2, _fvrect, 48, 0.006,
+                            (0.0, 0.0, 0.0), 1.5251, ray_mult=2, frame="FULL")
+_fA, rA, rectA = _bake_field_fn(_MT, _MB, _vv2, _ff2, _ll2, _fvrect, 48,
+                                0.006, (0.0, 0.0, 0.0), 1.5251, ray_mult=2,
+                                frame="AUTO", frame_margin=0.05)
+hF = _np.asarray(rF["hits"])
+hA = _np.asarray(rA["hits"])
+inside = ((abs(hF[:, 0] - rectA[0]) <= rectA[2])
+          & (abs(hF[:, 1] - rectA[1]) <= rectA[2]))
+cF = hF[inside].mean(axis=0)
+cA = hA.mean(axis=0)
+d_hits = float(_np.hypot(*(cA - cF)))
+check("frame_auto_same_world_place",
+      d_hits < 1e-6 and len(hA) == int(inside.sum()),
+      f"hit centroid moved {d_hits * 1e6:.1f} um; "
+      f"hits {len(hA)} vs full-inside {int(inside.sum())}")
+
+run_bake(mesh_object=glass(), mesh_resolution=48, mesh_airy=0.006,
+         target=big(), mesh_frame="FULL")
+check("frame_full_is_identity",
+      tuple(p.frame_uv) == (0.0, 0.0, 1.0, 1.0) and p.frame_rect[2] == 0.0,
+      f"uv={tuple(round(v, 3) for v in p.frame_uv)}")
+
+# inject a framed bake: the placement nodes must exist and carry the fit
+run_bake(mesh_object=glass(), mesh_resolution=48, mesh_airy=0.006,
+         target=big(), mesh_frame="AUTO", mesh_frame_margin=0.05)
+bpy.ops.caustic.inject()
+nt = next(m for m in big().data.materials if m and m.use_nodes).node_tree
+mul = nt.nodes.get("CAUSTIC_map_mul")
+add = nt.nodes.get("CAUSTIC_map_add")
+u0, v0, du, dv = tuple(bpy.context.scene.caustic.frame_uv)
+ok = (mul is not None and add is not None
+      and _np.allclose(mul.inputs[1].default_value[:2], (1 / du, 1 / dv), atol=1e-6)
+      and _np.allclose(add.inputs[1].default_value[:2], (-u0 / du, -v0 / dv), atol=1e-6))
+check("frame_inject_maps_by_fit", ok,
+      f"mul={tuple(round(v, 3) for v in mul.inputs[1].default_value[:2]) if mul else None}")
+
 sun = bpy.data.objects.get("sun")
 sun.rotation_mode = "XYZ"
 for f, ang in ((1, 0.0), (2, 0.1), (3, 0.2)):
