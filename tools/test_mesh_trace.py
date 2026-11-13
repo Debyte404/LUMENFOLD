@@ -128,6 +128,19 @@ def test_bvh_hits_on_a_shared_edge():
     assert hit is not None and abs(hit[1] - 1.0) < 1e-12
 
 
+def test_smooth_normal_interpolates_corner_normals():
+    from mesh_caustic.trace import _smooth_normal
+    A = np.array([[0.0, 0.0, 0.0]])
+    E1 = np.array([[1.0, 0.0, 0.0]])
+    E2 = np.array([[0.0, 1.0, 0.0]])
+    tri = np.array([[[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]])
+    n = _smooth_normal(np.array([1.0 / 3.0, 1.0 / 3.0, 0.0]), 0, A, E1, E2, tri)
+    exp = (np.array([0.0, 0.0, 1.0]) + np.array([1.0, 0.0, 0.0])
+           + np.array([0.0, 1.0, 0.0])) / 3.0
+    exp /= np.linalg.norm(exp)
+    assert np.allclose(n, exp), (n, exp)
+
+
 def test_bvh_origin_inside_mesh():
     from mesh_caustic import bvh
     v, f = _sphere()

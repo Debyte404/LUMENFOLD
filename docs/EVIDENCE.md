@@ -3102,3 +3102,68 @@ blender --background --factory-startup --python tools/dragon_addon_beauty.py -- 
 antecedents: EVIDENCE 28 (prescribed work), 30 (camera), 31 (framing and
 feather). Figure: `docs/media/dragon_beauty_compare.png` (ours panel is the
 2048^2 x2 BVHTree bake).
+
+--------------------------------------------------------------------------------
+## 33. The dragon's "boxes" were the delta sun, not the grid (2026-11-14)
+--------------------------------------------------------------------------------
+
+Section 32 ended with a 2048^2 panel that was smoother but still showed
+rectangular patches ("a bunch of boxes") against Cycles. This section records
+the diagnosis, in the order each hypothesis was measured.
+
+1. **The bake grid was not the cause.** At res 2048 over the 1.48 m frame the
+   texel is 0.72 mm; at 2560 px over ~1.5 m that is about 1 px. A 1 px grid
+   does not read as boxes.
+2. **Shading normals were not the cause (but were wrong).** The dragon is
+   87,130 polygons, all smooth-shaded, with 43,457 vertex normals and 261,390
+   corner normals. The tracer was refracting off the flat geometric face
+   normal, so each facet threw its own caustic patch. Fixed: `_mesh_tris`
+   returns per-triangle corner normals and `trace._smooth_normal` interpolates
+   them barycentrically at both interfaces. Measured field change, flat vs
+   smooth at res 512: mean 1.3%, total variation 11049.88 -> 11005.60
+   (-0.4%), Laplacian 0.074465 -> 0.074002. Correct, kept, but it is not the
+   boxes.
+3. **The delta sun was the cause.** The scene's SUN lamp has an angle of
+   0.0419 rad (2.4 deg), but `_collect_lights` kept only the direction: the
+   tracer used parallel rays. Cycles integrates over the 2.4 deg disk, which
+   convolves the caustic with a disk of radius `distance * tan(1.2 deg)`.
+   At 0.288 m (receiver z -0.2763, mesh mean z 0.0116) that is **5.6-6.0 mm**
+   - the same scale as the facet patches, and exactly the softening Cycles
+   shows. Fixed: `_disk_blur` applies an energy-preserving Gaussian
+   (sigma = R/2) after the band correction; the status reports `sunblur`.
+4. **The 6 mm Airy display width was a second, unphysical blur.** The physical
+   fringe at 550 nm is 6.77 um; at a 1.4 mm texel that is 207x sub-texel, so
+   redistributing band flux by it would collapse the band onto the ridge.
+   The bake now skips the correction when `airy < 0.5 * texel` and shows the
+   geometric field, which is the correct low-pass limit at this resolution.
+   The status reports `airy sub-texel (geometric)`.
+
+Measured (2026-11-14, RTX 4060 / i7-14650HX):
+
+| run | grid | sun | wall | texel | hits | placement vs Cycles |
+|---|---|---|---|---|---|---|
+| flat normals, section 32 | 2048^2 x2 | delta | 1475.8 s | 0.72 mm | 4079905 | (0.447, 0.759) |
+| smooth normals | 2048^2 x2 | delta | 2165.3 s | 0.72 mm | 4085355 | (0.447, 0.759) |
+| soft, still display Airy | 1024^2 x2 | 5.6 mm | 532.9 s | 1.44 mm | 1021083 | (0.448, 0.757) |
+| **physical (shipped)** | 1024^2 x2 | 5.6 mm + geometric | **524.5 s** | 1.44 mm | 1021083 | **(0.448, 0.757)** |
+
+Cycles reference centroid: (0.445, 0.756). The inject exposure and colour are
+already matched (EVIDENCE 31: bright-region RGB 0.828/0.868/0.907 vs
+0.828/0.866/0.905), so the panel is now geometric-fan + sun-penumbra +
+texture-placement, which is the same physical content as Cycles' caustic,
+minus transport.
+
+What this does not fix: the injected field is still an emission texture, not
+transported light (no specular interaction, no volume). The paper's claim
+remains placement (r = 0.999); the beauty panel is now physically grounded at
+this scene scale, with the wave correction explicitly below resolution.
+
+Reproduce:
+```
+blender --background --factory-startup --python tools/dragon_addon_beauty.py -- \
+    --res 1024 --ray-mult 2 --frame AUTO --accel BVHTREE --airy 6.77e-6 \
+    --w 2560 --h 1440 --samples 1024 \
+    --out out/dragon_suite/addon_ours_2560_physical.png
+python tools/make_dragon_beauty_figure.py
+```
+Figure: `docs/media/dragon_beauty_compare.png` (ours = the physical panel).

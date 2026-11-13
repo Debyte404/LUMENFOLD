@@ -220,11 +220,11 @@ _spec.loader.exec_module(_mod)
 from mesh_caustic import trace as _MT, band as _MB
 from caustic_injector import _mesh_tris as _mesh_tris_fn, _resolve_target as _resolve_tgt, _collect_lights as _collect_l, _bake_field as _bake_field_fn
 dg = bpy.context.evaluated_depsgraph_get()
-_vv, _ff = _mesh_tris_fn(glass(), dg)
+_vv, _ff, _nn = _mesh_tris_fn(glass(), dg)
 _rr = _resolve_tgt(plane())
 _ll = _collect_l(bpy.context.scene.objects, (0.80, 0.42, -0.43))
-_f1, _r1, _rect1 = _bake_field_fn(_MT, _MB, _vv, _ff, _ll, _rr, 32, 0.006, (0.0, 0.0, 0.0), 1.5251, ray_mult=1)
-_f2, _r2, _rect2 = _bake_field_fn(_MT, _MB, _vv, _ff, _ll, _rr, 32, 0.006, (0.0, 0.0, 0.0), 1.5251, ray_mult=2)
+_f1, _r1, _rect1 = _bake_field_fn(_MT, _MB, _vv, _ff, _ll, _rr, 32, 0.006, (0.0, 0.0, 0.0), 1.5251, ray_mult=1, tri_normals=_nn)
+_f2, _r2, _rect2 = _bake_field_fn(_MT, _MB, _vv, _ff, _ll, _rr, 32, 0.006, (0.0, 0.0, 0.0), 1.5251, ray_mult=2, tri_normals=_nn)
 check("supersample_keeps_grid", _f1.shape == (32, 32, 3) and _f2.shape == (32, 32, 3),
       f"{_f1.shape} vs {_f2.shape}")
 check("supersample_adds_hits", len(_r2["hits"]) > len(_r1["hits"]),
@@ -278,13 +278,15 @@ check("frame_never_coarser_than_full",
 # and band width are texel-size dependent, which is why this is asserted on
 # the hits and not on the corrected field.
 _dg2 = bpy.context.evaluated_depsgraph_get()
-_vv2, _ff2 = _mesh_tris_fn(glass(), _dg2)
+_vv2, _ff2, _nn2 = _mesh_tris_fn(glass(), _dg2)
 _ll2 = _collect_l(bpy.context.scene.objects, (0.80, 0.42, -0.43))
 _fF, rF, _ = _bake_field_fn(_MT, _MB, _vv2, _ff2, _ll2, _fvrect, 48, 0.006,
-                            (0.0, 0.0, 0.0), 1.5251, ray_mult=2, frame="FULL")
+                            (0.0, 0.0, 0.0), 1.5251, ray_mult=2, frame="FULL",
+                            tri_normals=_nn2)
 _fA, rA, rectA = _bake_field_fn(_MT, _MB, _vv2, _ff2, _ll2, _fvrect, 48,
                                 0.006, (0.0, 0.0, 0.0), 1.5251, ray_mult=2,
-                                frame="AUTO", frame_margin=0.05)
+                                frame="AUTO", frame_margin=0.05,
+                                tri_normals=_nn2)
 hF = _np.asarray(rF["hits"])
 hA = _np.asarray(rA["hits"])
 inside = ((abs(hF[:, 0] - rectA[0]) <= rectA[2])
@@ -330,6 +332,25 @@ _b = _bvh_img[:, :3].mean(axis=1)
 _r = float(_np.corrcoef(_a, _b)[0, 1]) if _a.std() > 0 and _b.std() > 0 else 0.0
 check("bvhtree_matches_numpy", _r > 0.999,
       f"field correlation r={_r:.5f}, peak numpy {_a.max():.3f} bvh {_b.max():.3f}")
+
+# ---- 8g. sun-disk blur: energy preserved, peak softened ----------------------
+from caustic_injector import _disk_blur as _blur
+_d = _np.zeros((128, 128))
+_d[64, 64] = 1.0
+_bl = _blur(_d, 3.0)
+check("sun_blur_preserves_energy", abs(float(_bl.sum()) - 1.0) < 1e-9,
+      f"sum={_bl.sum():.6f}")
+check("sun_blur_drops_peak", float(_bl.max()) < 0.1, f"peak={_bl.max():.4f}")
+_yy, _xx = _np.mgrid[0:128, 0:128]
+_rr = _np.hypot(_yy - 64, _xx - 64)
+check("sun_blur_support", float(_bl[_rr > 6.0].sum()) < 1e-3,
+      f"outside={_bl[_rr > 6.0].sum():.2e}")
+
+# ---- 8h. sub-texel Airy is skipped by design (geometric field) -------------
+_r, _p = run_bake(mesh_object=glass(), mesh_resolution=48, mesh_airy=6.77e-6,
+                  target=big(), mesh_frame="FULL", mesh_accel="BVHTREE")
+check("sub_texel_airy_skips_correction",
+      _r == {"FINISHED"} and "airy sub-texel" in _p.status, _p.status[:120])
 
 
 sun = bpy.data.objects.get("sun")

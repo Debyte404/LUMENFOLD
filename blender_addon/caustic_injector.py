@@ -97,8 +97,10 @@ class CausticProps(bpy.types.PropertyGroup):
     mesh_airy: bpy.props.FloatProperty(
         name="Mesh Airy (m)",
         description="Fringe width used near the fold. Documented visibility "
-                    "parameter, not a physical prediction",
-        default=0.006, min=0.0005, max=0.05, precision=4)
+                    "parameter, not a physical prediction. Below half a texel "
+                    "the fringe cannot be resolved, so the bake shows the "
+                    "geometric field instead (canonical 6.77 um at 550 nm)",
+        default=0.006, min=1e-6, max=0.05, precision=7)
     mesh_ray_mult: bpy.props.IntProperty(
         name="Ray mult",
         description="Rays per grid line (n_side = res x mult). Above 1 it "
@@ -536,7 +538,7 @@ class CAUSTIC_OT_bake_mesh(bpy.types.Operator):
         from mesh_caustic import trace as MT
         from mesh_caustic import band as MB
         dg = context.evaluated_depsgraph_get()
-        verts, faces = _mesh_tris(obj, dg)
+        verts, faces, tri_normals = _mesh_tris(obj, dg)
         tris_n = len(faces)
         est = MT.estimate_seconds(tris_n, p.mesh_resolution
                                   * max(int(p.mesh_ray_mult), 1), nchan=3,
@@ -554,7 +556,8 @@ class CAUSTIC_OT_bake_mesh(bpy.types.Operator):
                                          ray_mult=p.mesh_ray_mult,
                                          frame=p.mesh_frame,
                                          frame_margin=p.mesh_frame_margin,
-                                         accel=p.mesh_accel.lower())
+                                         accel=p.mesh_accel.lower(),
+                                         tri_normals=tri_normals)
             frame_uv = ((0.0, 0.0, 1.0, 1.0) if rect is None
                         else _uv_rect_for_world_rect(p.target, rect))
         except ValueError as e:
@@ -579,9 +582,15 @@ class CAUSTIC_OT_bake_mesh(bpy.types.Operator):
             mpp = 2.0 * rect[2] / p.mesh_resolution
             frame_txt = (f" frame {2 * rect[2]:.2f}m texel "
                          f"{mpp * 1000:.1f}mm")
+        blur_txt = ""
+        if res.get("sun_blur_m", 0.0) > 0.0:
+            blur_txt = f" sunblur {res['sun_blur_m'] * 1000:.1f}mm"
+        airy_txt = ""
+        if not res.get("airy_resolved", True):
+            airy_txt = " airy sub-texel (geometric)"
         p.status = (f"[mesh] {tris_n} tris res {p.mesh_resolution} "
                     f"est {est:.0f}s took {dt:.0f}s peak 1.00 "
-                    f"hits {len(res['hits'])}{frame_txt}")
+                    f"hits {len(res['hits'])}{frame_txt}{blur_txt}{airy_txt}")
         print("   ", p.status)
         self.report({"INFO"}, f"mesh baked in {dt:.0f} s (est {est:.0f} s)")
         return {"FINISHED"}
@@ -591,7 +600,13 @@ class CAUSTIC_OT_bake_mesh(bpy.types.Operator):
 # mesh bake shared core (single + sequence operators)
 # ---------------------------------------------------------------------------
 def _mesh_tris(obj, dg):
-    """Evaluated-mesh triangles as (verts float64 (N,3), faces int64 (M,3))."""
+    """Evaluated-mesh triangles as (verts, faces, corner_normals).
+
+    verts: (N,3) float64; faces: (M,3) int64 fan-triangulated from polygons;
+    corner_normals: (M,3,3) the evaluated mesh's shading normals per triangle
+    corner, so the tracer refracts off the smooth surface rather than each
+    facet. Normals are object-space, matching the local verts (callers use a
+    mesh at the scene origin; see the addon's bake contract)."""
     import numpy as np
     ev = obj.evaluated_get(dg).to_mesh()
     try:
@@ -599,11 +614,17 @@ def _mesh_tris(obj, dg):
         ev.vertices.foreach_get("co", verts)
         verts = verts.reshape(-1, 3)
         tris = []
+        norms = []
+        corner = ev.corner_normals
         for poly in ev.polygons:
             vs = tuple(poly.vertices)
+            ls = poly.loop_start
             for i in range(1, len(vs) - 1):
                 tris.append((vs[0], vs[i], vs[i + 1]))
-        return verts, np.asarray(tris, dtype=np.int64)
+                norms.append((tuple(corner[ls].vector),
+                              tuple(corner[ls + i].vector),
+                              tuple(corner[ls + i + 1].vector)))
+        return verts, np.asarray(tris, dtype=np.int64), np.asarray(norms, dtype=float)
     finally:
         obj.evaluated_get(dg).to_mesh_clear()
 
@@ -679,7 +700,8 @@ def _collect_lights(objects, sun_dir):
         d = o.matrix_world.to_quaternion() @ Vector((0, 0, -1))
         lt = o.data.type
         if lt == "SUN":
-            lights.append({"type": "sun", "direction": tuple(d)})
+            lights.append({"type": "sun", "direction": tuple(d),
+                           "angle_deg": math.degrees(float(o.data.angle))})
         elif lt == "POINT":
             lights.append({"type": "point", "position": tuple(o.matrix_world.translation)})
         elif lt == "SPOT":
@@ -751,15 +773,42 @@ def _build_bvh(verts, faces):
                                 [tuple(int(i) for i in f) for f in faces])
 
 
-def _make_bvh_shooter(bvh, recv):
+def _disk_blur(img, radius_px):
+    """Soften a field by the sun's angular PSF (Gaussian, sigma = R/2).
+
+    A distant sun of angular diameter theta projects a disk of radius
+    distance*tan(theta/2) on the receiver; a uniform disk is well approximated
+    by a Gaussian of sigma = R/2. Separable and normalized, so the field's
+    total energy is preserved. A delta-sun tracer resolves facet-scale
+    structure the real sun blurs away; this is the missing penumbra.
+    """
+    import math
+    import numpy as np
+    sigma = max(float(radius_px) / 2.0, 1e-9)
+    if sigma < 0.5:
+        return img
+    rad = int(math.ceil(3.0 * sigma))
+    x = np.arange(-rad, rad + 1, dtype=float)
+    k = np.exp(-0.5 * (x / sigma) ** 2)
+    k /= k.sum()
+    out = np.apply_along_axis(
+        lambda m: np.convolve(m, k, mode="same"), 0, img)
+    out = np.apply_along_axis(
+        lambda m: np.convolve(m, k, mode="same"), 1, out)
+    return out
+
+
+def _make_bvh_shooter(bvh, recv, geo, tri_normals=None):
     """Return shoot(o, d, eta_c) backed by a Blender BVHTree.
 
-    The per-ray work leaves Python; the refraction and receiver filtering are
-    the same math as the numpy _shoot.
+    The per-ray work leaves Python. geo = (A, E1, E2) gives the triangle
+    vertices for barycentric shading-normal interpolation, so a smooth-shaded
+    mesh refracts continuously instead of per facet (tri_normals, optional).
     """
     import numpy as _np
     from mesh_caustic import trace as _MT
 
+    A, E1, E2 = geo
     rz = float(recv["z"])
     ph = float(recv["half"])
     cx = float(recv["cx"])
@@ -769,11 +818,15 @@ def _make_bvh_shooter(bvh, recv):
         loc, nor, idx, dist = bvh.ray_cast(tuple(o), tuple(d))
         if loc is None:
             return None
+        idx = int(idx)
         p = _np.asarray(loc, dtype=float)
-        n = _np.asarray(nor, dtype=float)
-        nn = _np.linalg.norm(n)
-        if nn > 0.0:
-            n = n / nn
+        if tri_normals is not None:
+            n = _MT._smooth_normal(p, idx, A, E1, E2, tri_normals)
+        else:
+            n = _np.asarray(nor, dtype=float)
+            nn = _np.linalg.norm(n)
+            if nn > 0.0:
+                n = n / nn
         if float(n @ d) > 0.0:
             n = -n
         t = _MT._refract(d, n, 1.0 / eta_c)
@@ -783,17 +836,21 @@ def _make_bvh_shooter(bvh, recv):
         loc2, nor2, idx2, dist2 = bvh.ray_cast(tuple(p2), tuple(t))
         # BVHTree cannot skip the entry triangle by index; nudge past it
         for _ in range(3):
-            if loc2 is not None and int(idx2) != int(idx):
+            if loc2 is not None and int(idx2) != idx:
                 break
             p2 = p2 + t * 1e-5
             loc2, nor2, idx2, dist2 = bvh.ray_cast(tuple(p2), tuple(t))
-        if loc2 is None or int(idx2) == int(idx):
+        if loc2 is None or int(idx2) == idx:
             return None
+        idx2 = int(idx2)
         q0 = _np.asarray(loc2, dtype=float)
-        n2 = _np.asarray(nor2, dtype=float)
-        nn2 = _np.linalg.norm(n2)
-        if nn2 > 0.0:
-            n2 = n2 / nn2
+        if tri_normals is not None:
+            n2 = _MT._smooth_normal(q0, idx2, A, E1, E2, tri_normals)
+        else:
+            n2 = _np.asarray(nor2, dtype=float)
+            nn2 = _np.linalg.norm(n2)
+            if nn2 > 0.0:
+                n2 = n2 / nn2
         if float(n2 @ t) > 0.0:
             n2 = -n2
         t2 = _MT._refract(t, n2, eta_c)
@@ -813,7 +870,7 @@ def _make_bvh_shooter(bvh, recv):
 
 def _bake_field(MT, MB, verts, faces, lights, recv, res, airy, absorb, eta,
                 ray_mult=1, frame="FULL", frame_margin=0.15, feather=0.35,
-                accel="bvhtree"):
+                accel="bvhtree", tri_normals=None):
     """Trace + band-correct. Returns (fld01 RGB peak 1.0 row0=+Y, trace dict,
     frame rect or None for the full receiver).
 
@@ -831,6 +888,8 @@ def _bake_field(MT, MB, verts, faces, lights, recv, res, airy, absorb, eta,
     cx, cy, half, rz = recv["cx"], recv["cy"], recv["half"], recv["z"]
     verts = _np.asarray(verts, dtype=float)
     faces = _np.asarray(faces, dtype=_np.int64)
+    geo = (verts[faces[:, 0]], verts[faces[:, 1]] - verts[faces[:, 0]],
+           verts[faces[:, 2]] - verts[faces[:, 0]])
     bvh = _build_bvh(verts, faces) if accel == "bvhtree" else None
     rect = None
     if frame == "AUTO":
@@ -838,17 +897,19 @@ def _bake_field(MT, MB, verts, faces, lights, recv, res, airy, absorb, eta,
         popts = {"n_side": 128, "eta": eta_probe}
         if bvh is not None:
             popts["shoot"] = _make_bvh_shooter(
-                bvh, {"cx": cx, "cy": cy, "half": half, "z": rz})
+                bvh, {"cx": cx, "cy": cy, "half": half, "z": rz}, geo,
+                tri_normals)
         rp = MT.trace_mesh(verts, faces, lights,
                            {"z": rz, "patch_half": half, "center": (cx, cy)},
                            popts)
         cx, cy, half = MT.frame_patch(rp["hits"], recv, frame_margin)
         rect = (cx, cy, half)
     opts = {"n_side": n * max(int(ray_mult), 1), "eta": eta,
-            "absorb_rgb": tuple(absorb)}
+            "absorb_rgb": tuple(absorb), "tri_normals": tri_normals}
     if bvh is not None:
         opts["shoot"] = _make_bvh_shooter(
-            bvh, {"cx": cx, "cy": cy, "half": half, "z": rz})
+            bvh, {"cx": cx, "cy": cy, "half": half, "z": rz}, geo,
+            tri_normals)
     r = MT.trace_mesh(verts, faces, lights,
                       {"z": rz, "patch_half": half, "center": (cx, cy)}, opts)
     r["accel"] = accel
@@ -867,10 +928,33 @@ def _bake_field(MT, MB, verts, faces, lights, recv, res, airy, absorb, eta,
     if not (g > 0).any():
         raise ValueError("no receiver hits: mesh throws no light on the target")
     mpp = 2 * half / n
-    dist = MB.ridge_distance(g, mpp)
-    band_m = max(0.004, 3 * mpp)
-    chans = [MB.correct(gc, dist, band_m, airy, feather=feather)
-             for gc in outs]
+    # A fringe narrower than half a texel cannot be represented; redistributing
+    # band flux by it would collapse the band onto the ridge (a spike, not a
+    # fringe). In that regime the geometric field is the correct low-pass
+    # limit, so the correction is skipped by design, not silently omitted.
+    r["airy_resolved"] = bool(airy >= 0.5 * mpp)
+    if r["airy_resolved"]:
+        dist = MB.ridge_distance(g, mpp)
+        band_m = max(0.004, 3 * mpp)
+        chans = [MB.correct(gc, dist, band_m, airy, feather=feather)
+                 for gc in outs]
+    else:
+        chans = outs
+    # the sun is a disk, not a point: convolve the point-source caustic with
+    # its angular projection. Without this the tracer keeps facet-scale
+    # structure the real (and Cycles') sun blurs into a soft streak.
+    sun_angle = next((float(L["angle_deg"]) for L in lights
+                      if L.get("type") == "sun" and L.get("angle_deg")), 0.0)
+    sun_blur_m = 0.0
+    if sun_angle > 0.0:
+        import math as _math
+        dist_to_receiver = max(0.05, abs(rz - float(_np.mean(verts[:, 2]))))
+        sun_blur_m = _math.tan(_math.radians(sun_angle) / 2.0) * dist_to_receiver
+        rpx = sun_blur_m / mpp
+        if rpx >= 0.5:
+            chans = [_disk_blur(c, rpx) for c in chans]
+    r["sun_angle_deg"] = sun_angle
+    r["sun_blur_m"] = sun_blur_m
     peak = max(float(c.max()) for c in chans)
     fld = _np.stack([c / peak for c in chans], axis=-1)  # joint peak 1.0
     return fld[::-1, :, :], r, rect  # row 0 = +Y, the solver dump convention
@@ -946,7 +1030,7 @@ class CAUSTIC_OT_bake_seq(bpy.types.Operator):
             # lights re-read every frame: an animated sun is the motion here
             lights = _collect_lights(context.scene.objects, tuple(p.sun_dir))
             dg = context.evaluated_depsgraph_get()
-            verts, faces = _mesh_tris(obj, dg)
+            verts, faces, tri_normals = _mesh_tris(obj, dg)
             if base_n is None:
                 base_n = len(verts)
             elif len(verts) != base_n:
@@ -960,7 +1044,8 @@ class CAUSTIC_OT_bake_seq(bpy.types.Operator):
                 fld, res, _rect = _bake_field(MT, MB, verts, faces, lights,
                                               recv, p.mesh_resolution,
                                               p.mesh_airy, absorb, eta,
-                                              frame="FULL")
+                                              frame="FULL",
+                                              tri_normals=tri_normals)
             except ValueError as e:
                 p.status = str(e)
                 self.report({"ERROR"}, p.status)

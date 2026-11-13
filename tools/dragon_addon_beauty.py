@@ -36,7 +36,10 @@ def parse_args():
     ap.add_argument("--frame", default="AUTO", choices=["AUTO", "FULL"])
     ap.add_argument("--accel", default="BVHTREE", choices=["BVHTREE", "NUMPY"])
     ap.add_argument("--margin", type=float, default=0.15)
-    ap.add_argument("--airy", type=float, default=0.006)
+    ap.add_argument("--airy", type=float, default=6.77e-6,
+                    help="display Airy width, metres; the canonical 6.77 um "
+                         "is sub-texel at this scale, so the bake shows the "
+                         "geometric field and the sun blur supplies the softness")
     ap.add_argument("--gain", type=float, default=0.25)
     ap.add_argument("--w", type=int, default=2560)
     ap.add_argument("--h", type=int, default=1440)

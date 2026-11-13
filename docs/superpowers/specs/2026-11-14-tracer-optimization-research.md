@@ -74,6 +74,11 @@ not transport.
 
 ### Immediate quality wins (independent of the above)
 
+- **Smooth shading normals.** The dragon is 87,130 polygons, all smooth-shaded,
+  with custom corner normals; the tracer was refracting off the geometric face
+  normal, so each facet produced its own caustic patch ("boxes"). Interpolating
+  the mesh's corner normals barycentrically at both interfaces removes the
+  facet structure. This is the single largest appearance win after the grid.
 - Achromatic IOR for the dragon (the material is achromatic; per-channel BK7
   is a spurious rainbow for this comparison).
 - OptiX denoiser on the beauty render (`scene.cycles.device = "GPU"`,

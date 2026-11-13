@@ -203,7 +203,47 @@ def frame_patch(hits, recv, margin, min_half=0.05, density=0.10, bins=64):
     return cx, cy, half
 
 
-def _shoot(o, d, geo, eta_c, receiver_z, patch_half, cx, cy, bv=None):
+def _bary(p, a, b, c):
+    """Barycentric weights (w0, w1, w2) of point p in triangle (a, b, c)."""
+    v0 = b - a
+    v1 = c - a
+    v2 = p - a
+    d00 = float(v0 @ v0)
+    d01 = float(v0 @ v1)
+    d11 = float(v1 @ v1)
+    d20 = float(v2 @ v0)
+    d21 = float(v2 @ v1)
+    den = d00 * d11 - d01 * d01
+    if abs(den) < 1e-30:
+        return (1.0, 0.0, 0.0)
+    v = (d11 * d20 - d01 * d21) / den
+    w = (d00 * d21 - d01 * d20) / den
+    return (1.0 - v - w, v, w)
+
+
+def _smooth_normal(p, ie, A, E1, E2, tri_normals):
+    """Barycentric interpolation of the mesh's shading normals at a hit.
+
+    tri_normals[ie] is the (3, 3) corner-normal triple for triangle ie, so a
+    smooth-shaded mesh refracts continuously instead of per facet. Falls back
+    to the geometric face normal if the interpolated normal is degenerate.
+    """
+    a = A[ie]
+    b = a + E1[ie]
+    c = a + E2[ie]
+    w0, w1, w2 = _bary(p, a, b, c)
+    ns = tri_normals[ie]
+    n = w0 * ns[0] + w1 * ns[1] + w2 * ns[2]
+    nrm = float(np.linalg.norm(n))
+    if nrm > 0.0:
+        return n / nrm
+    n = np.cross(E1[ie], E2[ie])
+    nrm = float(np.linalg.norm(n))
+    return n / nrm if nrm > 0.0 else n
+
+
+def _shoot(o, d, geo, eta_c, receiver_z, patch_half, cx, cy, bv=None,
+           tri_normals=None):
     """Single interface-pair traversal at one channel index. Returns
     (x, y, path_length_mm_inside) or None (miss / TIR / off-receiver). The
     caller applies Beer-Lambert from the path length. bv, when given, is a
@@ -222,6 +262,8 @@ def _shoot(o, d, geo, eta_c, receiver_z, patch_half, cx, cy, bv=None):
     if ie is None:
         return None
     p, n = hp
+    if tri_normals is not None:
+        n = _smooth_normal(p, ie, A, E1, E2, tri_normals)
     if n @ d > 0.0:
         n = -n
     t = _refract(d, n, 1.0 / eta_c)
@@ -240,6 +282,8 @@ def _shoot(o, d, geo, eta_c, receiver_z, patch_half, cx, cy, bv=None):
     if ix is None:
         return None
     q0, n2 = hx
+    if tri_normals is not None:
+        n2 = _smooth_normal(q0, ix, A, E1, E2, tri_normals)
     if n2 @ t > 0.0:
         n2 = -n2
     t2 = _refract(t, n2, eta_c)
@@ -275,6 +319,7 @@ def trace_mesh(verts, faces, lights, receiver, opts):
     absorb = tuple(opts.get("absorb_rgb", (0.0, 0.0, 0.0)))
     n_side = int(opts.get("n_side", 150))
     shoot = opts.get("shoot")
+    tri_normals = opts.get("tri_normals")
     accel = bool(opts.get("accel", True)) and shoot is None
     rz = float(receiver["z"])
     ph = float(receiver["patch_half"])
@@ -295,7 +340,7 @@ def trace_mesh(verts, faces, lights, receiver, opts):
 
     if shoot is None:
         def shoot(o, d, eta_c):
-            return _shoot(o, d, geo, eta_c, rz, ph, cx, cy, bv)
+            return _shoot(o, d, geo, eta_c, rz, ph, cx, cy, bv, tri_normals)
 
     def shoot_all(o, d):
         if nchan == 1:
