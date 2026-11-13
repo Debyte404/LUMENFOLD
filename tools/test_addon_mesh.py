@@ -317,6 +317,21 @@ ok = (mul is not None and add is not None
 check("frame_inject_maps_by_fit", ok,
       f"mul={tuple(round(v, 3) for v in mul.inputs[1].default_value[:2]) if mul else None}")
 
+# ---- 8f. BVHTree backend matches the numpy reference ------------------------
+run_bake(mesh_object=glass(), mesh_resolution=48, mesh_airy=0.006,
+         target=big(), mesh_frame="FULL", mesh_accel="NUMPY")
+_np_img = _np.array(bpy.data.images["CAUSTIC_bake"].pixels[:]).reshape(-1, 4)
+_t0 = __import__("time").time()
+run_bake(mesh_object=glass(), mesh_resolution=48, mesh_airy=0.006,
+         target=big(), mesh_frame="FULL", mesh_accel="BVHTREE")
+_bvh_img = _np.array(bpy.data.images["CAUSTIC_bake"].pixels[:]).reshape(-1, 4)
+_a = _np_img[:, :3].mean(axis=1)
+_b = _bvh_img[:, :3].mean(axis=1)
+_r = float(_np.corrcoef(_a, _b)[0, 1]) if _a.std() > 0 and _b.std() > 0 else 0.0
+check("bvhtree_matches_numpy", _r > 0.999,
+      f"field correlation r={_r:.5f}, peak numpy {_a.max():.3f} bvh {_b.max():.3f}")
+
+
 sun = bpy.data.objects.get("sun")
 sun.rotation_mode = "XYZ"
 for f, ang in ((1, 0.0), (2, 0.1), (3, 0.2)):

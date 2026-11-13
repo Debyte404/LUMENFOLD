@@ -36,14 +36,20 @@ def _first_hit_bvh(bv, o, d, skip=-1):
     return int(fi), (p, n)
 
 
-def estimate_seconds(n_tris, n_side, nchan=1):
+def estimate_seconds(n_tris, n_side, nchan=1, accel="numpy"):
     """Wall-time estimate for trace_mesh at this budget.
 
     Calibrated on the dragon referee (90k rays x 35k tris = 145 s):
-    t = rays * tris * 5e-8 per channel. Conservative on small meshes,
-    honest on big ones.
+    t = rays * tris * 5e-8 per channel for the numpy tracer. The BVHTree
+    backend does not scale with tris; its constant is calibrated from the
+    addon bake (see EVIDENCE section 32).
     """
-    return float(n_side * n_side) * float(n_tris) * 5e-8 * max(int(nchan), 1)
+    rays = float(n_side) * float(n_side)
+    if accel == "bvhtree":
+        # measured 9.7-29 us/ray/channel on the i7-14650HX (EVIDENCE 32);
+        # 20 us is the conservative middle for the UI hint
+        return rays * 2e-5 * max(int(nchan), 1)
+    return rays * float(n_tris) * 5e-8 * max(int(nchan), 1)
 
 
 def _check_watertight(faces):
@@ -87,6 +93,7 @@ def _point_in_mesh(p, verts, faces):
 
 
 def _refract(d, n, eta):
+    """Snell refraction; returns None on TIR."""
     cosi = -float(d @ n)
     if cosi < 0.0:
         n, cosi = -n, -cosi
@@ -267,7 +274,8 @@ def trace_mesh(verts, faces, lights, receiver, opts):
         nchan = 3 if len({round(e, 9) for e in etas}) > 1 else 1
     absorb = tuple(opts.get("absorb_rgb", (0.0, 0.0, 0.0)))
     n_side = int(opts.get("n_side", 150))
-    accel = bool(opts.get("accel", True))
+    shoot = opts.get("shoot")
+    accel = bool(opts.get("accel", True)) and shoot is None
     rz = float(receiver["z"])
     ph = float(receiver["patch_half"])
     cxy = receiver.get("center", (0.0, 0.0))
@@ -285,9 +293,13 @@ def trace_mesh(verts, faces, lights, receiver, opts):
 
     outs = []  # (x, y, channel, weight)
 
+    if shoot is None:
+        def shoot(o, d, eta_c):
+            return _shoot(o, d, geo, eta_c, rz, ph, cx, cy, bv)
+
     def shoot_all(o, d):
         if nchan == 1:
-            r = _shoot(o, d, geo, etas[0], rz, ph, cx, cy, bv)
+            r = shoot(o, d, etas[0])
             if r is None:
                 return
             _, _, L = r
@@ -295,7 +307,7 @@ def trace_mesh(verts, faces, lights, receiver, opts):
                 outs.append((r[0], r[1], c, float(np.exp(-absorb[c] * L))))
         else:
             for c in range(3):
-                r = _shoot(o, d, geo, etas[c], rz, ph, cx, cy, bv)
+                r = shoot(o, d, etas[c])
                 if r is None:
                     continue
                 _, _, L = r

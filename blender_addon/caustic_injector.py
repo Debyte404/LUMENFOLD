@@ -93,12 +93,47 @@ class CausticProps(bpy.types.PropertyGroup):
         description="Closed glass mesh to bake (mesh Bake mode)")
     mesh_resolution: bpy.props.IntProperty(
         name="Mesh res", description="Tracer grid per side (cost ~ res^2 x tris)",
-        default=128, min=16, max=1024)
+        default=128, min=16, max=4096)
     mesh_airy: bpy.props.FloatProperty(
         name="Mesh Airy (m)",
         description="Fringe width used near the fold. Documented visibility "
                     "parameter, not a physical prediction",
         default=0.006, min=0.0005, max=0.05, precision=4)
+    mesh_ray_mult: bpy.props.IntProperty(
+        name="Ray mult",
+        description="Rays per grid line (n_side = res x mult). Above 1 it "
+                    "supersamples rays above grid resolution, trading bake "
+                    "time for less shot noise",
+        default=2, min=1, max=8)
+    mesh_accel: bpy.props.EnumProperty(
+        name="Accel",
+        description="Ray-caster backend. BVHTree uses Blender's compiled "
+                    "C++ BVH (10-100x faster); Numpy is the reference "
+                    "implementation and the parity target",
+        items=[("BVHTREE", "BVHTree (fast)", "Blender's C++ BVH, per-ray ray_cast"),
+               ("NUMPY", "Numpy (reference)", "Pure-numpy brute force, for parity")],
+        default="BVHTREE")
+    mesh_frame: bpy.props.EnumProperty(
+        name="Frame",
+        description="Receiver framing. AUTO probes the hit bbox and bins the "
+                    "same rays into a fan-sized patch: finer texels and more "
+                    "hits per texel at no extra trace cost",
+        items=[("FULL", "Full receiver", "Bin over the whole receiver patch"),
+               ("AUTO", "Fan-framed", "Probe, then bin only around the fan")],
+        default="AUTO")
+    mesh_frame_margin: bpy.props.FloatProperty(
+        name="Frame margin (m)",
+        description="Padding around the probe hit bbox when framing",
+        default=0.15, min=0.01, max=2.0, precision=3)
+    # state set by the last mesh bake; identity/zero means "full receiver"
+    frame_uv: bpy.props.FloatVectorProperty(
+        name="Frame UV", size=4, default=(0.0, 0.0, 1.0, 1.0),
+        description="u0, v0, du, dv of the last baked patch in the target's "
+                    "UVs; (0, 0, 1, 1) is the whole receiver")
+    frame_rect: bpy.props.FloatVectorProperty(
+        name="Frame rect", size=3, default=(0.0, 0.0, 0.0),
+        description="World cx, cy, half of the last baked patch; half 0 means "
+                    "the full receiver")
     sun_dir: bpy.props.FloatVectorProperty(
         name="Sun dir", size=3, default=(0.80, 0.42, -0.43),
         description="Fallback sun travel direction when the scene has no SUN lamp")
@@ -190,8 +225,16 @@ def _mix_multiply(nt, a_socket, b_value, label):
     return n, out
 
 
-def _emit_into_material(mat, image, gain):
-    """Image (Non-Color) -> x16 -> x gain -> Emission -> Add Shader."""
+def _emit_into_material(mat, image, gain, frame_uv=(0.0, 0.0, 1.0, 1.0)):
+    """Image (Non-Color) -> x16 -> x gain -> Emission -> Add Shader.
+
+    frame_uv (u0, v0, du, dv) places the baked patch inside the target's UVs:
+    the bake may cover only the fan-framed sub-rect of the receiver, so the
+    UV is rescaled by 1/(du, dv) and offset by -(u0, v0)/(du, dv) before it
+    reaches the texture. Identity (0, 0, 1, 1) leaves the UVs untouched.
+    Two explicit vector-math nodes rather than one Mapping node, because the
+    node's Scale/Location order is version-dependent and this must be exact.
+    """
     mat.use_nodes = True
     nt = mat.node_tree
     bsdf = next((n for n in nt.nodes if n.type == "BSDF_PRINCIPLED"), None)
@@ -225,7 +268,25 @@ def _emit_into_material(mat, image, gain):
     uv = nt.nodes.new("ShaderNodeUVMap")
     uv.name = "CAUSTIC_uv"
     uv.location = (-1100, -300)
-    nt.links.new(uv.outputs["UV"], tex.inputs["Vector"])
+    u0, v0, du, dv = (float(v) for v in frame_uv)
+    if (u0, v0, du, dv) == (0.0, 0.0, 1.0, 1.0):
+        nt.links.new(uv.outputs["UV"], tex.inputs["Vector"])
+    else:
+        if not (1e-9 < du and 1e-9 < dv):
+            raise ValueError("frame_uv degenerate: cannot place the bake")
+        mul = nt.nodes.new("ShaderNodeVectorMath")
+        mul.name = "CAUSTIC_map_mul"
+        mul.operation = "MULTIPLY"
+        mul.inputs[1].default_value = (1.0 / du, 1.0 / dv, 1.0)
+        mul.location = (-1000, -300)
+        add = nt.nodes.new("ShaderNodeVectorMath")
+        add.name = "CAUSTIC_map_add"
+        add.operation = "ADD"
+        add.inputs[1].default_value = (-u0 / du, -v0 / dv, 0.0)
+        add.location = (-950, -300)
+        nt.links.new(uv.outputs["UV"], mul.inputs[0])
+        nt.links.new(mul.outputs["Vector"], add.inputs[0])
+        nt.links.new(add.outputs["Vector"], tex.inputs["Vector"])
 
     scale, s_out = _mix_multiply(nt, tex.outputs["Color"], (16.0,) * 3 + (1.0,),
                                  "CAUSTIC_x16")
@@ -295,6 +356,9 @@ class CAUSTIC_OT_bake(bpy.types.Operator):
         img = bpy.data.images.load(out, check_existing=False)
         img.name = "CAUSTIC_bake"
         p.image_path = out
+        # the solver bakes the whole receiver; clear any framed placement
+        p.frame_uv = (0.0, 0.0, 1.0, 1.0)
+        p.frame_rect = (0.0, 0.0, 0.0)
         metrics = [l for l in log.splitlines() if l.startswith("[caustic]")]
         p.status = metrics[0].strip() if metrics else "baked"
         for line in metrics:
@@ -322,7 +386,7 @@ class CAUSTIC_OT_inject(bpy.types.Operator):
             obj.data.materials.append(bpy.data.materials.new("caustic_receiver"))
         ok = 0
         for mat in obj.data.materials:
-            if _emit_into_material(mat, img, p.gain):
+            if _emit_into_material(mat, img, p.gain, tuple(p.frame_uv)):
                 ok += 1
         if p.disable_cycles_caustics and context.scene.render.engine == "CYCLES":
             context.scene.cycles.caustics_refractive = False
@@ -474,7 +538,9 @@ class CAUSTIC_OT_bake_mesh(bpy.types.Operator):
         dg = context.evaluated_depsgraph_get()
         verts, faces = _mesh_tris(obj, dg)
         tris_n = len(faces)
-        est = MT.estimate_seconds(tris_n, p.mesh_resolution * 2, nchan=3)
+        est = MT.estimate_seconds(tris_n, p.mesh_resolution
+                                  * max(int(p.mesh_ray_mult), 1), nchan=3,
+                                  accel=p.mesh_accel.lower())
         try:
             MT.check_closed(faces)
             recv = _resolve_target(p.target)
@@ -482,13 +548,25 @@ class CAUSTIC_OT_bake_mesh(bpy.types.Operator):
             lights = _collect_lights(context.scene.objects, tuple(p.sun_dir))
             absorb = mat["absorb"] if mat["absorb"] is not None else tuple(p.glass_absorb)
             eta = MT.ior_rgb(mat["ior"])
-            fld, res = _bake_field(MT, MB, verts, faces, lights, recv,
-                                   p.mesh_resolution, p.mesh_airy,
-                                   absorb, eta, ray_mult=2)
+            fld, res, rect = _bake_field(MT, MB, verts, faces, lights, recv,
+                                         p.mesh_resolution, p.mesh_airy,
+                                         absorb, eta,
+                                         ray_mult=p.mesh_ray_mult,
+                                         frame=p.mesh_frame,
+                                         frame_margin=p.mesh_frame_margin,
+                                         accel=p.mesh_accel.lower())
+            frame_uv = ((0.0, 0.0, 1.0, 1.0) if rect is None
+                        else _uv_rect_for_world_rect(p.target, rect))
         except ValueError as e:
             p.status = str(e)
             self.report({"ERROR"}, p.status)
             return {"CANCELLED"}
+        if rect is None:
+            p.frame_uv = (0.0, 0.0, 1.0, 1.0)
+            p.frame_rect = (0.0, 0.0, 0.0)
+        else:
+            p.frame_uv = frame_uv
+            p.frame_rect = tuple(rect)
         os.makedirs(TMP_DIR, exist_ok=True)
         out = os.path.join(TMP_DIR, "caustic_mesh.png")
         t0 = time.time()
@@ -496,8 +574,14 @@ class CAUSTIC_OT_bake_mesh(bpy.types.Operator):
         dt = time.time() - t0
         p.image_path = out
         p.last_ms = dt * 1000.0
-        p.status = (f"[mesh] {tris_n} tris res {p.mesh_resolution} est {est:.0f}s "
-                    f"took {dt:.0f}s peak 1.00 hits {len(res['hits'])}")
+        frame_txt = ""
+        if rect is not None:
+            mpp = 2.0 * rect[2] / p.mesh_resolution
+            frame_txt = (f" frame {2 * rect[2]:.2f}m texel "
+                         f"{mpp * 1000:.1f}mm")
+        p.status = (f"[mesh] {tris_n} tris res {p.mesh_resolution} "
+                    f"est {est:.0f}s took {dt:.0f}s peak 1.00 "
+                    f"hits {len(res['hits'])}{frame_txt}")
         print("   ", p.status)
         self.report({"INFO"}, f"mesh baked in {dt:.0f} s (est {est:.0f} s)")
         return {"FINISHED"}
@@ -543,6 +627,45 @@ def _resolve_target(tgt):
     cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
     half = max(max(xs) - min(xs), max(ys) - min(ys)) / 2
     return {"cx": cx, "cy": cy, "half": half, "z": sum(zs) / len(zs)}
+
+
+def _uv_rect_for_world_rect(tgt, rect):
+    """UV sub-rect (u0, v0, du, dv) covered by a world xy rect, from the
+    target's OWN loop-vertex world->UV affine fit.
+
+    Never assumes UVs stretch 0-1 over the world extent: the fit is what the
+    inject maps the framed bake through, so a square patch over a non-square
+    plane is placed by measurement, not by assumption. Raises ValueError when
+    the target's UVs are not an affine map of world xy (rotated/unwrapped
+    targets cannot host a framed bake)."""
+    import numpy as np
+    uv = tgt.data.uv_layers[0]
+    P, U = [], []
+    for i, loop in enumerate(uv.data):
+        v = tgt.data.vertices[tgt.data.loops[i].vertex_index]
+        w = tgt.matrix_world @ v.co
+        P.append((w.x, w.y))
+        U.append((loop.uv[0], loop.uv[1]))
+    P = np.asarray(P, dtype=float)
+    U = np.asarray(U, dtype=float)
+    A = np.column_stack([P[:, 0], P[:, 1], np.ones(len(P))])
+    cu, *_ = np.linalg.lstsq(A, U[:, 0], rcond=None)
+    cv, *_ = np.linalg.lstsq(A, U[:, 1], rcond=None)
+    resid = float(np.abs(A @ cu - U[:, 0]).max()
+                  + np.abs(A @ cv - U[:, 1]).max())
+    if resid > 1e-3:
+        raise ValueError(f"target UVs are not an affine map of world xy "
+                         f"(residual {resid:.4f}); cannot place a framed bake")
+    cx, cy, half = rect
+    corners = [(cx - half, cy - half), (cx + half, cy - half),
+               (cx + half, cy + half), (cx - half, cy + half)]
+    us = [cu[0] * x + cu[1] * y + cu[2] for x, y in corners]
+    vs = [cv[0] * x + cv[1] * y + cv[2] for x, y in corners]
+    u0, u1 = min(us), max(us)
+    v0, v1 = min(vs), max(vs)
+    if not (1e-6 < u1 - u0 and 1e-6 < v1 - v0):
+        raise ValueError("framed patch degenerate in UV space")
+    return (float(u0), float(v0), float(u1 - u0), float(v1 - v0))
 
 
 def _collect_lights(objects, sun_dir):
@@ -621,20 +744,114 @@ def _resolve_material(obj):
     return {"ior": ior, "roughness": rough, "absorb": absorb, "tint": tint}
 
 
+def _build_bvh(verts, faces):
+    """Build Blender's C++ BVHTree over the evaluated mesh triangles."""
+    from mathutils.bvhtree import BVHTree
+    return BVHTree.FromPolygons([tuple(v) for v in verts],
+                                [tuple(int(i) for i in f) for f in faces])
+
+
+def _make_bvh_shooter(bvh, recv):
+    """Return shoot(o, d, eta_c) backed by a Blender BVHTree.
+
+    The per-ray work leaves Python; the refraction and receiver filtering are
+    the same math as the numpy _shoot.
+    """
+    import numpy as _np
+    from mesh_caustic import trace as _MT
+
+    rz = float(recv["z"])
+    ph = float(recv["half"])
+    cx = float(recv["cx"])
+    cy = float(recv["cy"])
+
+    def shoot(o, d, eta_c):
+        loc, nor, idx, dist = bvh.ray_cast(tuple(o), tuple(d))
+        if loc is None:
+            return None
+        p = _np.asarray(loc, dtype=float)
+        n = _np.asarray(nor, dtype=float)
+        nn = _np.linalg.norm(n)
+        if nn > 0.0:
+            n = n / nn
+        if float(n @ d) > 0.0:
+            n = -n
+        t = _MT._refract(d, n, 1.0 / eta_c)
+        if t is None:
+            return None
+        p2 = p + t * 1e-6
+        loc2, nor2, idx2, dist2 = bvh.ray_cast(tuple(p2), tuple(t))
+        # BVHTree cannot skip the entry triangle by index; nudge past it
+        for _ in range(3):
+            if loc2 is not None and int(idx2) != int(idx):
+                break
+            p2 = p2 + t * 1e-5
+            loc2, nor2, idx2, dist2 = bvh.ray_cast(tuple(p2), tuple(t))
+        if loc2 is None or int(idx2) == int(idx):
+            return None
+        q0 = _np.asarray(loc2, dtype=float)
+        n2 = _np.asarray(nor2, dtype=float)
+        nn2 = _np.linalg.norm(n2)
+        if nn2 > 0.0:
+            n2 = n2 / nn2
+        if float(n2 @ t) > 0.0:
+            n2 = -n2
+        t2 = _MT._refract(t, n2, eta_c)
+        if t2 is None or abs(t2[2]) < 1e-9:
+            return None
+        L = float(_np.linalg.norm(q0 - p))
+        s = (rz - q0[2]) / t2[2]
+        if s <= 0.0:
+            return None
+        q = q0 + s * t2
+        if abs(q[0] - cx) > ph or abs(q[1] - cy) > ph:
+            return None
+        return (float(q[0]), float(q[1]), L)
+
+    return shoot
+
+
 def _bake_field(MT, MB, verts, faces, lights, recv, res, airy, absorb, eta,
-                ray_mult=1):
-    """Trace + band-correct. Returns (fld01 RGB peak 1.0 row0=+Y, trace dict).
+                ray_mult=1, frame="FULL", frame_margin=0.15, feather=0.35,
+                accel="bvhtree"):
+    """Trace + band-correct. Returns (fld01 RGB peak 1.0 row0=+Y, trace dict,
+    frame rect or None for the full receiver).
+
     ray_mult supersamples rays above grid resolution so shot noise, not texel
-    size, stops being the visible structure. eta is scalar or (R,G,B);
-    absorb is per-channel. Raises ValueError from the tracer or the
-    no-hits guard."""
+    size, stops being the visible structure. frame='AUTO' first runs a cheap
+    achromatic probe over the full receiver and re-bins the SAME rays into a
+    fan-framed patch: the tracer launches rays over the mesh bounding sphere,
+    so a smaller patch buys texel resolution and hits-per-texel for free.
+    feather cross-fades the outer edge of the correction band to the raw
+    field (display transition; 0 keeps the strictly conserved operator).
+    eta is scalar or (R,G,B); absorb is per-channel. Raises ValueError from
+    the tracer or the no-hits guard."""
     import numpy as _np
     n = res
     cx, cy, half, rz = recv["cx"], recv["cy"], recv["half"], recv["z"]
-    r = MT.trace_mesh(_np.asarray(verts), faces, lights,
-                      {"z": rz, "patch_half": half, "center": (cx, cy)},
-                      {"n_side": n * max(int(ray_mult), 1), "eta": eta,
-                       "absorb_rgb": tuple(absorb)})
+    verts = _np.asarray(verts, dtype=float)
+    faces = _np.asarray(faces, dtype=_np.int64)
+    bvh = _build_bvh(verts, faces) if accel == "bvhtree" else None
+    rect = None
+    if frame == "AUTO":
+        eta_probe = float(_np.mean(_np.asarray(eta, dtype=float)))
+        popts = {"n_side": 128, "eta": eta_probe}
+        if bvh is not None:
+            popts["shoot"] = _make_bvh_shooter(
+                bvh, {"cx": cx, "cy": cy, "half": half, "z": rz})
+        rp = MT.trace_mesh(verts, faces, lights,
+                           {"z": rz, "patch_half": half, "center": (cx, cy)},
+                           popts)
+        cx, cy, half = MT.frame_patch(rp["hits"], recv, frame_margin)
+        rect = (cx, cy, half)
+    opts = {"n_side": n * max(int(ray_mult), 1), "eta": eta,
+            "absorb_rgb": tuple(absorb)}
+    if bvh is not None:
+        opts["shoot"] = _make_bvh_shooter(
+            bvh, {"cx": cx, "cy": cy, "half": half, "z": rz})
+    r = MT.trace_mesh(verts, faces, lights,
+                      {"z": rz, "patch_half": half, "center": (cx, cy)}, opts)
+    r["accel"] = accel
     outs = []
     for c in range(3):
         m = (r["chan"] == c) if len(r["hits"]) else None
@@ -652,10 +869,11 @@ def _bake_field(MT, MB, verts, faces, lights, recv, res, airy, absorb, eta,
     mpp = 2 * half / n
     dist = MB.ridge_distance(g, mpp)
     band_m = max(0.004, 3 * mpp)
-    chans = [MB.correct(gc, dist, band_m, airy) for gc in outs]
+    chans = [MB.correct(gc, dist, band_m, airy, feather=feather)
+             for gc in outs]
     peak = max(float(c.max()) for c in chans)
     fld = _np.stack([c / peak for c in chans], axis=-1)  # joint peak 1.0
-    return fld[::-1, :, :], r  # row 0 = +Y, the solver dump convention
+    return fld[::-1, :, :], r, rect  # row 0 = +Y, the solver dump convention
 
 
 def _write_bake_image(fld01, out):
@@ -737,9 +955,12 @@ class CAUSTIC_OT_bake_seq(bpy.types.Operator):
                 self.report({"ERROR"}, p.status)
                 return {"CANCELLED"}
             try:
-                fld, res = _bake_field(MT, MB, verts, faces, lights, recv,
-                                       p.mesh_resolution, p.mesh_airy,
-                                       absorb, eta)
+                # FULL only: one shared UV placement for every frame, and a
+                # per-frame fan bbox would move between frames
+                fld, res, _rect = _bake_field(MT, MB, verts, faces, lights,
+                                              recv, p.mesh_resolution,
+                                              p.mesh_airy, absorb, eta,
+                                              frame="FULL")
             except ValueError as e:
                 p.status = str(e)
                 self.report({"ERROR"}, p.status)
@@ -766,16 +987,11 @@ class CAUSTIC_OT_bake_seq(bpy.types.Operator):
             except Exception:
                 pass
         p.image_path = seqdir
+        p.frame_uv = (0.0, 0.0, 1.0, 1.0)
+        p.frame_rect = (0.0, 0.0, 0.0)
         p.status = (f"[mesh-seq] {len(frames)} frames "
                     f"{p.seq_start}-{p.seq_end} in {seqdir}")
         self.report({"INFO"}, f"baked {len(frames)} frames to {seqdir}")
-        return {"FINISHED"}
-        p.image_path = out
-        p.last_ms = dt * 1000.0
-        p.status = (f"[mesh] {tris_n} tris res {n} est {est:.0f}s "
-                    f"took {dt:.0f}s peak 1.00 hits {len(res['hits'])}")
-        print("   ", p.status)
-        self.report({"INFO"}, f"mesh baked in {dt:.0f} s (est {est:.0f} s)")
         return {"FINISHED"}
 
 

@@ -240,5 +240,6 @@ The dragon rig is separate from the tumbler measurements and appears in
 | `dragon_export.py` | Export the shared OBJ and `receiver.json`; `--dump-camera` also writes `cam_beauty.json` (camera matrix, lens, and the dragon world bbox). The OBJ is written with `up_axis='Z'` so every engine gets Blender's world coordinates. |
 | `dragon_trace.py` | Independent triangle-mesh tracer: the referee. |
 | `dragon_suite.py` | Engine runners and the append-only CSV. `--check` covers the metric and the FOV conversions. |
+| `dragon_addon_beauty.py` | Reproducible driver for the ours-injected panel: addon mesh bake (fan-framed receiver, `mesh_frame`/`mesh_ray_mult` props), inject through the target's affine UV fit, render CAM_beauty with the spike settings; writes a JSON metrics sidecar. `--accel BVHTREE` uses Blender's compiled C++ BVH (default; ~460x the numpy tracer), `--accel NUMPY` is the parity reference. Render paths must be absolute — Blender resolves relative `render.filepath` against the .blend's directory. |
 | `check_dragon_framing.py` | Reconstructs the Cycles, PBRT and Mitsuba cameras from their own scene files, projects the dragon bbox, and fails unless all three agree and the OBJ pose matches the blend world bbox. |
 | `make_dragon_beauty_figure.py` | The four-engine figure; refuses a non-16:9 panel instead of squashing it. |

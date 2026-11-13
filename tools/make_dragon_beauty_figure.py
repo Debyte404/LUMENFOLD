@@ -62,8 +62,8 @@ def main():
 
     panels = [
         ("cycles_native_2560.png", title("cycles-native", "Cycles native")),
-        ("addon_ours_2560_r1024.png",
-         "ours injected 2560x1440, 1024^2 bake (71 min + 4 min)"),
+        ("addon_ours_2560_bvhtree.png",
+         "ours injected 2560x1440, 2048^2 x2 BVHTree bake (25 min + 2 min)"),
         ("pbrt_beauty_vis.png", title("pbrt-beauty", "PBRT-SPPM")),
         ("mitsuba_beauty_vis.png", title("mitsuba-beauty", "Mitsuba path")),
     ]

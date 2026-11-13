@@ -79,12 +79,18 @@ def ridge_distance(field, m_per_px):
     return d / 3.0 * m_per_px
 
 
-def correct(field, signed_distance, band_width, airy_scale, lut=None):
+def correct(field, signed_distance, band_width, airy_scale, lut=None,
+            feather=0.0):
     """Redistribute the band's own geometric energy by the Airy profile.
 
     field: geometric irradiance (H, W); signed_distance: metres, same shape;
     band_width: half-width of detected band, metres; airy_scale: display
-    width w, metres. Band flux strictly conserved by construction.
+    width w, metres; feather: fraction of the band cross-faded back to the
+    raw field, 0 (default) = the strict operator, which conserves the band's
+    flux by construction. With feather > 0 the inner (1 - feather) zone of
+    the band keeps the strict profile and the outer zone eases back to the
+    raw field, hiding the hard band edge; flux is then conserved in the
+    inner band only, which is the documented display trade.
     """
     lut = load_lut() if lut is None else np.asarray(lut, dtype=np.float64)
     out = field.copy()
@@ -97,5 +103,11 @@ def correct(field, signed_distance, band_width, airy_scale, lut=None):
     s = np.clip(signed_distance[band] / airy_scale, -4.0, 8.0)
     w = _airy(s, lut)
     w = w / w.sum()
-    out[band] = energy * w
+    if feather > 0.0:
+        a = np.clip((band_width - np.abs(signed_distance[band]))
+                    / (band_width * float(feather)), 0.0, 1.0)
+        a = a * a * (3.0 - 2.0 * a)          # smoothstep: C1 at both ends
+        out[band] = a * (energy * w) + (1.0 - a) * field[band]
+    else:
+        out[band] = energy * w
     return out

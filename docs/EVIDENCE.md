@@ -2942,3 +2942,163 @@ Figure: `docs/media/dragon_beauty_compare.png`, rebuilt with an aspect
 assertion (a non-16:9 panel fails instead of being squashed). The Mitsuba
 panel is nearly black because the p1-p99.9 preview maps the fireflies' tail;
 the EXR ground is 0.721.
+
+--------------------------------------------------------------------------------
+## 31. The dragon's injected caustic, fixed (2026-11-13)
+--------------------------------------------------------------------------------
+
+EVIDENCE section 28 recorded the fix as "prescribed work, not done": supersample
+rays above grid resolution and feather the band edge. Commit 570c3f2 (2026-11-02)
+landed the supersample half (ray_mult=2) but never re-baked the shipped panel,
+and the feather and the resolution half were missing. This section records the
+completed work, which also exposed two bugs the earlier sections did not have.
+
+What was wrong:
+
+1. The bake grid was 1024^2 over the receiver patch, which _resolve_target sizes
+   as max(xext, yext)/2 = 4.18 m. The caustic fan is ~1.5 m, so 8.2 mm/texel
+   (~13 image px) of the bake is spent on empty table. The blockiness in the
+   section 28 panel is that grid, not the model: doubling the bake 256 -> 512 ->
+   1024 halved the blocks each time (section 25/28).
+2. The band had a hard edge at band_width; the profile's tail met the raw field
+   in a step.
+3. The bake was a single sample per texel (0.26 hits/texel), and band-local
+   flux conservation preserves that noise by construction (section 28).
+4. The injected texture was stretched over the target's UVs assuming a square
+   patch (0-1 over the whole receiver). The dragon plane is 8.36 x 7.30 m, so
+   the caustic was placed by accident, not by measurement.
+
+What changed in blender_addon/caustic_injector.py:
+
+* mesh_frame (FULL / AUTO, default AUTO) and mesh_frame_margin. AUTO runs a
+  cheap achromatic probe (n_side=128) over the full receiver, bins it on a
+  64x64 grid, and frames the patch on the bins holding at least 10% of the
+  peak bin's hit count, plus the margin, clamped inside the receiver. This is
+  the lever that buys texels: the tracer launches rays over the mesh bounding
+  sphere regardless, so re-binning the same hits into a smaller patch costs
+  nothing. The dragon frame is 1.48 m square (half 0.738 m), down from 8.36 m.
+* mesh_ray_mult (default 2, was hardcoded 2) is now a property.
+* _bake_field returns the framed rect; the inject places the framed image through
+  the target's actual world->UV affine fit (least squares over loop vertices),
+  via two explicit vector-math nodes, instead of assuming a square patch. This
+  also removes the latent 8.36-vs-7.30 anisotropy by construction.
+* band.correct gained feather=0.0 (default); the mesh path uses 0.35, which
+  cross-fades the outer band to the raw field over the outer 35% of the band
+  (inner band keeps the strict profile). feather=0 is bit-identical to before.
+* bake_seq stays FULL with one shared UV placement (one image across frames).
+* The solver bake (CAUSTIC_OT_bake) resets frame_uv to identity.
+* Status reports the frame size and texel width.
+
+Pre-registered criteria (written before the bake):
+
+1. Texel <= 1.6 mm. Measured: 1.44 mm (1.48 m / 1024). PASS.
+2. Placement unchanged, within 3% of frame of the Cycles panel. Measured:
+   bright centroid (0.446, 0.760) vs Cycles (0.445, 0.756) = (0.001, 0.004).
+   PASS, and closer than the shipped panel (0.431, 0.778).
+3. Wall time <= 2.5 h. Measured: 13914.1 s (3.86 h). MISS - recorded, not
+   tuned. The machine ran 3.3x slower than the 2026-11-02 bakes (13.5 ms/ray
+   vs 4.06 ms/ray); the estimate model is calibrated on the old rate.
+
+Measured numbers (appended to docs/data/dragon_suite.csv):
+
+| step | before | after |
+|---|---|---|
+| mesh bake | 1024^2 over 8.36 m, 71 min, 258k hits, 8.2 mm/texel, 1 sample/texel | 1024^2 over 1.48 m, 232 min, 254630 hits, 1.4 mm/texel, band-smoothed |
+| inject | Cubic over the whole plane | Cubic over the framed rect, placed by the affine UV fit |
+| render | 2560x1440 / 1024spp / 4 min | 2560x1440 / 1024spp / 121 s |
+| placement vs Cycles | (0.431, 0.778) | (0.446, 0.760) |
+
+The bake wall time is on the loaded machine; compare within this run.
+The hit count moved from 258k to 254630 - the same order, the difference is
+the pose and the framing, not the model.
+
+What this settles: the dragon's geometric fan is in the same place and now has
+the same gross structure as Cycles' (the blocks are gone; residual grain is the
+0.26-to-1.4 hit/texel improvement, still visible but no longer mosaic). The
+wave correction at 6.77 um is sub-pixel at this scale, so neither panel shows
+physical fringes; both are geometric fans, and the comparison is about
+placement and noise, not photorealism.
+
+What it does not settle: the remaining grain. A 2x supersample (ray_mult=2)
+would take ~7.8 h on this machine; the BVH in
+docs/superpowers/plans/2026-11-13-mesh-tracer-bvh.md is the lever that makes
+that affordable. It is not part of this change.
+
+Reproduce:
+```
+blender --background --factory-startup --python tools/dragon_addon_beauty.py -- \
+    --res 1024 --ray-mult 1 --frame AUTO --w 2560 --h 1440 --samples 1024 \
+    --out out/dragon_suite/addon_ours_2560_framed.png
+python tools/make_dragon_beauty_figure.py
+```
+The driver writes `addon_ours_2560_framed_metrics.json` with the measured
+numbers (bake 13914.1 s, 254630 hits, frame half 0.738 m, texel 1.4 mm,
+render 121.0 s).
+
+Figure: `docs/media/dragon_beauty_compare.png`, rebuilt with an aspect
+assertion and the measured times in the ours title.
+
+--------------------------------------------------------------------------------
+## 32. A C++ BVH takes the mesh bake from hours to minutes (2026-11-14)
+--------------------------------------------------------------------------------
+
+Section 31 ended with the bake's remaining cost: a 2x supersample was ~7.8 h
+on the numpy tracer, so the grain stayed. The numpy BVH (section 28's
+"supersample above grid resolution" thread, plan
+`docs/superpowers/plans/2026-11-13-mesh-tracer-bvh.md`) measured only 1.84x:
+the tree is not the bottleneck, Python per-ray overhead is.
+
+The fix is Blender's own `mathutils.bvhtree.BVHTree`, a compiled C++ BVH
+available inside the addon with no build step and no new dependency.
+`blender_addon/caustic_injector.py` now builds it once per bake and passes a
+`shoot(o, d, eta_c)` closure into `trace_mesh` (the `shoot` opt), so the light
+loop, channel handling, Beer-Lambert weights and the band correction are
+shared with the numpy reference. The refraction and receiver filtering are the
+same math; only the triangle lookup moved into C++.
+
+Measured on the RTX 4060 / i7-14650HX (2026-11-14):
+
+| run | backend | grid | rays | wall | hits | texel |
+|---|---|---|---|---|---|---|
+| numpy, section 31 | numpy | 1024^2 | 1.05M | 13914.1 s (232 min) | 254630 | 1.44 mm |
+| BVHTree probe | BVHTree | 256^2 | 65k | 1.9 s | 15799 | 5.8 mm |
+| BVHTree final | BVHTree | 2048^2 x2 | 16.8M | 1475.8 s (24.6 min) | 4079905 | 0.72 mm |
+
+Per-ray (3 channels): numpy 13.25 ms, BVHTree 88 us -> about 150x. The final
+panel is 4x finer texels and 4x supersampled for 1/9.4 of the numpy wall time.
+
+Parity:
+* Fixture field correlation, BVHTree vs numpy, res 48: **r = 1.00000**.
+* Dragon hit count at the same n_side (256): 15799 vs 16030, **1.4% fewer**.
+  The BVHTree cannot skip the entry triangle by index the way numpy's
+  `_first_hit(skip=ie)` does; the code nudges past it and drops the ray when a
+  grazing exit re-hits the entry facet. The rays that do land agree in
+  position and weight; the 1.4% are grazing exits.
+* Placement: BVHTree panel centroid (0.447, 0.759) vs numpy (0.446, 0.760) and
+  Cycles (0.445, 0.756). Identical within a pixel.
+
+The bake property `mesh_resolution` now allows 4096; `mesh_accel`
+(BVHTREE/NUMPY) selects the backend, default BVHTREE. `estimate_seconds`
+gained `accel="bvhtree"` calibrated at 20 us/ray/channel (the measured range
+is 9.7-29 us depending on machine state; the UI hint is conservative).
+
+Render: 124.1 s at 2560x1440/1024spp. The driver now sets
+`scene.cycles.device = "GPU"` with OptiX enabled; the wall time is unchanged
+from the CPU run (121 s), so the render is not the bottleneck at this size.
+
+What this settles: the remaining grain in the ours panel is a sampling
+problem that is now affordable to solve. The same 24.6 min buys 4x the texel
+density and 4x the samples; a further 4x (ray_mult 4) is about 1.6 h, and
+`res 4096` would be about 1.6 h as well. Neither is needed for the shipped
+figure, but the knob is now cheap enough to use.
+
+Reproduce:
+```
+blender --background --factory-startup --python tools/dragon_addon_beauty.py -- \
+    --res 2048 --ray-mult 2 --frame AUTO --accel BVHTREE \
+    --w 2560 --h 1440 --samples 1024 \
+    --out out/dragon_suite/addon_ours_2560_bvhtree.png
+```
+antecedents: EVIDENCE 28 (prescribed work), 30 (camera), 31 (framing and
+feather). Figure: `docs/media/dragon_beauty_compare.png` (ours panel is the
+2048^2 x2 BVHTree bake).
