@@ -3345,3 +3345,88 @@ Consequences, recorded so this is not re-litigated:
 Reproduce: `python tools/run_blender.py --background --factory-startup --python
 tools/check_card_transport.py`, and the dragon panel with `--inject-mode
 LIGHT_CARD` (driver line in section 34). No paper claim depends on sections 34-36.
+
+--------------------------------------------------------------------------------
+## 37. Directional caustic response: exact in isolation, loses on the dragon (2026-11-15)
+--------------------------------------------------------------------------------
+
+EVIDENCE 35 left the angular content of the caustic as the one thing the surface
+injection cannot carry: a 2D irradiance field is a sufficient statistic only for
+a diffuse receiver. The directional term closes that gap in closed form. For a
+receiver of albedo a, the baked field is the plate radiance F = E_c * a / pi
+(E_c = caustic irradiance), while the outgoing radiance toward V is
+L(V) = E_c * (a/pi + f_s(V, L_sun)) = F * (1 + (pi/a) * f_s), with f_s the
+scalar GGX term (Trowbridge-Reitz D, Schlick Fresnel, Schlick-GGX Smith G)
+evaluated for the sun direction (scene SUN lamp, else p.sun_dir). New
+`directional` prop (default False) and `--directional` driver flag; when ON,
+`_emit_into_material` multiplies the emission by the per-channel factor built
+as CAUSTIC_dir_* shader nodes. Plan:
+`docs/superpowers/plans/2026-11-15-caustic-directional.md`.
+
+**Isolated verification** (`tools/check_directional.py`, all PASS): a 2x2
+diffuse plate under the addon''s SURFACE injection, synthetic field, black
+world, no other light, EXR, Standard transform:
+
+| rig | measured | expectation |
+|---|---|---|
+| Lambertian (spec 0), 0.25/0.05 halves, directional ON | 0.2500 / 0.0500 | 0.25 / 0.05 |
+| polished (rough 0.05, F0 0.04), uniform 0.15, perspective cam | peak/far 7345x | analytic ~9000 (pixel footprint averages the lobe down) |
+| specular-0 control, same geometry | peak/far 1.008 | 1.0 |
+
+Two implementation bugs were caught by the check and fixed: Geometry Incoming
+already points surface->camera (rendered the vector as a colour to prove it,
+so the first sign was backwards), and the GGX denominator floor of 1e-6 sat
+above the physical minimum (pi*inner^2 >= 3e-12) and crushed the peak to 6.25
+instead of 50930 -- now 1e-20, which only guards denormals. Spec 0 yields
+factor exactly 1 (no Schlick grazing tail), which is the stated Lambertian
+contract. Full addon suite: FAILURES 0.
+
+**Dragon comparison, 2048 spp, 1024^2 x2 bake** (bake 206.6/205.1 s on a
+contended machine -- cf 45.4 s idle in section 36; render 243.4/234.9 s):
+
+| panel | caustic core RGB | glass dark-cores | table |
+|---|---|---|---|
+| Cycles, rough table (shipped ref) | 0.831 / 0.872 / 0.910 | 0.285 | 0.796 |
+| ours OFF, rough (shipped) | 0.831 / 0.871 / 0.909 | 0.276 | 0.796 |
+| ours directional ON, rough | 0.938 / 0.962 / 0.984 (+13%) | 0.383 (+39%) | 0.847 (+6%), centroid shifted 0.027 frame |
+| Cycles, polished table (rough 0.05) | 0.714 / 0.840 / 0.868 at (0.470, 0.651) | 0.283 | 0.563, dark mirror |
+| ours directional ON, polished | 0.927 / 0.957 / 0.982 at (0.460, 0.797) | 0.351 (+24%) | 0.582, white-out speckle |
+
+Glass masks are per-panel (luminance < 0.55 in the upper 70% of the frame);
+core is the top-0.5% luminance in the fan window, as in sections 34-35.
+
+The rough-table panel is a loss for beauty, and the difference image
+(directional minus OFF, `out/dragon_suite/_dir_diff.png`) shows the mechanism:
+the fan gains +0.165 mean with hf 0.0107 -- the factor multiplies the bake''s
+per-texel ray shot noise into visible speckle -- the glass gains a broad
++0.060 (smooth indirect light from the brighter table, which Cycles has no
+counterpart of), and even the sky gains +0.037 through Fog Glow spillover
+from over-threshold pixels. A 128 spp probe of the same panel shows ~1.9x the
+shadow hf of the 2048 spp version, i.e. the speckle averages down with
+samples: it is Monte Carlo bounce noise from a spiky indirect source, not a
+denoiser artifact. The polished panel is a structural loss: a glossy table in
+Cycles becomes a dark mirror of a dark environment, and an additive emission
+cannot darken the diffuse lobe it is added to -- the table stays bright and
+the mirror-direction lobe white-outs.
+
+Consequences, recorded so this is not re-litigated:
+
+- The diffuse surface injection stays the shipped beauty mode; it equals
+  Cycles to 0.001/channel and needs no tuning scalar.
+- The directional term is kept in the addon, verified in isolation, for scenes
+  where the receiver keeps a dominant diffuse lobe and the bake is smooth
+  enough that the factor has no texel noise to amplify. It is OFF by default.
+- A transport variant that would change the image on glossy receivers needs
+  the caustic''s angular content *and* a darkening diffuse term, i.e. a
+  receiver-shader replacement, not an additive injection. That is new work,
+  not a tweak, and is not claimed.
+
+Reproduce: `python tools/run_blender.py --background --factory-startup --python
+tools/check_directional.py`, and the dragon panels with `--directional`
+(`--table-rough 0.05` for the polished rig; the Cycles polished reference was
+rendered with the temp script
+`C:\\Users\\Lenovo\\AppData\\Local\\Temp\\opencode\\cycles_polished_ref.py`:
+same scene/camera/samples/denoiser/glow, table roughness 0.05, Cycles MNEE
+caustics on). Driver sidecars carry `directional`/`table_rough`. No paper
+claim depends on sections 34-37 except the coupling sentence noted in
+`docs/paper/sections/ourway.tex`, which cites this section.

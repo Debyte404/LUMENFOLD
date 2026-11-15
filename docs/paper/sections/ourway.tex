@@ -232,7 +232,15 @@ recording. The injection must be written as RGBA: a single-channel collapse
 through an interpolation path silently discards the chromatic separation, and
 the result looks plausible while being achromatic. And the injected texture must
 not be used to compute the renderer's own caustics, or the two are counted
-twice; the renderer's caustic pass is disabled for our frames.
+twice; the renderer's caustic pass is disabled for our frames. The field is a
+sufficient statistic only for a diffuse receiver: for a glossy receiver the
+injection can optionally carry the caustic's angular response, multiplying the
+emission by $1 + (\pi/a)\,f_s(V, L_{\mathrm{sun}})$ with $f_s$ the GGX
+specular term for the sun direction, which is unity for a Lambertian receiver.
+The term is verified in isolation but is not used for the production frames:
+on our scene it amplifies the bake's texel noise into visible speckle and an
+additive injection cannot darken the diffuse lobe a polished table loses
+(EVIDENCE~\S37).
 
 \subsection{Cost and complexity}
 \label{sec:ours-cost}

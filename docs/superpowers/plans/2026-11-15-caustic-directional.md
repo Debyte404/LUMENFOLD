@@ -56,7 +56,7 @@
 - Modify: `tools/dragon_addon_beauty.py` (`--directional`)
 - Output: `out/dragon_suite/addon_ours_2560_directional.png` (ignored by git)
 
-- [ ] **Step 1: Render** — polished-table rig (separate .blend or same scene with lowered table roughness, labelled as such), directional ON, same bake settings.
-- [ ] **Step 2: Measure vs Cycles** — caustic core RGB/centroid + glass response; record win/loss plainly.
-- [ ] **Step 3: Record in EVIDENCE**, update `docs/paper/sections/ourway.tex` coupling sentence + both frontmatters if any claim changes, run `check_dual_format.py`, `check_paper.py`, `build_paper_pdf`.
-- [ ] **Step 4: Commit** — driver + EVIDENCE (+ paper if touched).
+- [x] **Step 1: Render** — polished-table rig (separate .blend or same scene with lowered table roughness, labelled as such), directional ON, same bake settings. (Done: `--table-rough 0.05` override + native-Cycles polished reference; bake 206s contended, render ~240s.)
+- [x] **Step 2: Measure vs Cycles** — caustic core RGB/centroid + glass response; record win/loss plainly. (Done: loss on both rigs — rough +13% core with bounce-noise speckle; polished white-out vs dark mirror.)
+- [x] **Step 3: Record in EVIDENCE**, update `docs/paper/sections/ourway.tex` coupling sentence + both frontmatters if any claim changes, run `check_dual_format.py`, `check_paper.py`, `build_paper_pdf`. (Done: EVIDENCE §37; ourway.tex +6 lines, no frontmatter change; DUAL-FORMAT OK, PAPER REFS OK, CGF 0 overfull, IEEE clean.)
+- [x] **Step 4: Commit** — driver + EVIDENCE (+ paper if touched).
