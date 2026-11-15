@@ -3610,3 +3610,77 @@ Corrections carried forward: section 37 (bounce noise), 38 (amplified render
 noise) and 39 (empty texels as noise evidence) were each wrong; the empty-texel
 fraction is dominated by the frame''s geometry, and 31.6% of texels are still
 empty at 64 rays/texel.
+
+--------------------------------------------------------------------------------
+## 41. SPPM arbitration: our caustic matches the reference renderer, not SPPM (2026-11-15)
+--------------------------------------------------------------------------------
+
+Sections 37-40 left one question open: is the filament web in our baked field
+the physical caustic, or an artifact of our tracer? This section answers it with
+an independent renderer, and the answer is two-sided.
+
+**Setup.** PBRT-v4 SPPM on the existing dragon scene (`out/dragon_pbrt/`),
+1280x720, search radius 0.002 m (the shipped reference used 0.05 m, which cannot
+resolve anything below 50 mm), 8M photons/iteration, 64 iterations, rendered
+twice with different samplers (Halton and Sobol) so the two estimates share no
+point sets. Framing parity was gated first: `check_dragon_framing.py` reports
+FRAMING_OK with 0.000 mm pose error and all three engines agreeing to 1e-4.
+Our panel was re-rendered at the same 1280x720 for the comparison.
+
+**SPPM does produce reproducible fine structure.** Halton vs Sobol, table
+region, high-pass correlation: 0.368 (1 px), 0.680 (2 px = 2.3 mm), 0.728
+(4 px), 0.738 (8 px). Noise cannot correlate across samplers, so ~70% of SPPM''s
+2-5 mm structure is signal. The shipped 50 mm reference had 69x less
+high-frequency energy than the 2 mm one (0.0086 vs 0.591), so its smoothness was
+estimator setup, not physics.
+
+**The metric has to be validated before a null means anything.** A first
+band-averaged coherence returned ~0 for everything, including our own two
+renders of the same field, because an annulus average is destroyed by sub-pixel
+phase. The replacement uses band-pass filtering (block mean k minus block mean
+2k) and correlates in image space after searching a +-2 px alignment:
+
+| pair | 4 mm | 9 mm | 18 mm | 37 mm |
+|---|---|---|---|---|
+| our 1280 vs our 2560 (self-consistency ceiling) | 0.549 | 0.682 | 0.783 | 0.821 |
+| SPPM 2 mm vs SPPM 50 mm (estimator ceiling) | 0.352 | 0.467 | 0.664 | 0.735 |
+| ours vs flipped self (null control) | 0.036 | 0.041 | 0.145 | 0.186 |
+
+**Three engines on the same metric:**
+
+| pair | 4 mm | 9 mm | 18 mm | 37 mm |
+|---|---|---|---|---|
+| ours vs SPPM 2 mm | 0.076 | 0.216 | 0.455 | 0.597 |
+| Cycles vs SPPM 2 mm | 0.163 | 0.334 | 0.549 | 0.707 |
+| **ours vs Cycles** | **0.508** | **0.650** | **0.765** | **0.809** |
+
+The last row is the result. Our injected caustic agrees with the independent
+reference renderer at 0.51/0.65/0.77/0.81, against a self-consistency ceiling of
+0.55/0.68/0.78/0.82 measured by correlating two of our own renders. In other
+words the injected panel is spatially as close to Cycles as two renders of the
+same field are to each other, at every scale from 4 mm to 4 cm.
+
+**SPPM is the outlier, not us.** SPPM at 2 mm disagrees with Cycles (0.16-0.71)
+and with us (0.08-0.60) while agreeing with itself (0.74 at 8 px). A photon map
+with a 2 mm search radius has a kernel-scale bias of its own, so at these scales
+it cannot arbitrate between the other two estimators. It was the wrong referee.
+
+**What is and is not established.**
+
+- Established: the injected caustic matches the reference renderer spatially at
+  4 mm to 4 cm, at the measurement ceiling, with the same camera and framing
+  (gated). That is the claim the paper needs.
+- Not established: which of the three estimators is right below ~4 mm. All three
+  disagree with each other there, and no ground truth resolves it. Sections
+  37-40''s "the spots are artifacts" and "the spots are real filaments" are both
+  unsupported at that scale; what is supported is that our fine structure is as
+  consistent with Cycles as the metric can detect.
+- Consequence for figures: the speckle is still aesthetically harsh (it is a
+  high-dynamic-range emission texture seen with bloom), but it is not evidence
+  that the field is wrong. Re-baking at mult >= 4 remains worthwhile for the
+  false-zero holes (section 40), not for the web.
+
+Reproduce: `out/dragon_pbrt/sppm_fine_2mm.pbrt` and `..._sobol.pbrt` (154 s
+each), `out/dragon_pbrt/sppm_fine_2mm.exr`; the analysis is the band-pass
+correlation over the table mask (rows 430-700, cols 140-880 at 1280x720,
+1.17 mm/px).
