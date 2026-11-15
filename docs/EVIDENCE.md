@@ -3430,3 +3430,66 @@ same scene/camera/samples/denoiser/glow, table roughness 0.05, Cycles MNEE
 caustics on). Driver sidecars carry `directional`/`table_rough`. No paper
 claim depends on sections 34-37 except the coupling sentence noted in
 `docs/paper/sections/ourway.tex`, which cites this section.
+
+--------------------------------------------------------------------------------
+## 38. Correction to 37: the white spots are caustic filaments, not shot noise (2026-11-15)
+--------------------------------------------------------------------------------
+
+Section 37 attributed the directional panels'' white spots to the factor
+amplifying the bake''s per-texel ray shot noise. That is wrong, and the reason
+it was written is worth recording too: the first factor measurement (median
+187) was taken with the scene''s sun lamp and sky still on, so it divided the
+table''s own illumination by the field instead of measuring the factor, and it
+was reported before the lights were zeroed.
+
+**The field''s fine structure is signal.** Baking the same grid at 2 and 4 rays
+per grid line and correlating the high-pass components (a - 3x3 box mean,
+277,623 texels):
+
+| quantity | value |
+|---|---|
+| high-pass correlation, 2 vs 4 rays | **r = 0.9693** |
+| high-pass energy ratio, 2 vs 4 rays | 1.03 |
+| full-field correlation | 0.99715 |
+
+Quadrupling the rays does not change the structure, so it is the caustic, not
+noise. The field''s hot texels are contiguous (at >10x median, 61,851 texels
+with 7.04 of 8 neighbours also hot; only 34 are isolated), max/median = 148.8,
+and the >10x tail carries 50.3% of the energy. At the shipped framing the texel
+is 1.4 mm, which projects to ~2.4 px at 2560x1440, so every filament renders as
+a 5-15 px blob rather than a line.
+
+**The factor is small on this table, and that is what pushed the spots over
+the glow threshold.** Rendering the factor itself (uniform field, world black,
+all lights zeroed, linear EXR, divided by the field): table median **1.112**,
+p1 0.000, p99 1.191; whole frame median 1.130, p99 1.534. That matches the GGX
+evaluation at roughness 0.788, spec 0.5 (graph probe on a known geometry:
+NdotL 0.866025, NdotV 1.000000, NdotH 0.965926, D 0.673981 against an analytic
+0.673981, F 0.040000, G 0.954171, f_s 0.007426, factor 1.046658).
+
+So the directional term adds ~11% to the table. The visible change comes from
+where that 11% lands: the caustic filaments sit at 0.83-0.95 in the shipped
+panel, so an 11% boost pushes the brightest ones past 1.0, where they clip and
+the compositor''s Fog Glow (threshold 1.0, strength 0.5, size 7) blooms them
+into distinct white spots with halos. Clipped-pixel fraction rises from 0.01%
+(shipped, OFF) to 0.03% (directional). On the polished rig the same computation
+with alpha = 0.05^2 = 0.0025 gives D peak ~5.3e4, so the factor reaches the
+thousands and the table white-outs -- that part of section 37 stands.
+
+Consequences:
+
+- The spots are not removable by more rays (`--ray-mult`) and not a denoiser
+  artifact; they are the caustic at the bake''s texel resolution. Raising
+  `--res` sharpens them; reducing the glow threshold/strength stops them
+  blooming.
+- Section 37''s conclusion is unchanged (the directional term loses on this
+  scene and OFF stays shipped), but its stated mechanism was wrong and is
+  corrected here.
+- The graph and the factor magnitude are verified, so the loss is about what a
+  bright caustic does to a bloom-thresholded display and to a mirror receiver,
+  not an implementation error.
+
+Reproduce: `python -c` field test at 2 vs 4 rays (r = 0.9693), the factor map
+with lights zeroed (1.112 median), and the graph probe (D 0.673981 vs analytic
+0.673981). Scripts are the temp probes named in the session; the durable check
+remains `tools/check_directional.py`.
