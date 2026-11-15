@@ -436,8 +436,12 @@ class CAUSTIC_OT_inject(bpy.types.Operator):
         if not me.uv_layers:
             me.uv_layers.new(name="UVMap")
         uvl = me.uv_layers[0].data
-        for i, uv in enumerate([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]):
-            uvl[i].uv = uv
+        # one UV per corner, indexed by vertex: the mesh has two triangles, so
+        # six loops and writing uvl[0:4] would leave the second triangle with
+        # default UVs (the field folds across it).
+        corner_uv = {0: (0.0, 0.0), 1: (1.0, 0.0), 2: (1.0, 1.0), 3: (0.0, 1.0)}
+        for loop in me.loops:
+            uvl[loop.index].uv = corner_uv[loop.vertex_index]
         return card
 
     def _inject_light_card(self, context, obj, img):

@@ -375,6 +375,17 @@ ok = (abs(card.dimensions.x - 2 * half) < 1e-6
       and abs(card.data.vertices[0].co.x - corners[0][0]) < 1e-6
       and abs(card.data.vertices[0].co.y - corners[0][1]) < 1e-6)
 check("light_card_sized_to_frame", ok, f"half {half:.4f}")
+# every loop must carry the UV of its own corner: the field is folded if the
+# second triangle keeps default UVs (it has 6 loops for 4 corners).
+_me = card.data
+_uvl = _me.uv_layers[0].data
+_expect = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
+_bad = [(lp.index, lp.vertex_index, tuple(round(c, 3) for c in _uvl[lp.index].uv))
+        for lp in _me.loops
+        if max(abs(_uvl[lp.index].uv[k] - _expect[lp.vertex_index][k])
+               for k in (0, 1)) > 1e-6]
+check("light_card_uv_per_corner", not _bad,
+      f"loops {len(_me.loops)} verts {len(_me.vertices)} bad {_bad[:3]}")
 check("light_card_not_on_target",
       all(not n.name.startswith("CAUSTIC_")
           for m in big().data.materials if m for n in m.node_tree.nodes),
