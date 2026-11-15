@@ -3493,3 +3493,57 @@ Reproduce: `python -c` field test at 2 vs 4 rays (r = 0.9693), the factor map
 with lights zeroed (1.112 median), and the graph probe (D 0.673981 vs analytic
 0.673981). Scripts are the temp probes named in the session; the durable check
 remains `tools/check_directional.py`.
+
+--------------------------------------------------------------------------------
+## 39. Correction to 38: the bake runs at ~1 hit per texel; the grain is sampling (2026-11-15)
+--------------------------------------------------------------------------------
+
+Section 38 concluded the fine structure was signal because a 2-ray-per-line bake
+correlated with a 4-ray-per-line bake at r = 0.969. That test was invalid. The
+tracer samples a deterministic regular grid (`xs = linspace(-radius, radius,
+n_side)` in `tools/mesh_caustic/trace.py`), so the mult-2 grid is a strict
+subset of the mult-4 grid and the two fields share every ray. A nested
+comparison cannot separate signal from noise by construction.
+
+**Rays per texel is mult^2, independent of resolution.** `n_side = res * mult`
+rays per side are binned into `res` texels per side, so
+
+    rays/texel = (res*mult/res)^2 = mult^2.
+
+At the shipped `--ray-mult 2` that is **4 rays per texel** (the earlier belief
+that raising `--res` sharpens the grain is therefore wrong: res cancels).
+
+**The hits confirm it.** For the shipped bake (res 1024, mult 2): total rays
+2048^2 = 4,194,304; hits 1,022,232 (24.4%); texels 1,048,576, i.e.
+**0.97 hits per texel**. If each texel receives 4 rays at a 24.4% hit rate, the
+predicted empty fraction is (1-0.244)^4 = 32.67%; measured on the saved field:
+**34.44% of texels are exactly zero.** The field is a mosaic of individual ray
+landings: a texel that catches one ray reads ~1.0 and its neighbour that catches
+none reads 0. The 5.6 mm sun-disk blur (~4 texels at 1.4 mm) then smears each
+landing into a blob of 5-15 px at 2560x1440, which is exactly the blob size
+measured in section 38.
+
+So the white spots are the caustic's *envelope* filled with per-ray granularity,
+not a continuous field: the envelope follows the caustic, the interior does not
+because it has one sample. That is why they read as "particles not following the
+pattern". They were always present; the directional term (measured factor 1.112)
+pushed the brightest ones past the 1.0 clip and the Fog Glow threshold, which is
+why they became visible as white spots after that change.
+
+Consequences:
+
+- More rays per texel is the fix, and it is `--ray-mult` (cost ~mult^2 in bake
+  time), not `--res`. mult 4 = 16 rays/texel (~4x), mult 8 = 64 (~16x).
+- Sections 37-38''s conclusions stand (OFF ships; the directional term loses),
+  but both stated mechanisms were wrong: it is neither renderer bounce noise
+  (37) nor amplified render noise (38) -- it is the bake''s own sampling budget.
+- The add-on''s "noise-free at any sample count" claim refers to the renderer''s
+  samples and remains true; the bake''s ray budget is a separate number and
+  should be quoted with any panel it produces.
+- No paper claim rests on the bake ray budget; the field studies use their own
+  ray counts, which are recorded with them.
+
+Reproduce: bake at res 1024, mult 2 and read the image: 34.44% zero texels,
+1,022,232 hits over 4,194,304 rays. A proper noise estimate needs *independent*
+ray sets (non-nested grids, e.g. mult 2 vs mult 3, or jittered sampling), which
+the tracer does not currently offer; that is the real gap to fix in the tracer.
