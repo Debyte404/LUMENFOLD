@@ -327,6 +327,18 @@ def _directional_factor(nt, sun_L, albedo, roughness, spec_level):
     rough = min(max(float(roughness), 0.0), 1.0)
     f0 = min(max(0.08 * float(spec_level), 0.0), 1.0)
 
+    if f0 <= 0.0:
+        # Specular IOR Level 0 means no specular lobe at any angle, so the
+        # caustic keeps its diffuse response: the factor is exactly 1. (The
+        # Schlick (1-cos)^5 tail would otherwise add a grazing-only sheen
+        # that a Lambertian receiver must not have.)
+        one = nt.nodes.new("ShaderNodeCombineXYZ")
+        one.name = "CAUSTIC_dir_factor"
+        one.inputs["X"].default_value = 1.0
+        one.inputs["Y"].default_value = 1.0
+        one.inputs["Z"].default_value = 1.0
+        return one.outputs[0]
+
     try:
         geo = nt.nodes.new("ShaderNodeNewGeometry")
     except Exception:
@@ -340,9 +352,11 @@ def _directional_factor(nt, sun_L, albedo, roughness, spec_level):
     comb.inputs["Z"].default_value = float(sun_L[2])
 
     nrm = _vmath(nt, "NORMALIZE", geo.outputs["Normal"], name="CAUSTIC_dir_N")
-    neg = _vmath(nt, "MULTIPLY", geo.outputs["Incoming"], (-1.0, -1.0, -1.0),
-                 name="CAUSTIC_dir_negV")
-    view = _vmath(nt, "NORMALIZE", neg.outputs[0], name="CAUSTIC_dir_V")
+    # Geometry Incoming already points from the surface toward the camera
+    # (measured: it equals origin->camera), so the view vector is just its
+    # normalisation — no sign flip.
+    view = _vmath(nt, "NORMALIZE", geo.outputs["Incoming"],
+                  name="CAUSTIC_dir_V")
     hsum = _vmath(nt, "ADD", comb.outputs[0], view.outputs[0],
                   name="CAUSTIC_dir_LplusV")
     half = _vmath(nt, "NORMALIZE", hsum.outputs[0], name="CAUSTIC_dir_H")
@@ -377,11 +391,14 @@ def _directional_factor(nt, sun_L, albedo, roughness, spec_level):
         nt, "MULTIPLY", nH2, a2m1,
         name="CAUSTIC_dir_in0").outputs[0], 1.0,
         name="CAUSTIC_dir_inner").outputs[0]
+    # Floor guards denormals only: inner >= a2 >= 1e-3^2 always, so the real
+    # denom never drops below pi*1e-12. A larger floor would crush the GGX
+    # peak itself (the peak IS a ~1e-10 denom) and silently cap gloss.
     denom = _math(nt, "MAXIMUM", _math(
         nt, "MULTIPLY", pi, _math(
             nt, "POWER", inner, 2.0,
             name="CAUSTIC_dir_in2").outputs[0],
-        name="CAUSTIC_dir_pii").outputs[0], 1e-6,
+        name="CAUSTIC_dir_pii").outputs[0], 1e-20,
         name="CAUSTIC_dir_den").outputs[0]
     D = _math(nt, "DIVIDE", a2, denom, name="CAUSTIC_dir_D").outputs[0]
 
