@@ -3272,3 +3272,76 @@ injection is the shipped mode, and a transport variant would need a directional
 (collimated) emitter aligned to the sun, not a plane. Measurement source:
 `out/dragon_suite/transport_compare.png`, `out/dragon_suite/_card_table_crop.png`
 and the scripted statistics above; no paper claim depends on section 34 or 35.
+
+--------------------------------------------------------------------------------
+## 36. Light-card transport: two implementation bugs found, fixed, re-measured (2026-11-15)
+--------------------------------------------------------------------------------
+
+Sections 34-35 reported the light card as rejected. Isolation showed that two
+of its defects were implementation bugs, not physics. Both are fixed; the card
+now transports a field exactly in a controlled rig and places the dragon caustic
+correctly, but it still over-delivers on this scene, so surface injection stays
+the shipped mode.
+
+**Bug 1: the card UV map folded the field.** `_card_object` wrote `uvl[0:4]` for
+a two-triangle mesh, which has six loops. The second triangle (verts 0, 2, 3)
+therefore kept default UVs, `(0,0),(1,0),(1,1),(0,1),(1,0),(1,1)`, so the caustic
+texture was folded across that half of the card. Fixed by assigning each loop the
+UV of its own vertex. The new `light_card_uv_per_corner` check fails on the old
+code (bad loops 3, 4, 5) and passes now; the previous card checks only asserted
+dimensions and vertex positions, which is why this shipped.
+
+**Bug 2: the card used a plate radiance as emitter radiance.** The baked field is
+a plate radiance, irradiance x albedo / pi. A card of radiance L delivers pi*L to
+a coplanar receiver, whose BSDF turns it into L*albedo, so the plate read albedo
+times the field (0.5x on the fixture). The card now divides by the receiver''s
+Principled base colour (floored at 0.02); `light_card_gain_undoes_albedo` checks
+the node value (albedo 0.8 -> gain 0.3125 at gain 1.0). Limit: this reads the
+first Principled BSDF''s Base Color, so it is an approximation for multi-material
+or textured receivers, and exact only for a plain receiver like the dragon table.
+
+**Isolated verification.** `tools/check_card_transport.py` builds a 2x2 diffuse
+plate (albedo 0.5) under the addon''s card, 0.5 mm above it, synthetically
+sourced: | field | plate measured | expectation |
+
+| 0.25 (left half) | 0.2500 | 0.25 |
+| 0.05 (right half) | 0.0500 | 0.05 |
+
+Camera render with the plate hidden: max pixel 0, i.e. the card is invisible to
+camera rays. Before the two fixes the same rig read a quadrant instead of a left
+half (the fold) at 16.07 for a 0.25 field (the 64x convention plus the missing
+albedo division).
+
+**Dragon panel, same settings, 2048 spp, 1024^2 x2 bake (bake 45.4 s, render
+125.2 s):**
+
+| panel | caustic bright RGB | centroid | glass mean | shadow mean / hf | below glass |
+|---|---|---|---|---|---|
+| Cycles | 0.831 / 0.872 / 0.910 | (0.445, 0.756) | 0.270 | 0.701 / 0.0045 | 0.482 |
+| ours SURFACE | 0.832 / 0.871 / 0.909 | (0.448, 0.753) | 0.265 | 0.698 / 0.0046 | 0.493 |
+| card, before fixes | 0.871 / 0.910 / 0.955 | (0.396, 0.811) | 0.379 | 0.749 / 0.0123 | 0.560 |
+| card, after fixes | 0.927 / 0.952 / 0.977 | (0.447, 0.776) | 0.425 | 0.764 / 0.0142 | 0.709 |
+
+The UV fix moved the caustic centroid from 0.396 to 0.447 against Cycles'' 0.445,
+so placement is now correct. What remains is energy: the card is 11% over on the
+caustic core, +58% on the glass and +9.5% in the shadow, with 3.1x the
+high-frequency noise. This is the mechanism, not a scale error: a receiver-
+coplanar emitter radiates into the full hemisphere, so it lights the glass from
+below and washes the whole table, whereas the real caustic arrives only in the
+sun''s 0.5 degree cone from above. The card cannot be made to match by tuning a
+gain without also suppressing the part that is correct.
+
+Consequences, recorded so this is not re-litigated:
+
+- Surface injection remains the shipped mode for the beauty panel; it equals
+  Cycles to 0.001 per channel and needs no tuning scalar.
+- The card is correct for separated rigs, where the glass does not intersect the
+  receiver plane, and where the receiver is allowed to see light from below.
+- A transport variant that would change the image needs the caustic''s angular
+  content, i.e. a collimated emitter aligned to -sun, not a plane. For a diffuse
+  receiver that is equivalent to the surface injection; it would matter only for
+  a glossy receiver, where direction changes the highlight.
+
+Reproduce: `python tools/run_blender.py --background --factory-startup --python
+tools/check_card_transport.py`, and the dragon panel with `--inject-mode
+LIGHT_CARD` (driver line in section 34). No paper claim depends on sections 34-36.
