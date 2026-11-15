@@ -365,9 +365,20 @@ def trace_mesh(verts, faces, lights, receiver, opts):
             d /= np.linalg.norm(d)
             right, up, _ = _basis_toward(-d)
             xs = np.linspace(-radius, radius, n_side)
+            # Jitter each ray origin inside its grid cell. Without this a
+            # regular lattice aliases against the facet lattice: the pattern
+            # is deterministic, so it reproduces across ray counts and looks
+            # like signal, but two independent renderers do not show it.
+            jit = opts.get("jitter")
+            rng = np.random.default_rng(int(jit)) if jit else None
+            cell = (xs[1] - xs[0]) if n_side > 1 else 0.0
             for x in xs:
                 for y in xs:
-                    o = centre + x * right + y * up - 0.5 * d
+                    ox, oy = x, y
+                    if rng is not None:
+                        ox = x + (rng.random() - 0.5) * cell
+                        oy = y + (rng.random() - 0.5) * cell
+                    o = centre + ox * right + oy * up - 0.5 * d
                     shoot_all(o, d)
         elif t in ("point", "spot"):
             pos = np.asarray(L["position"], float)

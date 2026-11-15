@@ -798,6 +798,18 @@ class CAUSTIC_OT_remove(bpy.types.Operator):
                 if node.name.startswith("CAUSTIC_"):
                     nt.nodes.remove(node)
                     n += 1
+            # The injection routes the shading BSDF through CAUSTIC_add, so
+            # removing the nodes can orphan the Material Output (a black
+            # receiver). Restore a surface link if the output lost its own.
+            out = next((x for x in nt.nodes if x.type == "OUTPUT_MATERIAL"), None)
+            if out is not None and not out.inputs["Surface"].links:
+                bsdf = next((x for x in nt.nodes if x.type == "BSDF_PRINCIPLED"),
+                            None)
+                if bsdf is None:
+                    bsdf = next((x for x in nt.nodes
+                                 if x.type.startswith("BSDF_")), None)
+                if bsdf is not None:
+                    nt.links.new(bsdf.outputs[0], out.inputs["Surface"])
         card = bpy.data.objects.get("CAUSTIC_card")
         if card is not None:
             bpy.data.objects.remove(card, do_unlink=True)
@@ -1284,7 +1296,7 @@ def _make_bvh_shooter(bvh, recv, geo, tri_normals=None):
 def _bake_field(MT, MB, verts, faces, lights, recv, res, airy, absorb, eta,
                 ray_mult=1, frame="FULL", frame_margin=0.15, feather=0.35,
                 accel="bvhtree", tri_normals=None, physical=False,
-                sun_irradiance=0.0, albedo=(0.8, 0.8, 0.8)):
+                sun_irradiance=0.0, albedo=(0.8, 0.8, 0.8), jitter_seed=None):
     """Trace + band-correct. Returns (fld01 RGB peak 1.0 row0=+Y, trace dict,
     frame rect or None for the full receiver).
 
@@ -1320,6 +1332,8 @@ def _bake_field(MT, MB, verts, faces, lights, recv, res, airy, absorb, eta,
         rect = (cx, cy, half)
     opts = {"n_side": n * max(int(ray_mult), 1), "eta": eta,
             "absorb_rgb": tuple(absorb), "tri_normals": tri_normals}
+    if jitter_seed is not None:
+        opts["jitter"] = int(jitter_seed)
     if bvh is not None:
         opts["shoot"] = _make_bvh_shooter(
             bvh, {"cx": cx, "cy": cy, "half": half, "z": rz}, geo,

@@ -411,6 +411,21 @@ bpy.ops.caustic.remove()
 check("light_card_removed", bpy.data.objects.get("CAUSTIC_card") is None,
       "remove deletes the card")
 
+# ---- 8k. remove must leave the receiver material rendering ------------------
+# The injection routes the BSDF through CAUSTIC_add; deleting the nodes used to
+# orphan the Material Output (a black receiver).
+run_bake(mesh_object=glass(), mesh_resolution=32, mesh_airy=0.006,
+         target=big(), mesh_frame="FULL", mesh_accel="BVHTREE")
+bpy.ops.caustic.inject()
+bpy.ops.caustic.remove()
+_nt_rm = next(m for m in big().data.materials if m and m.use_nodes).node_tree
+_out_rm = next(n for n in _nt_rm.nodes if n.type == "OUTPUT_MATERIAL")
+_lnk = _out_rm.inputs["Surface"].links
+_bsdf_ok = bool(_lnk) and _lnk[0].from_node.type == "BSDF_PRINCIPLED"
+check("remove_keeps_surface_link", _bsdf_ok,
+      f"output linked: {bool(_lnk)}, from "
+      f"{_lnk[0].from_node.type if _lnk else 'nothing'}")
+
 # ---- 8i. achromatic IOR and physical exposure ------------------------------
 run_bake(mesh_object=glass(), mesh_resolution=48, mesh_airy=0.006,
          target=big(), mesh_frame="FULL", mesh_achromatic=False)
