@@ -29,11 +29,14 @@ DS = os.path.join(ROOT, "out", "dragon_suite")
 OUT = os.path.join(ROOT, "out", "presentation")
 
 CYCLES = os.path.join(DS, "cycles_fresh.png")      # fresh render, MNEE, 4096 spp, no denoise
-OURS = os.path.join(DS, "addon_ours_2560_mult4.png")  # fresh bake, 16 rays/texel
+OURS = os.path.join(DS, "ours_mult4_noglow.png")   # fresh bake, 16 rays/texel, no glow
 if not os.path.exists(CYCLES):
     CYCLES = os.path.join(DS, "cycles_native_2560.png")
 if not os.path.exists(OURS):
+    OURS = os.path.join(DS, "addon_ours_2560_mult4.png")
+if not os.path.exists(OURS):
     OURS = os.path.join(DS, "addon_ours_2560_physical.png")
+MEDIA = os.path.join(ROOT, "docs", "media")
 HERO_C = os.path.join(ROOT, "out", "hero_cycles.png")
 HERO_O = os.path.join(ROOT, "out", "hero_ours.png")
 
@@ -76,12 +79,19 @@ def sheet_comparison(path):
         ax.set_title(title, loc="left", fontsize=13, pad=6)
 
     fig.text(0.02, 0.035,
-             "Top row — the same scene and camera. No fringe pattern is shown or claimed: "
-             "at 550 nm the spacing is 6.77 µm and a 0.53° sun blurs 925 µm (136x).\n"
+             "Top row — the same scene and camera, both post-free (AgX; no glow; "
+             "no denoiser on Cycles, OIDN on ours). No fringe pattern is shown or "
+             "claimed: at 550 nm the spacing is 6.77 µm and a 0.53° sun blurs 925 µm "
+             "(136x).\n"
              "Bottom row — a rig designed for visibility: operational 0.123 mm width, "
-             "18x the canonical 6.8 µm, so the fringe count is not physical (EVIDENCE 14.5f).",
+             "18x the canonical 6.8 µm, so the fringe count is not physical (EVIDENCE "
+             "14.5f).",
              fontsize=10.5, color="0.25", va="bottom")
+    os.makedirs(MEDIA, exist_ok=True)
+    media_path = os.path.join(MEDIA, "dragon_vs_cycles_fresh.png")
+    fig.savefig(media_path, bbox_inches="tight", facecolor="white")
     fig.savefig(path, bbox_inches="tight", facecolor="white")
+    print("WROTE", media_path)
     print("WROTE", path)
 
 

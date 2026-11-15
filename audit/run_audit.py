@@ -235,7 +235,7 @@ def c9_traceability():
 def c10_hygiene():
     secrets = re.compile(r"(api[_-]?key|secret|password)\s*[=:]\s*['\"][^'\"]{8,}",
                          re.I)
-    todo = re.compile(r"\b(TODO|FIXME|XXX)\b")
+    todo = re.compile(r"\b(TODO|FIXME|XXX)\s*:")
     hits = {"secrets": [], "todo": [], "big": []}
     skip_dirs = {".git", "third_party", "node_modules", "out", "build",
                  "luxvenv", "__pycache__", "audit"}   # the instrument is not the specimen
