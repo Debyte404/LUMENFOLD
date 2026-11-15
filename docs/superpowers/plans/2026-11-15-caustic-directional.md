@@ -35,10 +35,10 @@
 - Consumes: receiver Principled inputs, scene SUN lamp or `p.sun_dir`, baked-field socket.
 - Produces: `_sun_light_dir(scene, fallback)` and `_directional_factor(nt, ...)` returning a scalar socket; `_emit_into_material(..., directional=False)`.
 
-- [ ] **Step 1: Write the failing test** — `directional_off_graph_unchanged` (OFF build has exactly today's CAUSTIC node set) and `directional_lambertian_reduces` (ON build on a Lambertian receiver carries a unity factor path). Run suite, verify they FAIL with missing prop/helper.
-- [ ] **Step 2: Implement** — `directional` BoolProperty, `_sun_light_dir()`, GGX chain (H = normalize(L+V), NdotX clamps, D/F/G math, factor = 1 + (pi/a)*f_s per channel via separate-XYZ/combine or three scalar chains), wire factor into the emission colour (field * gain * factor) when ON.
-- [ ] **Step 3: Run the suite** — `python tools/run_blender.py --background --factory-startup --python tools/test_addon_mesh.py`, expect `FAILURES: 0 []` plus the two new PASS lines.
-- [ ] **Step 4: Commit** — injector + test only.
+- [x] **Step 1: Write the failing test** — `directional_off_graph_unchanged` (OFF build has exactly today's CAUSTIC node set) and `directional_lambertian_reduces` (ON build on a Lambertian receiver carries a unity factor path). Run suite, verify they FAIL with missing prop/helper. (Done: failed as specified.)
+- [x] **Step 2: Implement** — `directional` BoolProperty, `_sun_light_dir()`, GGX chain (H = normalize(L+V), NdotX clamps, D/F/G math, factor = 1 + (pi/a)*f_s per channel via separate-XYZ/combine or three scalar chains), wire factor into the emission colour (field * gain * factor) when ON.
+- [x] **Step 3: Run the suite** — `python tools/run_blender.py --background --factory-startup --python tools/test_addon_mesh.py`, expect `FAILURES: 0 []` plus the two new PASS lines. (Done: green.)
+- [x] **Step 4: Commit** — injector + test only. (Done: b564448.)
 
 ### Task 2: Isolated render proof (Lambertian unchanged, glossy responds)
 
@@ -46,9 +46,9 @@
 - Modify: `tools/check_card_transport.py` (or new `tools/check_directional.py` if cleaner)
 - Output: `out/_directional_*.exr` (ignored by git)
 
-- [ ] **Step 1: Lambertian parity render** — same 0.25/0.05 plate, Principled specular 0, directional ON: measures 0.2500/0.0500 within 5%.
-- [ ] **Step 2: Glossy response render** — polished plate (roughness ~0.05): caustic visible near the mirror direction of the sun, suppressed elsewhere; assert contrast between the two halves reverses or shifts with view/light as predicted (exact assertion defined from the analytic f_s before rendering).
-- [ ] **Step 3: Commit** — check script + EVIDENCE section.
+- [x] **Step 1: Lambertian parity render** — same 0.25/0.05 plate, Principled specular 0, directional ON: measures 0.2500/0.0500 within 5%. (Done: exact.)
+- [x] **Step 2: Glossy response render** — polished plate (roughness ~0.05): peak/far 7345x at the mirror direction (analytic ~9000); specular-0 control 1.008. (Done: peak/max replaced the planned halves-contrast once the maps showed a narrow lobe.)
+- [x] **Step 3: Commit** — check script + EVIDENCE section. (Done: 8c0c4d6; EVIDENCE section lands with Task 3.)
 
 ### Task 3: Glossy-table dragon comparison vs Cycles
 

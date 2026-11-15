@@ -48,12 +48,21 @@ def parse_args():
                     choices=["SURFACE", "LIGHT_CARD"],
                     help="SURFACE = emission on the receiver (matched panel); "
                          "LIGHT_CARD = invisible emissive card (transport)")
+    ap.add_argument("--directional", action="store_true",
+                    help="modulate the injected caustic by the receiver's "
+                         "specular BRDF for the sun direction (glossy "
+                         "receivers answer at the right angles; Lambertian "
+                         "receivers are unchanged)")
     ap.add_argument("--margin", type=float, default=0.15)
     ap.add_argument("--airy", type=float, default=6.77e-6,
                     help="display Airy width, metres; the canonical 6.77 um "
                          "is sub-texel at this scale, so the bake shows the "
                          "geometric field and the sun blur supplies the softness")
     ap.add_argument("--gain", type=float, default=0.25)
+    ap.add_argument("--table-rough", type=float, default=None,
+                    help="override the receiver table's Principled roughness "
+                         "(polished-table rig for the directional comparison; "
+                         "recorded in the metrics sidecar)")
     ap.add_argument("--w", type=int, default=2560)
     ap.add_argument("--h", type=int, default=1440)
     ap.add_argument("--samples", type=int, default=1024)
@@ -97,6 +106,15 @@ def main():
         p.mesh_physical_exposure = a.physical
     if hasattr(p, "inject_mode"):
         p.inject_mode = a.inject_mode
+    if hasattr(p, "directional"):
+        p.directional = a.directional
+    if a.table_rough is not None:
+        for m in bpy.data.objects["Plane"].data.materials:
+            if not (m and m.use_nodes):
+                continue
+            for n in m.node_tree.nodes:
+                if n.type == "BSDF_PRINCIPLED":
+                    n.inputs["Roughness"].default_value = float(a.table_rough)
     if a.physical:
         p.gain = 1.0  # physical radiance must not be scaled twice
 
@@ -171,7 +189,8 @@ def main():
         "airy": a.airy, "gain": a.gain, "samples": a.samples,
         "achromatic": a.achromatic, "physical": a.physical,
         "denoiser": a.denoiser, "glow": a.glow,
-        "inject_mode": a.inject_mode,
+        "inject_mode": a.inject_mode, "directional": a.directional,
+        "table_rough": a.table_rough,
         "out_size": [a.w, a.h], "bake_s": round(bake_s, 1),
         "inject_s": round(inject_s, 1), "render_s": round(render_s, 1),
         "status": p.status,
