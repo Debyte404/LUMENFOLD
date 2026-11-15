@@ -372,6 +372,15 @@ def trace_mesh(verts, faces, lights, receiver, opts):
             jit = opts.get("jitter")
             rng = np.random.default_rng(int(jit)) if jit else None
             cell = (xs[1] - xs[0]) if n_side > 1 else 0.0
+            # Direction jitter samples the sun's disk: every ray then leaves
+            # from a different solar point, so the receiver integrates the
+            # convolved field directly. A delta-sun (all rays parallel) bins
+            # sub-texel caustic structure that no post-convolution can recover.
+            half_deg = 0.5 * float(L.get("angle_deg", 0.0))
+            sun_jit = bool(opts.get("sun_jitter")) and half_deg > 0.0
+            tan_half = np.tan(np.radians(half_deg)) if sun_jit else 0.0
+            if sun_jit and rng is None:
+                rng = np.random.default_rng(0)
             for x in xs:
                 for y in xs:
                     ox, oy = x, y
@@ -379,7 +388,13 @@ def trace_mesh(verts, faces, lights, receiver, opts):
                         ox = x + (rng.random() - 0.5) * cell
                         oy = y + (rng.random() - 0.5) * cell
                     o = centre + ox * right + oy * up - 0.5 * d
-                    shoot_all(o, d)
+                    dj = d
+                    if sun_jit:
+                        a = rng.random() * 2 * np.pi
+                        rr = np.sqrt(rng.random()) * tan_half
+                        dj = d + rr * (np.cos(a) * right + np.sin(a) * up)
+                        dj /= np.linalg.norm(dj)
+                    shoot_all(o, dj)
         elif t in ("point", "spot"):
             pos = np.asarray(L["position"], float)
             tgt = np.asarray(L.get("direction", centre - pos), float)

@@ -107,6 +107,14 @@ class CausticProps(bpy.types.PropertyGroup):
                     "supersamples rays above grid resolution, trading bake "
                     "time for less shot noise",
         default=2, min=1, max=8)
+    mesh_sun_jitter: bpy.props.BoolProperty(
+        name="Sun-disk sampling",
+        description="Give every ray its own origin on the sun's disk (cone of "
+                    "half-angle angle/2) instead of parallel rays. This "
+                    "integrates the solar penumbra directly, so facet-scale "
+                    "structure the real sun blurs away is not aliased into the "
+                    "bake; the post blur is then skipped",
+        default=False)
     mesh_accel: bpy.props.EnumProperty(
         name="Accel",
         description="Ray-caster backend. BVHTree uses Blender's compiled "
@@ -968,7 +976,9 @@ class CAUSTIC_OT_bake_mesh(bpy.types.Operator):
                                          frame=p.mesh_frame,
                                          frame_margin=p.mesh_frame_margin,
                                          accel=p.mesh_accel.lower(),
-                                         tri_normals=tri_normals, **phys)
+                                         tri_normals=tri_normals, **phys,
+                                         sun_jitter=bool(p.mesh_sun_jitter),
+                                         skip_sun_blur=bool(p.mesh_sun_jitter))
             frame_uv = ((0.0, 0.0, 1.0, 1.0) if rect is None
                         else _uv_rect_for_world_rect(p.target, rect))
         except ValueError as e:
@@ -1296,7 +1306,8 @@ def _make_bvh_shooter(bvh, recv, geo, tri_normals=None):
 def _bake_field(MT, MB, verts, faces, lights, recv, res, airy, absorb, eta,
                 ray_mult=1, frame="FULL", frame_margin=0.15, feather=0.35,
                 accel="bvhtree", tri_normals=None, physical=False,
-                sun_irradiance=0.0, albedo=(0.8, 0.8, 0.8), jitter_seed=None):
+                sun_irradiance=0.0, albedo=(0.8, 0.8, 0.8), jitter_seed=None,
+                sun_jitter=False, skip_sun_blur=False):
     """Trace + band-correct. Returns (fld01 RGB peak 1.0 row0=+Y, trace dict,
     frame rect or None for the full receiver).
 
@@ -1334,6 +1345,8 @@ def _bake_field(MT, MB, verts, faces, lights, recv, res, airy, absorb, eta,
             "absorb_rgb": tuple(absorb), "tri_normals": tri_normals}
     if jitter_seed is not None:
         opts["jitter"] = int(jitter_seed)
+    if sun_jitter:
+        opts["sun_jitter"] = True
     if bvh is not None:
         opts["shoot"] = _make_bvh_shooter(
             bvh, {"cx": cx, "cy": cy, "half": half, "z": rz}, geo,
@@ -1374,7 +1387,7 @@ def _bake_field(MT, MB, verts, faces, lights, recv, res, airy, absorb, eta,
     sun_angle = next((float(L["angle_deg"]) for L in lights
                       if L.get("type") == "sun" and L.get("angle_deg")), 0.0)
     sun_blur_m = 0.0
-    if sun_angle > 0.0:
+    if sun_angle > 0.0 and not skip_sun_blur:
         import math as _math
         dist_to_receiver = max(0.05, abs(rz - float(_np.mean(verts[:, 2]))))
         sun_blur_m = _math.tan(_math.radians(sun_angle) / 2.0) * dist_to_receiver

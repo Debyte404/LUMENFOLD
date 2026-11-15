@@ -53,6 +53,10 @@ def parse_args():
                          "specular BRDF for the sun direction (glossy "
                          "receivers answer at the right angles; Lambertian "
                          "receivers are unchanged)")
+    ap.add_argument("--sun-jitter", action="store_true",
+                    help="sample the sun's disk per ray (cone of half-angle "
+                         "angle/2) instead of parallel rays; integrates the "
+                         "solar penumbra directly and skips the post blur")
     ap.add_argument("--margin", type=float, default=0.15)
     ap.add_argument("--airy", type=float, default=6.77e-6,
                     help="display Airy width, metres; the canonical 6.77 um "
@@ -108,6 +112,8 @@ def main():
         p.inject_mode = a.inject_mode
     if hasattr(p, "directional"):
         p.directional = a.directional
+    if hasattr(p, "mesh_sun_jitter"):
+        p.mesh_sun_jitter = a.sun_jitter
     if a.table_rough is not None:
         for m in bpy.data.objects["Plane"].data.materials:
             if not (m and m.use_nodes):
@@ -190,7 +196,7 @@ def main():
         "achromatic": a.achromatic, "physical": a.physical,
         "denoiser": a.denoiser, "glow": a.glow,
         "inject_mode": a.inject_mode, "directional": a.directional,
-        "table_rough": a.table_rough,
+        "sun_jitter": a.sun_jitter, "table_rough": a.table_rough,
         "out_size": [a.w, a.h], "bake_s": round(bake_s, 1),
         "inject_s": round(inject_s, 1), "render_s": round(render_s, 1),
         "status": p.status,
