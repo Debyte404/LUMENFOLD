@@ -3684,3 +3684,55 @@ Reproduce: `out/dragon_pbrt/sppm_fine_2mm.pbrt` and `..._sobol.pbrt` (154 s
 each), `out/dragon_pbrt/sppm_fine_2mm.exr`; the analysis is the band-pass
 correlation over the table mask (rows 430-700, cols 140-880 at 1280x720,
 1.17 mm/px).
+
+--------------------------------------------------------------------------------
+## 42. Fresh renders, fresh audit harness, presentation sheet (2026-11-15)
+--------------------------------------------------------------------------------
+
+**Fresh panels, no reused images.** Cycles was re-rendered from
+`models/dragon_glass.blend` at 2560x1440, 4096 spp, MNEE caustics on, **no
+denoiser and no compositor glow** (`out/dragon_suite/cycles_fresh_4096.exr`,
+converted to PNG with the driver''s own display pipeline: AgX + the same Fog
+Glow, `cycles_fresh.png`). Ours was re-baked at **16 rays/texel** (`--ray-mult
+4`, 4,090,740 hits over 1,048,576 texels = 3.9 hits/texel vs the shipped 0.97)
+and re-rendered at 2048 spp (`addon_ours_2560_mult4.png`).
+
+**Defect and parity metrics on the fixed panel** (`tools/check_panel_match.py`,
+metric validated in section 41, table region rows 430-700 cols 140-880 at
+1280x720, 1.17 mm/px):
+
+| band | ours(mult4) vs Cycles(fresh) | self-consistency ceiling (ours mult4 vs ours mult2) |
+|---|---|---|
+| 4 mm | 0.474 | 0.531 |
+| 9 mm | 0.618 | 0.664 |
+| 18 mm | 0.753 | 0.779 |
+| 37 mm | 0.785 | 0.817 |
+
+Parity holds at 89-96% of the ceiling at every band. Clipped pixels 0.034%.
+
+**Fresh audit harness.** `audit/run_audit.py` verifies the repository''s claims
+with implementations that import nothing from `tools/`, `blender_addon/` or
+`src/`: the paper''s Eq. 14 scale law (recomputed 6.774 um), the Airy first and
+second zeros by an independent quadrature of the cosine integral (2.3380 and
+4.0879), the solar washout ratio (925 um, 136.5x), the sub-pixel ratio (46.1x),
+the lambda^(2/3) channel scaling (1.749/1.565/1.369 um), the withdrawn 123.1 um
+expression, dual-format input resolution, abstract-to-EVIDENCE traceability and
+a hygiene scan. Protocol:
+`docs/superpowers/plans/2026-11-16-repo-audit-protocol.md`.
+
+First fresh run: **ACCEPT, 11/11 PASS, zero BLOCKER/MAJOR**. Two BLOCKERs found
+and fixed were bugs in the harness itself (LaTeX inputs resolved without the
+.tex extension; the hygiene scanner flagging its own source for the word TODO),
+which is the audit doing its job on its own instrument. The protocol lists five
+checker sets still open before a release-grade review: re-rendering the shipped
+panels from recorded commands, cost-table reproduction on a second machine,
+figure-regeneration hashes, an addon user flow executed by a fresh script, and
+an independent reimplementation of the fold solver.
+
+**Presentation sheet.** `tools/make_presentation_figure.py` writes
+`out/presentation/comparison.png` (top: Cycles vs ours on the sunlit dragon,
+same camera; bottom: the designed fringe rig at operational 0.123 mm = 18x the
+canonical 6.8 um, same crop box for both engines, labelled) and
+`out/presentation/airy_profile.png` (the canonical Airy band, d = 6.77 um,
+first zero 15.84 um, against the geometric divergence, with the solar wash-out
+stated).
