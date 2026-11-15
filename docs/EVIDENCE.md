@@ -3736,3 +3736,55 @@ canonical 6.8 um, same crop box for both engines, labelled) and
 `out/presentation/airy_profile.png` (the canonical Airy band, d = 6.77 um,
 first zero 15.84 um, against the geometric divergence, with the solar wash-out
 stated).
+
+--------------------------------------------------------------------------------
+## 43. Post-free comparison: structure agrees, fan exposure does not (2026-11-15)
+--------------------------------------------------------------------------------
+
+Section 42''s sheet mixed display pipelines, and the metrics caught it. Measured
+on the fan region (rows 62-95%, cols 5-42% at 1280x720):
+
+| panel | fan mean | hf | frac > 0.9 |
+|---|---|---|---|
+| Cycles, driver pipeline (OIDN + glow) | 0.619 | 0.0089 | 0.0000 |
+| Cycles, fresh 4096 spp no denoiser | 0.634 | 0.0076 | 0.0000 |
+| ours 16 rays/texel, with glow | 0.754 | 0.0204 | 0.0275 |
+| ours 16 rays/texel, no glow | 0.719 | 0.0256 | 0.0089 |
+| ours 4 rays/texel, with glow (shipped) | 0.613 | 0.0093 | 0.0000 |
+
+Two findings.
+
+**1. The glow was acting on one panel only.** Fog Glow (threshold 1.0, strength
+0.5) has nothing to do on Cycles -- zero fan pixels above 0.9 -- but at 16
+rays/texel our resolved caustic core pushes 2.75% of fan pixels over it, and the
+bloom inflates the fan mean by 22%. That is what produced the "white spots"
+appearance in the presentation sheet. Fixed by removing the glow from both
+panels; the sheet is post-free.
+
+**2. Post-free, ours is still +13% brighter and 3.4x higher-contrast than
+Cycles** (0.719 vs 0.634, hf 0.0256 vs 0.0076), while at 4 rays/texel it matched
+(0.613 vs 0.619). So the fan exposure depends on the bake''s ray budget: as the
+sampling improves, the field''s fan brightens past Cycles. Either the physical
+field over-estimates the fan irradiance, or Cycles'' caustic is energy-deficient
+at finite samples (its MNEE path misses low-probability caustic paths; our band
+is flux-conserving by construction). Not arbitrated: the fine SPPM used for the
+structure question (2 mm radius) is too noisy for an exposure verdict, and the
+50 mm one is too smooth. Structure and exposure are separate claims: the band
+metric still shows parity (0.474/0.618/0.753/0.785 vs a 0.531/0.664/0.779/0.817
+ceiling), so the pattern agrees while the brightness does not.
+
+**Consequences.**
+
+- The presentation sheet (`docs/media/dragon_vs_cycles_fresh.png`, built by
+  `tools/make_presentation_figure.py`) is post-free on both sides and states the
+  pipeline in its caption. It must not be presented as "matched": structure
+  parity is measured, fan exposure is +13% and open.
+- New audit open item: an exposure arbiter for the fan -- fine SPPM at a matched
+  radius with enough photons, or an energy audit of Cycles'' caustic (integrate
+  the caustic band in Cycles at increasing spp and check convergence; if
+  Cycles'' band integral rises with spp toward ours, Cycles was losing energy).
+- The shipped beauty figure stays the 4-rays/texel panel until the exposure
+  question is closed, because it is the one that matches the reference.
+
+Reproduce: the fan statistics above from
+`out/dragon_suite/{cycles_fresh,ours_mult4_noglow,addon_ours_2560_mult4,addon_ours_2560_physical}.png`.
