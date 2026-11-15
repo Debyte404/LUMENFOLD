@@ -3216,3 +3216,59 @@ blender --background --factory-startup --python tools/dragon_addon_beauty.py -- 
     --samples 2048 --out out/dragon_suite/addon_ours_2560_card.png
 ```
 Plan: `docs/superpowers/plans/2026-11-15-caustic-light-card.md`.
+
+--------------------------------------------------------------------------------
+## 35. Correction to 34: the light card is coplanar, not displaced (2026-11-15)
+--------------------------------------------------------------------------------
+
+Section 34 stated two things that the measurements do not support. Corrected here
+rather than edited in place.
+
+**1. The z-range was wrong.** Section 34 says the dragon spans z -0.47..0.52.
+Measured from `models/dragon_glass.blend` (world space, 43,457 verts):
+
+| object | x | y | z |
+|---|---|---|---|
+| `dragon` | -0.240..0.207 | -0.528..0.472 | **-0.283..0.422** |
+| `Plane` (receiver) | -7.131..1.229 | -6.179..1.121 | **-0.276** |
+
+The dragon dips 7 mm below the receiver plane, and the card is built at
+receiver z + 0.5 mm = -0.2755, which lies inside the dragon's z-range over most
+of the frame. The card plane therefore passes through the glass. That part of
+the section 34 conclusion stands; the numbers did not.
+
+**2. "Displaced by 0.05 of frame and over-bright by ~pi" is not a measurement.**
+It was inferred from the bright-region centroid (0.449,0.757) -> (0.396,0.811)
+and from the analytic double-albedo concern in the plan review notes. Both are
+artifacts:
+
+- The glass silhouette does not move. At 1280x720 the glass mask (luminance
+  < 0.55 in the upper 70% of frame) has bbox x 412..905, y 137..502 for Cycles
+  and for the surface panel, and x 412..891, y 142..502 for the card panel;
+  centroid (659,351) / (659,351) / (654,354). The 0.05-of-frame shift is the
+  top-0.5%-brightest-pixel centroid, which moves because the card brightens the
+  whole table so that percentile no longer selects the caustic.
+- The table is over-bright by 7%, not pi. Mean luminance and high-frequency
+  (4-neighbour Laplacian) energy on table regions excluding the glass:
+
+| region | Cycles | ours SURFACE | ours LIGHT CARD |
+|---|---|---|---|
+| shadow, left of glass (mean) | 0.701 | 0.698 | 0.749 (+7.3%) |
+| shadow, left of glass (hf) | 0.0045 | 0.0046 | 0.0123 (2.7x) |
+| below glass (mean) | 0.482 | 0.493 | 0.560 (+13.6%) |
+| below glass (hf) | 0.0304 | 0.0317 | 0.0388 (1.2x) |
+
+So the failure mode is **grazing illumination plus fireflies**, not a shifted
+image: at a 0.5 mm gap over a 1.48 m card the cosine at any table point away
+from directly underneath is ~1e-3, the near field dominates locally, and the
+caustic arrives with the card's angular distribution instead of the sun's. A
+receiver-coplanar emitter cannot reproduce collimated sunlight. For this scene
+the gap cannot be widened either, because the card plane is already inside the
+dragon at any height below the dragon's top (z 0.422).
+
+The card stays in the addon for separated rigs, where the receiver and the glass
+do not overlap in z. For meshes that intersect the receiver plane, surface
+injection is the shipped mode, and a transport variant would need a directional
+(collimated) emitter aligned to the sun, not a plane. Measurement source:
+`out/dragon_suite/transport_compare.png`, `out/dragon_suite/_card_table_crop.png`
+and the scripted statistics above; no paper claim depends on section 34 or 35.
