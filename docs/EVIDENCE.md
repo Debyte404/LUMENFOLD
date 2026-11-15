@@ -3547,3 +3547,66 @@ Reproduce: bake at res 1024, mult 2 and read the image: 34.44% zero texels,
 1,022,232 hits over 4,194,304 rays. A proper noise estimate needs *independent*
 ray sets (non-nested grids, e.g. mult 2 vs mult 3, or jittered sampling), which
 the tracer does not currently offer; that is the real gap to fix in the tracer.
+
+--------------------------------------------------------------------------------
+## 40. What the white spots actually are: a filament web plus false-zero holes (2026-11-15)
+--------------------------------------------------------------------------------
+
+Sections 37-39 each proposed a mechanism and each was wrong. This section
+records what the measurements now support and what remains open.
+
+**1. The shipped bake has holes, and that part is sampling.** The fraction of
+the frame that receives any light at all, by rays per texel (res 256, same
+scene):
+
+| rays/texel | mult | texels with any light |
+|---|---|---|
+| 4 | 2 | **17.7%** |
+| 9 | 3 | 24.9% |
+| 64 | 8 | **37.8%** |
+
+The caustic''s true support is at least 37.8%. At the shipped 4 rays/texel,
+fewer than half of those texels register anything: a texel whose irradiance is
+real but which no ray hits reads exactly zero. That is the "holes" appearance,
+and it is a genuine defect of the shipped bake, fixed by ray count.
+
+**2. Part of the fine structure is sampling noise, part is not.** High-pass
+correlation between *non-nested* grids (valid, unlike the Nested test in
+section 39):
+
+| pair | high-pass r | full-field r |
+|---|---|---|
+| mult 2 vs 3 | 0.5988 | 0.8319 |
+| mult 2 vs 8 | 0.6820 | 0.8729 |
+| mult 3 vs 8 | 0.8637 | 0.9530 |
+
+Sampling noise falls with rays (r rises), so mult 2 carries real noise, but it
+does not vanish: at 64 rays/texel a 512^2 bake still shows the web, and its
+structure is shared with the 9-rays/texel bake at r = 0.86.
+
+**3. What survives is a connected filament web at the sun-blur scale.** The
+baked field, tone-mapped, is a network of thin cells rather than isolated
+specks: hot texels (>50% of max) average 5.18 of 8 neighbours and only 2.6% are
+isolated. At res 512 the texel is 2.9 mm, so the cells are 3-6 mm across, which
+is the same order as the sun-disk blur the bake applies (5.6 mm, computed from
+a single global distance: `abs(rz - mean(verts[:,2]))`, not per-ray).
+
+**4. Cycles and PBRT show the same scene smoothed.** Both use smoothing
+estimators here (Cycles MNEE plus OIDN; PBRT-v4''s beauty pass / SPPM kernel),
+so their smooth fan is not by itself evidence that the web is wrong. Real
+caustics from glass sculptures are filamentary networks, so the web is
+plausible on physical grounds as well.
+
+**Open question.** Whether the web''s cells are the true fold network or an
+over-resolved facet artifact. The tiebreaker is an estimator that resolves
+folds rather than smoothing them: PBRT-v4 SPPM at a high photon count on this
+camera (the repository already has that pipeline in
+`tools/spmm_vs_groundtruth.py`). Until that is run, the panel should not be
+described as matching Cycles in fine structure, and the shipped figure should
+be re-baked at mult >= 4 to remove the false-zero holes regardless of how the
+web question resolves.
+
+Corrections carried forward: section 37 (bounce noise), 38 (amplified render
+noise) and 39 (empty texels as noise evidence) were each wrong; the empty-texel
+fraction is dominated by the frame''s geometry, and 31.6% of texels are still
+empty at 64 rays/texel.
