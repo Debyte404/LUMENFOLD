@@ -35,6 +35,15 @@ def parse_args():
     ap.add_argument("--ray-mult", type=int, default=1)
     ap.add_argument("--frame", default="AUTO", choices=["AUTO", "FULL"])
     ap.add_argument("--accel", default="BVHTREE", choices=["BVHTREE", "NUMPY"])
+    ap.add_argument("--achromatic", action="store_true",
+                    help="scalar IOR (match Cycles' achromatic glass) instead "
+                         "of per-channel BK7 dispersion")
+    ap.add_argument("--physical", action="store_true",
+                    help="write the field in physical radiance (requires gain 1.0)")
+    ap.add_argument("--denoiser", default="OPENIMAGEDENOISE",
+                    choices=["OPENIMAGEDENOISE", "OPTIX"])
+    ap.add_argument("--glow", action="store_true",
+                    help="compositor Fog Glow on the render (display effect)")
     ap.add_argument("--margin", type=float, default=0.15)
     ap.add_argument("--airy", type=float, default=6.77e-6,
                     help="display Airy width, metres; the canonical 6.77 um "
@@ -78,6 +87,12 @@ def main():
         p.mesh_frame_margin = a.margin
     if hasattr(p, "mesh_accel"):
         p.mesh_accel = a.accel
+    if hasattr(p, "mesh_achromatic"):
+        p.mesh_achromatic = a.achromatic
+    if hasattr(p, "mesh_physical_exposure"):
+        p.mesh_physical_exposure = a.physical
+    if a.physical:
+        p.gain = 1.0  # physical radiance must not be scaled twice
 
     t0 = time.time()
     r = bpy.ops.caustic.bake_mesh()
@@ -98,7 +113,7 @@ def main():
     sc.cycles.samples = a.samples
     try:
         sc.cycles.use_denoising = True
-        sc.cycles.denoiser = "OPENIMAGEDENOISE"
+        sc.cycles.denoiser = a.denoiser
     except Exception as e:
         print("DENOISE_FALLBACK", e)
     sc.cycles.blur_glossy = 0.0
@@ -118,6 +133,24 @@ def main():
     except Exception as e:
         print("DEVICE_FALLBACK", e)
     sc.camera = bpy.data.objects["CAM_beauty"]
+    if a.glow:
+        # display effect only: Fog Glow makes the emission read as light on a
+        # surface instead of a pasted texture. Labelled in the figure/EVIDENCE.
+        ng = bpy.data.node_groups.new("CausticGlow", "CompositorNodeTree")
+        sc.compositing_node_group = ng
+        sc.use_nodes = True
+        rl = ng.nodes.new("CompositorNodeRLayers")
+        glare = ng.nodes.new("CompositorNodeGlare")
+        glare.inputs["Type"].default_value = "Fog Glow"
+        glare.inputs["Quality"].default_value = "High"
+        glare.inputs["Threshold"].default_value = 1.0
+        glare.inputs["Size"].default_value = 7
+        glare.inputs["Strength"].default_value = 0.5
+        comp = ng.nodes.new("NodeGroupOutput")
+        ng.interface.new_socket("Image", in_out="OUTPUT",
+                                socket_type="NodeSocketColor")
+        ng.links.new(rl.outputs["Image"], glare.inputs["Image"])
+        ng.links.new(glare.outputs["Image"], comp.inputs["Image"])
     sc.render.resolution_percentage = 100
     sc.render.image_settings.file_format = "PNG"
     os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
@@ -130,6 +163,8 @@ def main():
     metrics = {
         "res": a.res, "ray_mult": a.ray_mult, "frame": a.frame,
         "airy": a.airy, "gain": a.gain, "samples": a.samples,
+        "achromatic": a.achromatic, "physical": a.physical,
+        "denoiser": a.denoiser, "glow": a.glow,
         "out_size": [a.w, a.h], "bake_s": round(bake_s, 1),
         "inject_s": round(inject_s, 1), "render_s": round(render_s, 1),
         "status": p.status,

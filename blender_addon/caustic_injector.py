@@ -115,6 +115,18 @@ class CausticProps(bpy.types.PropertyGroup):
         items=[("BVHTREE", "BVHTree (fast)", "Blender's C++ BVH, per-ray ray_cast"),
                ("NUMPY", "Numpy (reference)", "Pure-numpy brute force, for parity")],
         default="BVHTREE")
+    mesh_achromatic: bpy.props.BoolProperty(
+        name="Achromatic IOR",
+        description="Use the material's scalar IOR instead of per-channel BK7 "
+                    "dispersion. Match a renderer that carries no dispersion "
+                    "(e.g. Cycles' Principled glass) before comparing beauty",
+        default=False)
+    mesh_physical_exposure: bpy.props.BoolProperty(
+        name="Physical exposure",
+        description="Write the field in physical radiance (sun irradiance x "
+                    "ray cell area / texel area x albedo/pi) instead of "
+                    "peak-normalising it. Requires Injection gain = 1.0",
+        default=False)
     mesh_frame: bpy.props.EnumProperty(
         name="Frame",
         description="Receiver framing. AUTO probes the hit bbox and bins the "
@@ -228,7 +240,7 @@ def _mix_multiply(nt, a_socket, b_value, label):
 
 
 def _emit_into_material(mat, image, gain, frame_uv=(0.0, 0.0, 1.0, 1.0)):
-    """Image (Non-Color) -> x16 -> x gain -> Emission -> Add Shader.
+    """Image (Non-Color) -> x64 -> x gain -> Emission -> Add Shader.
 
     frame_uv (u0, v0, du, dv) places the baked patch inside the target's UVs:
     the bake may cover only the fan-framed sub-rect of the receiver, so the
@@ -260,7 +272,7 @@ def _emit_into_material(mat, image, gain, frame_uv=(0.0, 0.0, 1.0, 1.0)):
     tex.interpolation = "Cubic"  # smooths coarse-bake texels; detail still needs bake res
     tex.extension = "EXTEND"
     if image is not None:
-        # the baked field is linear, not sRGB: 16-bit PNG scaled by 1/16
+        # the baked field is linear, not sRGB: 16-bit PNG scaled by 1/64
         try:
             image.colorspace_settings.name = "Non-Color"
         except Exception:
@@ -290,9 +302,9 @@ def _emit_into_material(mat, image, gain, frame_uv=(0.0, 0.0, 1.0, 1.0)):
         nt.links.new(mul.outputs["Vector"], add.inputs[0])
         nt.links.new(add.outputs["Vector"], tex.inputs["Vector"])
 
-    scale, s_out = _mix_multiply(nt, tex.outputs["Color"], (16.0,) * 3 + (1.0,),
-                                 "CAUSTIC_x16")
-    scale.name = "CAUSTIC_x16"
+    scale, s_out = _mix_multiply(nt, tex.outputs["Color"], (64.0,) * 3 + (1.0,),
+                                 "CAUSTIC_x64")
+    scale.name = "CAUSTIC_x64"
     scale.location = (-650, -300)
     gm, g_out = _mix_multiply(nt, s_out, (gain,) * 3 + (1.0,), "CAUSTIC_gain")
     gm.name = "CAUSTIC_gain"
@@ -549,7 +561,18 @@ class CAUSTIC_OT_bake_mesh(bpy.types.Operator):
             mat = _resolve_material(obj)
             lights = _collect_lights(context.scene.objects, tuple(p.sun_dir))
             absorb = mat["absorb"] if mat["absorb"] is not None else tuple(p.glass_absorb)
-            eta = MT.ior_rgb(mat["ior"])
+            eta = (float(mat["ior"]) if p.mesh_achromatic
+                   else MT.ior_rgb(mat["ior"]))
+            phys = {}
+            if p.mesh_physical_exposure:
+                sun_e = next((float(L["energy"]) for L in lights
+                              if L.get("type") == "sun"
+                              and L.get("energy")), 0.0)
+                if sun_e <= 0.0:
+                    raise ValueError(
+                        "physical exposure needs a SUN lamp with energy")
+                phys = dict(physical=True, sun_irradiance=sun_e,
+                            albedo=_target_albedo(p.target))
             fld, res, rect = _bake_field(MT, MB, verts, faces, lights, recv,
                                          p.mesh_resolution, p.mesh_airy,
                                          absorb, eta,
@@ -557,7 +580,7 @@ class CAUSTIC_OT_bake_mesh(bpy.types.Operator):
                                          frame=p.mesh_frame,
                                          frame_margin=p.mesh_frame_margin,
                                          accel=p.mesh_accel.lower(),
-                                         tri_normals=tri_normals)
+                                         tri_normals=tri_normals, **phys)
             frame_uv = ((0.0, 0.0, 1.0, 1.0) if rect is None
                         else _uv_rect_for_world_rect(p.target, rect))
         except ValueError as e:
@@ -650,6 +673,19 @@ def _resolve_target(tgt):
     return {"cx": cx, "cy": cy, "half": half, "z": sum(zs) / len(zs)}
 
 
+def _target_albedo(tgt):
+    """Per-channel diffuse albedo of the receiver, for physical exposure."""
+    for mat in (tgt.data.materials if tgt else []):
+        if not mat or not mat.use_nodes:
+            continue
+        for n in mat.node_tree.nodes:
+            if n.type == "BSDF_PRINCIPLED" and "Base Color" in n.inputs:
+                return tuple(float(v) for v in n.inputs["Base Color"].default_value[:3])
+            if n.type == "BSDF_DIFFUSE" and "Color" in n.inputs:
+                return tuple(float(v) for v in n.inputs["Color"].default_value[:3])
+    return (0.8, 0.8, 0.8)
+
+
 def _uv_rect_for_world_rect(tgt, rect):
     """UV sub-rect (u0, v0, du, dv) covered by a world xy rect, from the
     target's OWN loop-vertex world->UV affine fit.
@@ -701,7 +737,8 @@ def _collect_lights(objects, sun_dir):
         lt = o.data.type
         if lt == "SUN":
             lights.append({"type": "sun", "direction": tuple(d),
-                           "angle_deg": math.degrees(float(o.data.angle))})
+                           "angle_deg": math.degrees(float(o.data.angle)),
+                           "energy": float(o.data.energy)})
         elif lt == "POINT":
             lights.append({"type": "point", "position": tuple(o.matrix_world.translation)})
         elif lt == "SPOT":
@@ -870,7 +907,8 @@ def _make_bvh_shooter(bvh, recv, geo, tri_normals=None):
 
 def _bake_field(MT, MB, verts, faces, lights, recv, res, airy, absorb, eta,
                 ray_mult=1, frame="FULL", frame_margin=0.15, feather=0.35,
-                accel="bvhtree", tri_normals=None):
+                accel="bvhtree", tri_normals=None, physical=False,
+                sun_irradiance=0.0, albedo=(0.8, 0.8, 0.8)):
     """Trace + band-correct. Returns (fld01 RGB peak 1.0 row0=+Y, trace dict,
     frame rect or None for the full receiver).
 
@@ -955,6 +993,23 @@ def _bake_field(MT, MB, verts, faces, lights, recv, res, airy, absorb, eta,
             chans = [_disk_blur(c, rpx) for c in chans]
     r["sun_angle_deg"] = sun_angle
     r["sun_blur_m"] = sun_blur_m
+    if physical:
+        # every ray carries E_sun * (launch cell area) of flux; the histogram
+        # count is the energy per texel, so irradiance = energy / texel area
+        # and a Lambertian receiver returns albedo/pi of it. No tuning scalar.
+        lo = verts.min(axis=0) - 0.02
+        hi = verts.max(axis=0) + 0.02
+        launch = 0.5 * float(_np.linalg.norm(hi - lo)) + 0.01
+        cell = (2.0 * launch / (n * max(int(ray_mult), 1))) ** 2
+        scale = float(sun_irradiance) * cell / (mpp * mpp)
+        fld = _np.stack([c * scale * float(albedo[i]) / _np.pi
+                         for i, c in enumerate(chans)], axis=-1)
+        peak = float(fld.max())
+        if peak > 64.0:
+            raise ValueError(
+                f"physical field peak {peak:.2f} exceeds the 16-bit /16 "
+                "storage; lower the sun energy or change the storage")
+        return fld[::-1, :, :], r, rect  # row 0 = +Y, the solver dump convention
     peak = max(float(c.max()) for c in chans)
     fld = _np.stack([c / peak for c in chans], axis=-1)  # joint peak 1.0
     return fld[::-1, :, :], r, rect  # row 0 = +Y, the solver dump convention
@@ -962,11 +1017,11 @@ def _bake_field(MT, MB, verts, faces, lights, recv, res, airy, absorb, eta,
 
 def _write_bake_image(fld01, out):
     """Write peak-normalized RGB field via the stdlib PNG writer (solver
-    convention: stored /16, undone by the x16 inject node), then load it the
+    convention: stored /64, undone by the x64 inject node), then load it the
     way the legacy solver path does. Never uses the float pixel buffer."""
     import numpy as _np
     from mesh_caustic import png16 as _png
-    _png.write_rgb16(out, _np.clip(fld01 / 16.0, 0.0, 1.0))
+    _png.write_rgb16(out, _np.clip(fld01 / 64.0, 0.0, 1.0))
     old = bpy.data.images.get("CAUSTIC_bake")
     if old is not None:
         bpy.data.images.remove(old)
@@ -1019,7 +1074,8 @@ class CAUSTIC_OT_bake_seq(bpy.types.Operator):
             self.report({"ERROR"}, p.status)
             return {"CANCELLED"}
         absorb = mat["absorb"] if mat["absorb"] is not None else tuple(p.glass_absorb)
-        eta = MT.ior_rgb(mat["ior"])
+        eta = (float(mat["ior"]) if p.mesh_achromatic
+               else MT.ior_rgb(mat["ior"]))
         seqdir = os.path.join(TMP_DIR, "seq")
         os.makedirs(seqdir, exist_ok=True)
         base_n = None

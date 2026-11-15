@@ -352,6 +352,23 @@ _r, _p = run_bake(mesh_object=glass(), mesh_resolution=48, mesh_airy=6.77e-6,
 check("sub_texel_airy_skips_correction",
       _r == {"FINISHED"} and "airy sub-texel" in _p.status, _p.status[:120])
 
+# ---- 8i. achromatic IOR and physical exposure ------------------------------
+run_bake(mesh_object=glass(), mesh_resolution=48, mesh_airy=0.006,
+         target=big(), mesh_frame="FULL", mesh_achromatic=False)
+_disp = _np.array(bpy.data.images["CAUSTIC_bake"].pixels[:]).reshape(-1, 4)[:, :3]
+run_bake(mesh_object=glass(), mesh_resolution=48, mesh_airy=0.006,
+         target=big(), mesh_frame="FULL", mesh_achromatic=True)
+_ach = _np.array(bpy.data.images["CAUSTIC_bake"].pixels[:]).reshape(-1, 4)[:, :3]
+_diff = float(_np.abs(_disp - _ach).max())
+check("achromatic_changes_field", _diff > 1e-4, f"max field delta {_diff:.2e}")
+
+_r, _p = run_bake(mesh_object=glass(), mesh_resolution=32, mesh_airy=0.006,
+                  target=big(), mesh_frame="FULL", mesh_physical_exposure=True,
+                  glass_absorb=(0.0, 0.0, 0.0))
+_phys = _np.array(bpy.data.images["CAUSTIC_bake"].pixels[:]).reshape(-1, 4)[:, :3]
+check("physical_exposure_runs", _r == {"FINISHED"} and _phys.max() > 0,
+      f"peak stored {_phys.max():.4f} (x64 -> {_phys.max() * 64:.3f})")
+
 
 sun = bpy.data.objects.get("sun")
 sun.rotation_mode = "XYZ"
