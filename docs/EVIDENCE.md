@@ -3167,3 +3167,52 @@ blender --background --factory-startup --python tools/dragon_addon_beauty.py -- 
 python tools/make_dragon_beauty_figure.py
 ```
 Figure: `docs/media/dragon_beauty_compare.png` (ours = the physical panel).
+
+--------------------------------------------------------------------------------
+## 34. Light-card transport: measured, rejected for this scene; 65.8 s bake (2026-11-14)
+--------------------------------------------------------------------------------
+
+EVIDENCE 31-33 ended with the injected panel matched in exposure, colour and
+placement but still an emission texture, not transported light. The proposed
+fix was a "light card": an emissive plane at the receiver, invisible to camera
+rays (`Light Path -> Is Camera Ray -> Transparent`), that illuminates the
+table's BSDF and the glass. Implemented in the addon as `inject_mode`
+(SURFACE / LIGHT_CARD); all addon checks pass (`FAILURES: 0 []`, five new
+light-card checks: card created above the receiver, sized to the framed rect,
+target clean, transport nodes present, removed cleanly).
+
+Rendered at the shipped settings (1024^2 x2, BVHTREE, achromatic, 6.77 um
+airy, 5.6 mm sun blur, physical exposure, 2048 spp):
+
+| panel | bright-region RGB | centroid |
+|---|---|---|
+| Cycles reference | 0.831 / 0.871 / 0.910 | (0.445, 0.757) |
+| ours, surface injection, physical | 0.831 / 0.871 / 0.909 | (0.449, 0.757) |
+| ours, light card | 0.871 / 0.910 / 0.955 | (0.396, 0.811) |
+
+The surface panel matches Cycles' caustic pixel-region to 0.001 per channel
+(the earlier 7.5% excess was measured at 128 spp / 960x540, where the denoiser
+handled the bright core differently; at 2048 spp the physical exposure matches).
+The light card is displaced by 0.05 of frame and over-bright by ~pi, and the
+cause is structural: **the dragon's mesh spans z -0.47..0.52 while the receiver
+plane is at z -0.276, so the glass pokes through the card's plane.** The card's
+emission lands inside the glass and is re-occluded and re-fracted by the very
+geometry it came from. A light card is only valid when the glass and the
+receiver are separated (the tumbler rig); for meshes that intersect the
+receiver plane the surface injection is the correct mode. The card remains
+available in the addon with the constraint documented here.
+
+Also measured, on an idle machine (the earlier bakes ran two renders
+concurrently): the BVHTree bake at 1024^2 x2 is **65.8 s** against the numpy
+tracer's 13,914 s - **211x**. At 2048 spp the render is 134.2 s. The shipped
+figure's ours panel is the surface-injection physical panel
+(`out/dragon_suite/addon_ours_2560_physical.png`, rendered 2048 spp).
+
+Reproduce:
+```
+blender --background --factory-startup --python tools/dragon_addon_beauty.py -- \
+    --res 1024 --ray-mult 2 --frame AUTO --accel BVHTREE --airy 6.77e-6 \
+    --achromatic --physical --inject-mode LIGHT_CARD --w 2560 --h 1440 \
+    --samples 2048 --out out/dragon_suite/addon_ours_2560_card.png
+```
+Plan: `docs/superpowers/plans/2026-11-15-caustic-light-card.md`.

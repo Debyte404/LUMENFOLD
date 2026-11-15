@@ -127,6 +127,16 @@ class CausticProps(bpy.types.PropertyGroup):
                     "ray cell area / texel area x albedo/pi) instead of "
                     "peak-normalising it. Requires Injection gain = 1.0",
         default=False)
+    inject_mode: bpy.props.EnumProperty(
+        name="Inject mode",
+        description="SURFACE adds emission to the receiver (matched panel). "
+                    "LIGHT_CARD puts the field on an invisible emissive card "
+                    "above the receiver, so the caustic is transported light: "
+                    "the table's BSDF shades it and the glass receives it",
+        items=[("SURFACE", "Surface emission", "Emission added to the target material"),
+               ("LIGHT_CARD", "Light card (transport)",
+                "Invisible emissive card above the receiver; the table's BSDF shades it")],
+        default="SURFACE")
     mesh_frame: bpy.props.EnumProperty(
         name="Frame",
         description="Receiver framing. AUTO probes the hit bbox and bins the "
@@ -396,6 +406,8 @@ class CAUSTIC_OT_inject(bpy.types.Operator):
         if img is None:
             self.report({"ERROR"}, "bake first")
             return {"CANCELLED"}
+        if p.inject_mode == "LIGHT_CARD":
+            return self._inject_light_card(context, obj, img)
         if not obj.data.materials:
             obj.data.materials.append(bpy.data.materials.new("caustic_receiver"))
         ok = 0
@@ -406,6 +418,96 @@ class CAUSTIC_OT_inject(bpy.types.Operator):
             context.scene.cycles.caustics_refractive = False
             context.scene.cycles.caustics_reflective = False
         self.report({"INFO"}, f"injected into {ok} material slot(s)")
+        return {"FINISHED"}
+
+    @staticmethod
+    def _card_object(context, corners):
+        """Create or reuse the CAUSTIC_card plane from 4 world corners."""
+        card = bpy.data.objects.get("CAUSTIC_card")
+        if card is None:
+            me = bpy.data.meshes.new("CAUSTIC_card")
+            card = bpy.data.objects.new("CAUSTIC_card", me)
+            context.scene.collection.objects.link(card)
+        else:
+            me = card.data
+        me.clear_geometry()
+        me.from_pydata(corners, [], [(0, 1, 2), (0, 2, 3)])
+        me.update()
+        if not me.uv_layers:
+            me.uv_layers.new(name="UVMap")
+        uvl = me.uv_layers[0].data
+        for i, uv in enumerate([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]):
+            uvl[i].uv = uv
+        return card
+
+    def _inject_light_card(self, context, obj, img):
+        """Transport injection: an emissive card above the receiver that is
+        invisible to camera rays. The table's BSDF shades the caustic (cosine
+        falloff) and the glass receives it from below, instead of the field
+        being pasted onto the table as surface emission."""
+        import numpy as np
+        p = context.scene.caustic
+        # the card replaces the surface emission
+        for mat in (obj.data.materials if obj else []):
+            if not mat or not mat.use_nodes:
+                continue
+            nt = mat.node_tree
+            for node in list(nt.nodes):
+                if node.name.startswith("CAUSTIC_"):
+                    nt.nodes.remove(node)
+            for link in list(nt.links):
+                if (link.from_node.name.startswith("CAUSTIC_")
+                        or link.to_node.name.startswith("CAUSTIC_")):
+                    nt.links.remove(link)
+        cx, cy, half = tuple(p.frame_rect)
+        if half <= 0.0:
+            ws = [obj.matrix_world @ v.co for v in obj.data.vertices]
+            xs = [v.x for v in ws]
+            ys = [v.y for v in ws]
+            cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+            half = max(max(xs) - min(xs), max(ys) - min(ys)) / 2
+        zs = [(obj.matrix_world @ v.co).z for v in obj.data.vertices]
+        z = sum(zs) / len(zs) + 0.0005
+        corners = [(cx - half, cy - half, z), (cx + half, cy - half, z),
+                   (cx + half, cy + half, z), (cx - half, cy + half, z)]
+        card = self._card_object(context, corners)
+        card.data.materials.clear()
+        mat = bpy.data.materials.new("CAUSTIC_card")
+        mat.use_nodes = True
+        nt = mat.node_tree
+        for n in list(nt.nodes):
+            nt.nodes.remove(n)
+        tex = nt.nodes.new("ShaderNodeTexImage")
+        tex.name = "CAUSTIC_img"
+        tex.image = img
+        tex.interpolation = "Cubic"
+        tex.extension = "EXTEND"
+        try:
+            img.colorspace_settings.name = "Non-Color"
+        except Exception:
+            pass
+        uv = nt.nodes.new("ShaderNodeTexCoord")
+        mul, m_out = _mix_multiply(nt, tex.outputs["Color"],
+                                   (64.0,) * 3 + (1.0,), "CAUSTIC_x64")
+        gm, g_out = _mix_multiply(nt, m_out, (p.gain,) * 3 + (1.0,),
+                                  "CAUSTIC_gain")
+        lp = nt.nodes.new("ShaderNodeLightPath")
+        em = nt.nodes.new("ShaderNodeEmission")
+        em.inputs["Strength"].default_value = 1.0
+        tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+        mix = nt.nodes.new("ShaderNodeMixShader")
+        out = nt.nodes.new("ShaderNodeOutputMaterial")
+        nt.links.new(uv.outputs["UV"], tex.inputs["Vector"])
+        nt.links.new(g_out, em.inputs["Color"])
+        # Is Camera Ray = 1 on camera rays -> Transparent; everything else emits
+        nt.links.new(lp.outputs["Is Camera Ray"], mix.inputs[0])
+        nt.links.new(em.outputs["Emission"], mix.inputs[1])
+        nt.links.new(tr.outputs["BSDF"], mix.inputs[2])
+        nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
+        card.data.materials.append(mat)
+        card.visible_shadow = False
+        card.visible_camera = False
+        self.report({"INFO"}, "injected as a light card")
         return {"FINISHED"}
 
 
@@ -426,6 +528,10 @@ class CAUSTIC_OT_remove(bpy.types.Operator):
                 if node.name.startswith("CAUSTIC_"):
                     nt.nodes.remove(node)
                     n += 1
+        card = bpy.data.objects.get("CAUSTIC_card")
+        if card is not None:
+            bpy.data.objects.remove(card, do_unlink=True)
+            n += 1
         self.report({"INFO"}, f"removed {n} injection node(s)")
         return {"FINISHED"}
 
@@ -1171,6 +1277,7 @@ class CAUSTIC_PT_panel(bpy.types.Panel):
         row.operator("caustic.untint_medium", icon="X")
 
         self.layout.separator()
+        self.layout.prop(p, "inject_mode")
         self.layout.operator("caustic.bake", icon="RENDER_STILL")
         self.layout.operator("caustic.inject", icon="NODE_MATERIAL")
         self.layout.operator("caustic.remove", icon="TRASH")

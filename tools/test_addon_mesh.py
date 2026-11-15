@@ -352,6 +352,44 @@ _r, _p = run_bake(mesh_object=glass(), mesh_resolution=48, mesh_airy=6.77e-6,
 check("sub_texel_airy_skips_correction",
       _r == {"FINISHED"} and "airy sub-texel" in _p.status, _p.status[:120])
 
+# ---- 8j. light-card transport injection -------------------------------------
+from mathutils import Vector
+
+_r, _p = run_bake(mesh_object=glass(), mesh_resolution=48, mesh_airy=0.006,
+                  target=big(), mesh_frame="AUTO", mesh_accel="BVHTREE")
+_p.inject_mode = "LIGHT_CARD"
+_r2 = bpy.ops.caustic.inject()
+card = bpy.data.objects.get("CAUSTIC_card")
+_zrecv = _resolve_tgt(big())["z"]
+_cz = (card.data.vertices[0].co.z if card else float("nan"))
+check("light_card_created", _r2 == {"FINISHED"} and card is not None
+      and card.data.vertices[0].co.z > _zrecv + 1e-4,
+      f"r={_r2} status={_p.status[:70]} cardz={_cz:.4f} zrecv={_zrecv:.4f}")
+corners = [(p.frame_rect[0] - p.frame_rect[2], p.frame_rect[1] - p.frame_rect[2]),
+           (p.frame_rect[0] + p.frame_rect[2], p.frame_rect[1] - p.frame_rect[2]),
+           (p.frame_rect[0] + p.frame_rect[2], p.frame_rect[1] + p.frame_rect[2]),
+           (p.frame_rect[0] - p.frame_rect[2], p.frame_rect[1] + p.frame_rect[2])]
+half = p.frame_rect[2]
+ok = (abs(card.dimensions.x - 2 * half) < 1e-6
+      and abs(card.dimensions.y - 2 * half) < 1e-6
+      and abs(card.data.vertices[0].co.x - corners[0][0]) < 1e-6
+      and abs(card.data.vertices[0].co.y - corners[0][1]) < 1e-6)
+check("light_card_sized_to_frame", ok, f"half {half:.4f}")
+check("light_card_not_on_target",
+      all(not n.name.startswith("CAUSTIC_")
+          for m in big().data.materials if m for n in m.node_tree.nodes),
+      "target stays clean")
+mats = [m for m in card.data.materials if m and m.use_nodes]
+nt = mats[0].node_tree
+check("light_card_has_transport_nodes",
+      any(n.type == "LIGHT_PATH" for n in nt.nodes)
+      and any(n.type == "EMISSION" for n in nt.nodes)
+      and any(n.type == "BSDF_TRANSPARENT" for n in nt.nodes),
+      f"nodes {[n.type for n in nt.nodes]}")
+bpy.ops.caustic.remove()
+check("light_card_removed", bpy.data.objects.get("CAUSTIC_card") is None,
+      "remove deletes the card")
+
 # ---- 8i. achromatic IOR and physical exposure ------------------------------
 run_bake(mesh_object=glass(), mesh_resolution=48, mesh_airy=0.006,
          target=big(), mesh_frame="FULL", mesh_achromatic=False)

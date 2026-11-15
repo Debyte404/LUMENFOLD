@@ -44,6 +44,10 @@ def parse_args():
                     choices=["OPENIMAGEDENOISE", "OPTIX"])
     ap.add_argument("--glow", action="store_true",
                     help="compositor Fog Glow on the render (display effect)")
+    ap.add_argument("--inject-mode", default="SURFACE",
+                    choices=["SURFACE", "LIGHT_CARD"],
+                    help="SURFACE = emission on the receiver (matched panel); "
+                         "LIGHT_CARD = invisible emissive card (transport)")
     ap.add_argument("--margin", type=float, default=0.15)
     ap.add_argument("--airy", type=float, default=6.77e-6,
                     help="display Airy width, metres; the canonical 6.77 um "
@@ -91,6 +95,8 @@ def main():
         p.mesh_achromatic = a.achromatic
     if hasattr(p, "mesh_physical_exposure"):
         p.mesh_physical_exposure = a.physical
+    if hasattr(p, "inject_mode"):
+        p.inject_mode = a.inject_mode
     if a.physical:
         p.gain = 1.0  # physical radiance must not be scaled twice
 
@@ -165,6 +171,7 @@ def main():
         "airy": a.airy, "gain": a.gain, "samples": a.samples,
         "achromatic": a.achromatic, "physical": a.physical,
         "denoiser": a.denoiser, "glow": a.glow,
+        "inject_mode": a.inject_mode,
         "out_size": [a.w, a.h], "bake_s": round(bake_s, 1),
         "inject_s": round(inject_s, 1), "render_s": round(render_s, 1),
         "status": p.status,
