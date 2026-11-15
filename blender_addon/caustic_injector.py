@@ -137,6 +137,13 @@ class CausticProps(bpy.types.PropertyGroup):
                ("LIGHT_CARD", "Light card (transport)",
                 "Invisible emissive card above the receiver; the table's BSDF shades it")],
         default="SURFACE")
+    directional: bpy.props.BoolProperty(
+        name="Directional response",
+        description="Modulate the injected caustic by the receiver's specular "
+                    "BRDF for the sun direction (GGX): the caustic answers to "
+                    "gloss instead of glowing view-independently. Lambertian "
+                    "receivers are unchanged by construction",
+        default=False)
     mesh_frame: bpy.props.EnumProperty(
         name="Frame",
         description="Receiver framing. AUTO probes the hit bbox and bins the "
@@ -247,6 +254,183 @@ def _receiver_albedo(obj, default=(0.5, 0.5, 0.5)):
     return tuple(default)
 
 
+def _sun_light_dir(scene, fallback):
+    """Unit vector toward the sun (world space) for the directional term.
+
+    Reads the first SUN lamp's -Z axis; falls back to minus the configured
+    sun travel direction when the scene has no SUN lamp.
+    """
+    from mathutils import Vector
+    for o in getattr(scene, "objects", []):
+        if o.type != "LIGHT":
+            continue
+        if getattr(getattr(o, "data", None), "type", None) != "SUN":
+            continue
+        d = o.matrix_world.to_quaternion() @ Vector((0.0, 0.0, -1.0))
+        if d.length > 1e-9:
+            return (float(-d[0] / d.length),
+                    float(-d[1] / d.length),
+                    float(-d[2] / d.length))
+    f = Vector(tuple(fallback))
+    if f.length < 1e-9:
+        return (0.0, 0.0, 1.0)
+    return (float(-f[0] / f.length),
+            float(-f[1] / f.length),
+            float(-f[2] / f.length))
+
+
+def _math(nt, op, a=None, b=None, name=""):
+    """One scalar Math node; a/b are sockets or floats (floats become defaults)."""
+    n = nt.nodes.new("ShaderNodeMath")
+    n.operation = op
+    if name:
+        n.name = name
+    for i, v in ((0, a), (1, b)):
+        if v is None:
+            continue
+        if isinstance(v, float):
+            n.inputs[i].default_value = v
+        else:
+            nt.links.new(v, n.inputs[i])
+    return n
+
+
+def _vmath(nt, op, a=None, b=None, name=""):
+    """One Vector Math node; a/b are sockets or 3-tuples (tuples become defaults)."""
+    n = nt.nodes.new("ShaderNodeVectorMath")
+    n.operation = op
+    if name:
+        n.name = name
+    for i, v in ((0, a), (1, b)):
+        if v is None:
+            continue
+        if isinstance(v, tuple):
+            n.inputs[i].default_value = (float(v[0]), float(v[1]), float(v[2]))
+        else:
+            nt.links.new(v, n.inputs[i])
+    return n
+
+
+def _directional_factor(nt, sun_L, albedo, roughness, spec_level):
+    """Per-channel caustic directional factor as a shader-node graph.
+
+    Returns the RGB outputs socket of the ``CAUSTIC_dir_factor`` CombineXYZ
+    node. The factor is ``1 + (pi/a_c) * f_s`` with ``f_s`` the scalar GGX
+    specular term (Trowbridge-Reitz D, Schlick Fresnel, Schlick-GGX Smith G)
+    evaluated for the sun direction, so a Lambertian receiver (F0 = 0)
+    yields exactly 1. Geometry Normal/Incoming are world-space; ``sun_L``
+    must already be a world-space unit vector toward the sun.
+    """
+    import math
+    pi = math.pi
+    a = [max(float(c), 0.02) for c in albedo]
+    rough = min(max(float(roughness), 0.0), 1.0)
+    f0 = min(max(0.08 * float(spec_level), 0.0), 1.0)
+
+    try:
+        geo = nt.nodes.new("ShaderNodeNewGeometry")
+    except Exception:
+        geo = nt.nodes.new("ShaderNodeGeometry")
+    geo.name = "CAUSTIC_dir_geo"
+
+    comb = nt.nodes.new("ShaderNodeCombineXYZ")
+    comb.name = "CAUSTIC_dir_L"
+    comb.inputs["X"].default_value = float(sun_L[0])
+    comb.inputs["Y"].default_value = float(sun_L[1])
+    comb.inputs["Z"].default_value = float(sun_L[2])
+
+    nrm = _vmath(nt, "NORMALIZE", geo.outputs["Normal"], name="CAUSTIC_dir_N")
+    neg = _vmath(nt, "MULTIPLY", geo.outputs["Incoming"], (-1.0, -1.0, -1.0),
+                 name="CAUSTIC_dir_negV")
+    view = _vmath(nt, "NORMALIZE", neg.outputs[0], name="CAUSTIC_dir_V")
+    hsum = _vmath(nt, "ADD", comb.outputs[0], view.outputs[0],
+                  name="CAUSTIC_dir_LplusV")
+    half = _vmath(nt, "NORMALIZE", hsum.outputs[0], name="CAUSTIC_dir_H")
+
+    ndl = _vmath(nt, "DOT_PRODUCT", nrm.outputs[0], comb.outputs[0],
+                 name="CAUSTIC_dir_NdotL")
+    ndv = _vmath(nt, "DOT_PRODUCT", nrm.outputs[0], view.outputs[0],
+                 name="CAUSTIC_dir_NdotV")
+    ndh = _vmath(nt, "DOT_PRODUCT", nrm.outputs[0], half.outputs[0],
+                 name="CAUSTIC_dir_NdotH")
+    vdh = _vmath(nt, "DOT_PRODUCT", view.outputs[0], half.outputs[0],
+                 name="CAUSTIC_dir_VdotH")
+    nL = _math(nt, "MAXIMUM", ndl.outputs[1], 1e-3, name="CAUSTIC_dir_cNL").outputs[0]
+    nV = _math(nt, "MAXIMUM", ndv.outputs[1], 1e-3, name="CAUSTIC_dir_cNV").outputs[0]
+    nH = _math(nt, "MINIMUM", _math(
+        nt, "MAXIMUM", ndh.outputs[1], 0.0,
+        name="CAUSTIC_dir_cNH0").outputs[0], 1.0,
+        name="CAUSTIC_dir_cNH").outputs[0]
+    vH = _math(nt, "MINIMUM", _math(
+        nt, "MAXIMUM", vdh.outputs[1], 0.0,
+        name="CAUSTIC_dir_cVH0").outputs[0], 1.0,
+        name="CAUSTIC_dir_cVH").outputs[0]
+
+    alpha = _math(nt, "MAXIMUM", _math(
+        nt, "POWER", rough, 2.0,
+        name="CAUSTIC_dir_r2").outputs[0], 1e-3,
+        name="CAUSTIC_dir_alpha").outputs[0]
+    a2 = _math(nt, "MULTIPLY", alpha, alpha, name="CAUSTIC_dir_a2").outputs[0]
+    nH2 = _math(nt, "MULTIPLY", nH, nH, name="CAUSTIC_dir_nH2").outputs[0]
+    a2m1 = _math(nt, "ADD", a2, -1.0, name="CAUSTIC_dir_a2m1").outputs[0]
+    inner = _math(nt, "ADD", _math(
+        nt, "MULTIPLY", nH2, a2m1,
+        name="CAUSTIC_dir_in0").outputs[0], 1.0,
+        name="CAUSTIC_dir_inner").outputs[0]
+    denom = _math(nt, "MAXIMUM", _math(
+        nt, "MULTIPLY", pi, _math(
+            nt, "POWER", inner, 2.0,
+            name="CAUSTIC_dir_in2").outputs[0],
+        name="CAUSTIC_dir_pii").outputs[0], 1e-6,
+        name="CAUSTIC_dir_den").outputs[0]
+    D = _math(nt, "DIVIDE", a2, denom, name="CAUSTIC_dir_D").outputs[0]
+
+    om = _math(nt, "SUBTRACT", 1.0, vH, name="CAUSTIC_dir_om").outputs[0]
+    om5 = _math(nt, "POWER", om, 5.0, name="CAUSTIC_dir_om5").outputs[0]
+    F = _math(nt, "ADD", f0, _math(
+        nt, "MULTIPLY", 1.0 - f0, om5,
+        name="CAUSTIC_dir_F1").outputs[0],
+        name="CAUSTIC_dir_F").outputs[0]
+
+    k = _math(nt, "DIVIDE", alpha, 2.0, name="CAUSTIC_dir_k").outputs[0]
+    omk = _math(nt, "SUBTRACT", 1.0, k, name="CAUSTIC_dir_omk").outputs[0]
+    gL = _math(nt, "DIVIDE", nL, _math(
+        nt, "ADD", _math(nt, "MULTIPLY", nL, omk,
+                        name="CAUSTIC_dir_gL0").outputs[0], k,
+        name="CAUSTIC_dir_gL1").outputs[0],
+        name="CAUSTIC_dir_GL").outputs[0]
+    gV = _math(nt, "DIVIDE", nV, _math(
+        nt, "ADD", _math(nt, "MULTIPLY", nV, omk,
+                        name="CAUSTIC_dir_gV0").outputs[0], k,
+        name="CAUSTIC_dir_gV1").outputs[0],
+        name="CAUSTIC_dir_GV").outputs[0]
+    G = _math(nt, "MULTIPLY", gL, gV, name="CAUSTIC_dir_G").outputs[0]
+
+    fs = _math(nt, "DIVIDE", _math(
+        nt, "MULTIPLY", _math(nt, "MULTIPLY", D, F,
+                             name="CAUSTIC_dir_DF").outputs[0], G,
+        name="CAUSTIC_dir_DFG").outputs[0], _math(
+        nt, "MAXIMUM", _math(
+            nt, "MULTIPLY", 4.0, _math(nt, "MULTIPLY", nV, nL,
+                                      name="CAUSTIC_dir_NVNL").outputs[0],
+            name="CAUSTIC_dir_4NVNL").outputs[0], 1e-6,
+        name="CAUSTIC_dir_fden").outputs[0],
+        name="CAUSTIC_dir_fs").outputs[0]
+
+    outs = []
+    for ax, cc in zip(("X", "Y", "Z"), a):
+        gain_c = pi / cc
+        m = _math(nt, "MULTIPLY", fs, gain_c,
+                 name=f"CAUSTIC_dir_g{ax}").outputs[0]
+        outs.append(_math(nt, "ADD", 1.0, m,
+                         name=f"CAUSTIC_dir_f{ax}").outputs[0])
+    fac = nt.nodes.new("ShaderNodeCombineXYZ")
+    fac.name = "CAUSTIC_dir_factor"
+    for ax, s in zip(("X", "Y", "Z"), outs):
+        nt.links.new(s, fac.inputs[ax])
+    return fac.outputs[0]
+
+
 def _mix_multiply(nt, a_socket, b_value, label):
     """Multiply a colour by a constant, compatible across Blender versions."""
     try:  # Blender 3.4+ unified Mix node: 0=Factor, 6=A, 7=B
@@ -268,8 +452,9 @@ def _mix_multiply(nt, a_socket, b_value, label):
     return n, out
 
 
-def _emit_into_material(mat, image, gain, frame_uv=(0.0, 0.0, 1.0, 1.0)):
-    """Image (Non-Color) -> x64 -> x gain -> Emission -> Add Shader.
+def _emit_into_material(mat, image, gain, frame_uv=(0.0, 0.0, 1.0, 1.0),
+                        directional=False, sun_L=None):
+    """Image (Non-Color) -> x64 -> x gain [x directional factor] -> Emission.
 
     frame_uv (u0, v0, du, dv) places the baked patch inside the target's UVs:
     the bake may cover only the fan-framed sub-rect of the receiver, so the
@@ -277,6 +462,11 @@ def _emit_into_material(mat, image, gain, frame_uv=(0.0, 0.0, 1.0, 1.0)):
     reaches the texture. Identity (0, 0, 1, 1) leaves the UVs untouched.
     Two explicit vector-math nodes rather than one Mapping node, because the
     node's Scale/Location order is version-dependent and this must be exact.
+
+    With directional=True the field is additionally multiplied by the
+    per-channel factor 1 + (pi/a)*f_s from _directional_factor (GGX for the
+    sun direction), so a glossy receiver answers the caustic at the right
+    reflection angles. A Lambertian receiver (F0 = 0) yields exactly 1.
     """
     mat.use_nodes = True
     nt = mat.node_tree
@@ -338,6 +528,41 @@ def _emit_into_material(mat, image, gain, frame_uv=(0.0, 0.0, 1.0, 1.0)):
     gm, g_out = _mix_multiply(nt, s_out, (gain,) * 3 + (1.0,), "CAUSTIC_gain")
     gm.name = "CAUSTIC_gain"
     gm.location = (-450, -300)
+
+    if directional:
+        _bc = bsdf.inputs["Base Color"].default_value
+        alb = (float(_bc[0]), float(_bc[1]), float(_bc[2]))
+        rough = 1.0
+        spec = 0.5
+        try:
+            rough = float(bsdf.inputs["Roughness"].default_value)
+            spec_in = bsdf.inputs.get("Specular IOR Level")
+            if spec_in is not None:
+                spec = float(spec_in.default_value)
+        except Exception:
+            pass
+        if sun_L is None:
+            sun_L = (0.0, 0.0, 1.0)
+        f_out = _directional_factor(nt, tuple(sun_L), alb, rough, spec)
+        dm = nt.nodes.new("ShaderNodeMix")
+        try:
+            dm.data_type = "RGBA"
+            dm.blend_type = "MULTIPLY"
+            dm.inputs[0].default_value = 1.0
+            nt.links.new(g_out, dm.inputs[6])
+            nt.links.new(f_out, dm.inputs[7])
+            dir_out = dm.outputs[2]
+        except Exception:
+            dm = nt.nodes.new("ShaderNodeMixRGB")
+            dm.blend_type = "MULTIPLY"
+            dm.inputs["Fac"].default_value = 1.0
+            nt.links.new(g_out, dm.inputs["Color1"])
+            nt.links.new(f_out, dm.inputs["Color2"])
+            dir_out = dm.outputs["Color"]
+        dm.name = "CAUSTIC_dir_apply"
+        dm.label = "CAUSTIC_dir_apply"
+        dm.location = (-350, -300)
+        g_out = dir_out
 
     em = nt.nodes.new("ShaderNodeEmission")
     em.name = "CAUSTIC_emission"
@@ -430,8 +655,11 @@ class CAUSTIC_OT_inject(bpy.types.Operator):
         if not obj.data.materials:
             obj.data.materials.append(bpy.data.materials.new("caustic_receiver"))
         ok = 0
+        sun_L = _sun_light_dir(context.scene, tuple(p.sun_dir))
         for mat in obj.data.materials:
-            if _emit_into_material(mat, img, p.gain, tuple(p.frame_uv)):
+            if _emit_into_material(mat, img, p.gain, tuple(p.frame_uv),
+                                   directional=bool(p.directional),
+                                   sun_L=sun_L):
                 ok += 1
         if p.disable_cycles_caustics and context.scene.render.engine == "CYCLES":
             context.scene.cycles.caustics_refractive = False
@@ -1303,6 +1531,7 @@ class CAUSTIC_PT_panel(bpy.types.Panel):
 
         self.layout.separator()
         self.layout.prop(p, "inject_mode")
+        self.layout.prop(p, "directional")
         self.layout.operator("caustic.bake", icon="RENDER_STILL")
         self.layout.operator("caustic.inject", icon="NODE_MATERIAL")
         self.layout.operator("caustic.remove", icon="TRASH")

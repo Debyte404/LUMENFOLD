@@ -429,6 +429,45 @@ check("physical_exposure_runs", _r == {"FINISHED"} and _phys.max() > 0,
       f"peak stored {_phys.max():.4f} (x64 -> {_phys.max() * 64:.3f})")
 
 
+# ---- 8k. directional response: OFF graph unchanged, ON reduces for Lambertian
+_has_dir_prop = hasattr(p, "directional")
+try:
+    from caustic_injector import _sun_light_dir as _sundir, \
+        _directional_factor as _dirfac
+    _has_dir_help = True
+except Exception:
+    _sundir = None
+    _dirfac = None
+    _has_dir_help = False
+check("directional_off_graph_unchanged", _has_dir_prop and _has_dir_help,
+      "missing directional prop/helpers" if not (_has_dir_prop and _has_dir_help)
+      else "prop+helpers present")
+if _has_dir_prop and _has_dir_help:
+    run_bake(mesh_object=glass(), mesh_resolution=32, mesh_airy=0.006,
+             target=big(), mesh_frame="FULL", mesh_accel="BVHTREE")
+    p.inject_mode = "SURFACE"
+    p.directional = False
+    bpy.ops.caustic.inject()
+    _nt0 = next(m for m in big().data.materials if m and m.use_nodes).node_tree
+    _names0 = sorted(n.name for n in _nt0.nodes if n.name.startswith("CAUSTIC_"))
+    check("directional_off_nodes_exact", _names0 == sorted([
+        "CAUSTIC_add", "CAUSTIC_emission", "CAUSTIC_gain", "CAUSTIC_img",
+        "CAUSTIC_uv", "CAUSTIC_x64"]),
+          f"nodes {_names0}")
+    # Lambertian receiver (specular 0): the ON graph must carry a unity factor
+    _bsdf0 = next(n for n in _nt0.nodes if n.type == "BSDF_PRINCIPLED")
+    _bsdf0.inputs["Specular IOR Level"].default_value = 0.0
+    p.directional = True
+    bpy.ops.caustic.inject()
+    _nt1 = next(m for m in big().data.materials if m and m.use_nodes).node_tree
+    _dnames = sorted(n.name for n in _nt1.nodes if n.name.startswith("CAUSTIC_dir"))
+    check("directional_lambertian_reduces", len(_dnames) > 0
+          and "CAUSTIC_dir_factor" in _dnames,
+          f"dir nodes {_dnames}")
+    p.directional = False
+    bpy.ops.caustic.inject()
+
+
 sun = bpy.data.objects.get("sun")
 sun.rotation_mode = "XYZ"
 for f, ang in ((1, 0.0), (2, 0.1), (3, 0.2)):
