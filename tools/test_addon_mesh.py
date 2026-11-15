@@ -218,7 +218,7 @@ _mod = _ilu.module_from_spec(_spec)
 _sys.modules["caustic_injector"] = _mod
 _spec.loader.exec_module(_mod)
 from mesh_caustic import trace as _MT, band as _MB
-from caustic_injector import _mesh_tris as _mesh_tris_fn, _resolve_target as _resolve_tgt, _collect_lights as _collect_l, _bake_field as _bake_field_fn
+from caustic_injector import _mesh_tris as _mesh_tris_fn, _resolve_target as _resolve_tgt, _collect_lights as _collect_l, _bake_field as _bake_field_fn, _receiver_albedo as _recv_albedo
 dg = bpy.context.evaluated_depsgraph_get()
 _vv, _ff, _nn = _mesh_tris_fn(glass(), dg)
 _rr = _resolve_tgt(plane())
@@ -386,6 +386,16 @@ _bad = [(lp.index, lp.vertex_index, tuple(round(c, 3) for c in _uvl[lp.index].uv
                for k in (0, 1)) > 1e-6]
 check("light_card_uv_per_corner", not _bad,
       f"loops {len(_me.loops)} verts {len(_me.vertices)} bad {_bad[:3]}")
+# the card must undo the albedo baked into the physical field, or the plate
+# sees albedo times the field instead of the field.
+_alb = _recv_albedo(big())
+_card_nt = card.data.materials[0].node_tree
+_gain_node = next((n for n in _card_nt.nodes if n.label == "CAUSTIC_gain"), None)
+_bsock = _gain_node.inputs.get("B") or _gain_node.inputs.get("Color2")
+_gv = tuple(round(float(v), 4) for v in _bsock.default_value[:3])
+_exp = tuple(round(_p.gain / max(a, 0.02), 4) for a in _alb)
+check("light_card_gain_undoes_albedo", _gv == _exp,
+      f"albedo {tuple(round(a, 3) for a in _alb)} gain {_gv} expected {_exp}")
 check("light_card_not_on_target",
       all(not n.name.startswith("CAUSTIC_")
           for m in big().data.materials if m for n in m.node_tree.nodes),

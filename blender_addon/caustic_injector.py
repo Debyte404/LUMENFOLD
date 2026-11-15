@@ -228,6 +228,25 @@ def _run_hidden(cmd, timeout=600):
     return p.returncode, (p.stdout or "") + (p.stderr or "")
 
 
+def _receiver_albedo(obj, default=(0.5, 0.5, 0.5)):
+    """Base colour of the receiver's first Principled BSDF.
+
+    The light card needs it: the baked field is a plate *radiance*
+    (irradiance x albedo / pi), while a card emitting radiance L delivers
+    pi*L to a coplanar receiver, which the receiver's BSDF turns into
+    L*albedo. Dividing the card's emission by the albedo makes the plate
+    reproduce the field instead of albedo times it.
+    """
+    for mat in (obj.data.materials if obj else []):
+        if not mat or not mat.use_nodes:
+            continue
+        for node in mat.node_tree.nodes:
+            if node.type == "BSDF_PRINCIPLED":
+                c = node.inputs["Base Color"].default_value
+                return (float(c[0]), float(c[1]), float(c[2]))
+    return tuple(default)
+
+
 def _mix_multiply(nt, a_socket, b_value, label):
     """Multiply a colour by a constant, compatible across Blender versions."""
     try:  # Blender 3.4+ unified Mix node: 0=Factor, 6=A, 7=B
@@ -493,7 +512,9 @@ class CAUSTIC_OT_inject(bpy.types.Operator):
         uv = nt.nodes.new("ShaderNodeTexCoord")
         mul, m_out = _mix_multiply(nt, tex.outputs["Color"],
                                    (64.0,) * 3 + (1.0,), "CAUSTIC_x64")
-        gm, g_out = _mix_multiply(nt, m_out, (p.gain,) * 3 + (1.0,),
+        alb = _receiver_albedo(obj)
+        gain_rgb = tuple(p.gain / max(a, 0.02) for a in alb)
+        gm, g_out = _mix_multiply(nt, m_out, gain_rgb + (1.0,),
                                   "CAUSTIC_gain")
         lp = nt.nodes.new("ShaderNodeLightPath")
         em = nt.nodes.new("ShaderNodeEmission")
