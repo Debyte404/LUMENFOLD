@@ -4064,3 +4064,45 @@ Fresnel and TIR, binning conservative by histogram.
 Reproduce: `out/_audit_field.npy` (saved 512^2 x3 field) and the session script
 `energy_audit.py` (temp; the audit protocol requires it be committed as a
 checker before it counts as a re-runnable gate -- open item).
+
+--------------------------------------------------------------------------------
+## 48. Independent referee: energy agrees, pattern does not (MISS, recorded) (2026-11-17)
+--------------------------------------------------------------------------------
+
+Pre-registered in `docs/superpowers/plans/2026-11-17-referee-dragon.md` before
+any referee code existed: independent transport in `audit/referee_dragon.py`
+(own Snell, own Fresnel amplitudes, stratified sun-disk sampling, own binning;
+shares only the BVH index), authored 87,130-tri mesh at 512^2 x4 = 4,194,304
+rays, thresholds r >= 0.80 at 9 mm and >= 0.85 at 18/37 mm with energy ratio in
+[0.85, 1.18].
+
+| test | result | threshold | verdict |
+|---|---|---|---|
+| energy ratio (ours 2.474 W / referee 2.357 W) | **1.050** | 0.85-1.18 | PASS |
+| band r at 11.5 mm | 0.002 | 0.80 | FAIL |
+| band r at 23.1 mm | 0.021 | 0.85 | FAIL |
+| band r at 46.1 mm | 0.083 | 0.85 | FAIL |
+
+Orientation was resolved before any band claim: seven transforms of the
+referee array (raw, transpose, flips, rot180) were correlated at 18 mm against
+our field; the best was raw at r = 0.021, so the failure is not a
+transpose/flip. The referee field itself is plausible in shape (streaky
+diagonal fan, 42.9% non-zero) but coarse: 533,177 hits over 512^2 is 2.0 hits
+per texel, while our field at the same grid has 4 rays per texel plus the
+5.6 mm post-blur (81% non-zero, max 14.2 vs referee 104.4). Two fields that
+disagree in *support* this much cannot correlate at any band, and the most
+likely cause is the referee's own sampling and its lack of the solar-disk
+convolution (it samples the disk with 4x4 directions per origin, which is much
+coarser than the bake's post-blur), not a defect in the bake.
+
+**Recorded as a MISS.** Per the pre-registration the referee is not tuned to
+pass. Before it can referee the dragon it must be validated where the answer is
+known: the sphere scene, where the caustic is a single smooth focus. That is now
+the referee's blocking test. Until it passes there, this section establishes
+only that an independently written tracer reproduces the *energy* of our field
+to 5% and that its current sampling is too coarse to test structure.
+
+Reproduce: `python tools/run_blender.py --background --factory-startup
+--python audit/referee_dragon.py -- --res 512 --sub 4`, then
+`... --python audit/compare_referee.py`. Artefacts:
+`out/referee/{referee_field.npy,ours_field.npy,compare.json,referee_stats.json}`.

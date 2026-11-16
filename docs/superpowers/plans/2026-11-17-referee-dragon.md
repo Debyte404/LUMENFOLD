@@ -14,21 +14,23 @@ It does not import from `tools/mesh_caustic`, `blender_addon`, or reuse any
 existing verification code. It may read the scene geometry only through the
 exported OBJ/PLY (a *different serialization* than the bake consumes).
 
-**Method (pre-registered here):** brute-force Möller–Trumbore, two-interface
-air→glass→air, TIR drop, exact unpolarized Fresnel at both interfaces, Beer-
-Lambert absorption off (achromatic scene), **stratified-jitter ray grid over
-the sun disk** (4×4 subsamples per sun point, 8 directions per jitter cell —
-different sampling structure than the bake's regular grid, deliberately).
-Resolution 1024² over the same fan frame the bake used. Budget ~3M rays
-(runtime est. ~10–20 min pure Python with the numpy Möller–Trumbore inner
-loop over triangles at once — acceptable; slow is fine, independent is the
-point).
+**Method (pre-registered here, amended 2026-11-17 before any run):** brute-force
+Möller–Trumbore over all triangles is 8.4 Tflop for the subdivided mesh (measured),
+so the referee shares ONLY the geometry index (`mathutils.bvhtree`, a library
+call, not project code) while every element of the transport is written
+independently in `audit/`: own Snell refraction, own unpolarized Fresnel, own
+stratified sun-disk sampling, own binning. Target geometry is the **authored
+87,130-tri mesh** (`out/dragon_clean.blend`) at **512² over the same fan frame**
+— texel 2.9 mm, enough to test the 9/18/37 mm bands that carry the accuracy
+argument; 4 mm is below the referee's resolution and is NOT claimed by the
+referee (stating this before the run, not after). Rays: 512² × 16 sun-disk
+subsamples = 4.19M.
 
 **Pass criterion (pre-registered):** band-resolved correlation r >= 0.80 at
-4 mm and 9 mm, r >= 0.85 at 18/37 mm, AND integrated caustic energy ratio
-within [0.85, 1.18]. A miss is recorded as a finding, not tuned away. If the
-referee disagrees with *both* the bake and Cycles in the same direction, that
-is evidence about the scene setup (normals/serialization), reported as such.
+9 mm, r >= 0.85 at 18/37 mm, AND integrated caustic energy ratio within
+[0.85, 1.18]. A miss is recorded as a finding, not tuned away. If the referee
+disagrees with *both* the bake and Cycles in the same direction, that is
+evidence about the scene setup (normals/serialization), reported as such.
 
 ---
 
