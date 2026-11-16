@@ -3873,3 +3873,55 @@ faceted mesh) -- the smooth panel needs the same post-free measurement against
 the fresh Cycles, and the exposure arbiter (Cycles band integral vs spp)
 remains the decider. The web itself is shared with un-denoised Cycles at every
 band measured, so it is not presented as a defect.
+
+--------------------------------------------------------------------------------
+## 44. Fresnel losses were missing; arbiter says Cycles is converged; a broken
+## converter invalidated the section-43 table (2026-11-16)
+--------------------------------------------------------------------------------
+
+**The tracer transmitted weight 1.0 at every non-TIR interface.** Real glass
+(and Cycles) reflects ~4% per interface; the paper already records 96.4%
+interface throughput, so the bake contradicted the paper. New
+`_fresnel_T(cosi, eta)` (unpolarized Born & Wolf, clamped [0,1], explicit TIR
+guard returning 0); both shooters (numpy `_shoot`, BVH `_make_bvh_shooter`)
+return `(x, y, L, T)` and `shoot_all` multiplies the Beer-Lambert weight by
+T1*T2. Unit checks: normal incidence T = 0.95676 (expect 0.9568 at eta 1.5251),
+Brewster T = 0.92053 (Rp = 0), grazing inside-to-air T = 0, vacuum eta = 1
+transmits everything. Suite FAILURES 0, numpy/BVHTree parity r = 1.00000.
+Plan: `docs/superpowers/plans/2026-11-16-fresnel-losses.md`.
+
+**The exposure arbiter is decisive and negative for the "Cycles
+under-converges" hypothesis.** Cycles on the smooth dragon, MNEE on, no
+denoiser, linear EXR, fan window rows 62-95% cols 5-42%:
+
+| spp | fan sum | fan mean | p99 | max |
+|---|---|---|---|---|
+| 1024 | 812932.94 | 1.8034 | 2.2121 | 403.749 |
+| 2048 | 812959.56 | 1.8035 | 2.2117 | 390.720 |
+| 4096 | 812954.38 | 1.8035 | 2.2115 | 393.581 |
+
+Flat to five significant figures: Cycles is converged at 1024 spp. Our fan
+being brighter is NOT explained by Cycles missing paths at finite spp. The
+remaining explanations are our calibration (the Fresnel fix now in) or a real
+radiometric difference in the fan composition. The Fresnel magnitude on the
+fan is being measured (smooth+Fresnel linear EXR vs these arbiter EXRs, same
+window, both linear).
+
+**Section 43''s comparison table is withdrawn as labelled.** The `convert_agx.py`
+helper billed as "convert the fresh Cycles EXR to PNG" actually loads the EXR
+and then *re-renders the scene from scratch*, ignoring the loaded image (and
+`use_nodes=False` bypasses the glow nodes it builds). So `cycles_fresh.png` is
+a 1536-spp OIDN-denoised AgX render with no glow -- not the 4096-spp arbiter
+render and not a glow render. The "Cycles fresh+glow" column header was wrong
+on both words. Pipeline facts, verified: the driver never sets the view
+transform (blend default AgX, look None) and always denoises (OIDN) unless the
+call fails; glow nodes exist only with --glow. Valid comparisons require the
+same pipeline both sides; the only ones that meet that bar so far are the
+post-free pairs and the linear-EXR arbiter now running.
+
+**Open items carried forward.** (1) Linear fan comparison ours-vs-Cycles on the
+smooth scene (running). (2) `convert_agx.py` is a broken instrument: fix it to
+composite the EXR through the display pipeline without re-rendering, or delete
+it. (3) The origin offset (`-0.5*d` ray starts, inside-mesh starts) remains an
+unexamined correctness issue in the same function, deliberately left for a
+separate change.

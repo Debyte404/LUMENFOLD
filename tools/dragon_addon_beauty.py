@@ -57,6 +57,9 @@ def parse_args():
                     help="sample the sun's disk per ray (cone of half-angle "
                          "angle/2) instead of parallel rays; integrates the "
                          "solar penumbra directly and skips the post blur")
+    ap.add_argument("--exr", action="store_true",
+                    help="write linear OpenEXR instead of PNG (measurement; "
+                         "bypasses the display transform)")
     ap.add_argument("--margin", type=float, default=0.15)
     ap.add_argument("--airy", type=float, default=6.77e-6,
                     help="display Airy width, metres; the canonical 6.77 um "
@@ -182,7 +185,11 @@ def main():
         ng.links.new(rl.outputs["Image"], glare.inputs["Image"])
         ng.links.new(glare.outputs["Image"], comp.inputs["Image"])
     sc.render.resolution_percentage = 100
-    sc.render.image_settings.file_format = "PNG"
+    if a.exr:
+        sc.render.image_settings.file_format = "OPEN_EXR"
+        sc.render.image_settings.color_depth = "32"
+    else:
+        sc.render.image_settings.file_format = "PNG"
     os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
     sc.render.filepath = a.out
     t2 = time.time()
@@ -196,7 +203,7 @@ def main():
         "achromatic": a.achromatic, "physical": a.physical,
         "denoiser": a.denoiser, "glow": a.glow,
         "inject_mode": a.inject_mode, "directional": a.directional,
-        "sun_jitter": a.sun_jitter, "table_rough": a.table_rough,
+        "sun_jitter": a.sun_jitter, "table_rough": a.table_rough, "exr": a.exr,
         "out_size": [a.w, a.h], "bake_s": round(bake_s, 1),
         "inject_s": round(inject_s, 1), "render_s": round(render_s, 1),
         "status": p.status,
