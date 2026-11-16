@@ -30,22 +30,22 @@ using the already-computed bounding-sphere radius, in the sun branch of
 (regression check: all sun-ray origins lie outside the mesh bounding sphere... or
 a cheaper invariant -- see step 1).
 
-- [ ] **Step 1: Write the failing test.** A small closed mesh (fixture sphere)
-  baked through `trace_mesh` with a directly introspectable hook, OR assert on
-  `_launch_offset` helper if the offset is factored out (preferred: factor
-  `offset = radius + 0.05` into a named helper and unit-test
-  `offset >= bounding half-extent`).
-- [ ] **Step 2: Implement** the offset + helper.
-- [ ] **Step 3: Run the suite** (`FAILURES: 0 []`).
-- [ ] **Step 4: Commit** (tracer + test only).
+- [x] **Step 1: Write the failing test.** `launch_offset_outside_sphere` /
+  `launch_offset_covers_dragon` pin the `_launch_origin` contract (offset =
+  radius + 0.05, laterals untouched); they fail until the helper exists.
+- [x] **Step 2: Implement** the offset + helper (shared sun loop: both backends).
+- [x] **Step 3: Run the suite** (`FAILURES: 0 []`, incl. numpy/BVHTree parity).
+- [x] **Step 4: Commit** (tracer + test only) (done: 7d283a3).
 
 ### Task 2: Re-bake smooth + measure shape parity
 
 **Files:** none. **Output:** `out/dragon_suite/addon_ours_2560_smooth_offset.png`
 (ignored by git).
 
-- [ ] **Step 1: Bake + render** at the shipped smooth settings.
-- [ ] **Step 2: Measure** band parity vs `_arb_cycles_4096` (same mask as
-  EVIDENCE 41/45). Expect the 4-9 mm bands to rise toward the ceiling; if they
-  do not move, record that plainly -- the suspect is eliminated, not confirmed.
-- [ ] **Step 3: Record in EVIDENCE + commit.**
+- [x] **Step 1: Bake + render** at the shipped smooth settings. (done:
+  ours_smooth_offset.exr, 2,091,120 tris, linear EXR)
+- [x] **Step 2: Measure** band parity vs `_arb_cycles_4096` (same mask as
+  EVIDENCE 41/45). Bands saturate at 1.0000 on shared direct; the valid readout
+  is the isolated caustic (EVIDENCE 46): 3.9x concentrated in fold spikes, 0.06%
+  of fan energy.
+- [x] **Step 3: Record in EVIDENCE + commit.** (done: EVIDENCE 46)
