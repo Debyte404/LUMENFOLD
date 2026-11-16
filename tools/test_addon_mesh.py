@@ -502,6 +502,27 @@ check("fresnel_vacuum_unity", _FT(0.7, 1.0) == 1.0 and _FT(1.0, 1.0) == 1.0,
       "eta 1 both sides transmits everything")
 
 
+# ---- 8m. sun-ray origins start outside the mesh bounding sphere ----------------
+# The old inline code used a fixed 0.5 m offset, which starts rays inside any
+# mesh with a larger half-extent (the dragon's is ~0.66 m); the first hit is
+# then an exit wall refracted as an entry. This pins the helper contract: the
+# offset along -d equals radius + margin, lateral position untouched.
+from mesh_caustic.trace import _launch_origin as _LO
+_Lc = _np.array([1.0, 2.0, 3.0])
+_Lr = _np.array([1.0, 0.0, 0.0])
+_Lu = _np.array([0.0, 1.0, 0.0])
+_Ld = _np.array([0.0, 0.0, -1.0])
+_Lo = _LO(_Lc, 0.1, -0.2, _Lr, _Lu, _Ld, 0.66)
+check("launch_offset_outside_sphere",
+      abs(float((_Lo - _Lc) @ -_Ld) - 0.71) < 1e-9
+      and abs(float((_Lo - _Lc) @ _Lr) - 0.1) < 1e-9
+      and abs(float((_Lo - _Lc) @ _Lu) + 0.2) < 1e-9,
+      f"offset {tuple(round(v, 3) for v in (_Lo - _Lc))}")
+check("launch_offset_covers_dragon",
+      0.66 + 0.05 > 0.5,
+      "old fixed 0.5 m plane cut the dragon's 0.66 m half-extent")
+
+
 sun = bpy.data.objects.get("sun")
 sun.rotation_mode = "XYZ"
 for f, ang in ((1, 0.0), (2, 0.1), (3, 0.2)):

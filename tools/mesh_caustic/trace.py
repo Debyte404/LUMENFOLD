@@ -92,6 +92,17 @@ def _point_in_mesh(p, verts, faces):
     return bool(ok.sum() % 2 == 1)
 
 
+def _launch_origin(centre, ox, oy, right, up, d, radius):
+    """Sun-ray origin on a plane guaranteed outside the mesh bounding sphere.
+
+    The old code used a fixed 0.5 m offset, which starts rays *inside* large
+    meshes (the dragon's half-extent is ~0.66 m). The first hit is then an exit
+    wall refracted as an entry, landing the ray's energy in the wrong texel
+    with the right weight -- conserved totals, distorted shape.
+    """
+    return centre + ox * right + oy * up - (radius + 0.05) * d
+
+
 def _refract(d, n, eta):
     """Snell refraction; returns None on TIR."""
     cosi = -float(d @ n)
@@ -413,7 +424,7 @@ def trace_mesh(verts, faces, lights, receiver, opts):
                     if rng is not None:
                         ox = x + (rng.random() - 0.5) * cell
                         oy = y + (rng.random() - 0.5) * cell
-                    o = centre + ox * right + oy * up - 0.5 * d
+                    o = _launch_origin(centre, ox, oy, right, up, d, radius)
                     dj = d
                     if sun_jit:
                         a = rng.random() * 2 * np.pi
