@@ -3925,3 +3925,53 @@ composite the EXR through the display pipeline without re-rendering, or delete
 it. (3) The origin offset (`-0.5*d` ray starts, inside-mesh starts) remains an
 unexamined correctness issue in the same function, deliberately left for a
 separate change.
+
+--------------------------------------------------------------------------------
+## 45. Exposure closed: 0.9995 in linear light; the residual is fold-peak shape (2026-11-16)
+--------------------------------------------------------------------------------
+
+Section 43''s +13% display gap is closed. Smooth dragon, Fresnel-weighted bake
+(2,091,120 tris, 3,997,224 hits), linear EXR both sides, same fan window (rows
+62-95%, cols 5-42% at 2560x1440), no glow, no denoiser on Cycles (OIDN on ours,
+noted as second-order at 2048 spp):
+
+| | fan sum | fan mean | p99 | max |
+|---|---|---|---|---|
+| ours (smooth + Fresnel + sun-jitter, EXR) | 812563.75 | 1.8028 | 2.2105 | 392.705 |
+| Cycles (smooth, 4096 spp MNEE, EXR) | 812954.38 | 1.8035 | 2.2115 | 393.581 |
+| ratio | **0.9995** | 0.9996 | 0.9995 | 0.9980 |
+
+The Fresnel fix accounts for the gap: two interfaces at near-normal incidence
+transmit 0.9568^2 = 0.915, and the missing ~8.5% was the section-43 residual.
+No tuning scalar was introduced at any point; the factor is exact unpolarized
+Fresnel from the same cosines as the Snell step.
+
+**What the isolated caustics say.** Subtracting the no-caustics Cycles control:
+isolated sums 190 (Cycles) vs 665 (ours), maxima 0.301 vs 17.06. That ratio
+(3.5x) is 0.06% of the fan energy -- it is the fold peak shape, not a scale
+error. Our geometric fold bins the divergence into 1.4 mm texels (resolution-
+dependent spikes); Cycles'' MNEE under-resolves the same peak; the wave model
+would bound it (finite Airy peak) but the band correction is skipped as
+sub-texel by design. So: total energy matches to 0.9995, pattern matches to
+0.6-0.8, peaks differ in a way neither renderer resolves correctly. The display
++13% was glow plus AgX emphasis on those sharp peaks -- a comparison-pipeline
+artifact, now understood and retired with the converter script that caused it.
+
+**Sun-jitter path validated on totals.** This measurement used the sun-jittered
+bake (disk-sampled, no post blur); its fan lands at the same 0.9995 as the
+parallel+blur path''s design intent, confirming the disk integral conserves
+energy end to end.
+
+**Consequences.**
+
+- The exposure question open since section 37 is closed: the dragon panel is
+  energetically correct against converged Cycles in linear light.
+- Remaining honest gap, stated plainly: fold-peak SHAPE (ours sharper). The
+  candidate fix is bounding fold-band texels at the Airy peak instead of
+  skipping the correction as sub-texel -- but the skip exists for a documented
+  reason (collapsing the band onto the ridge), so this is a new investigation,
+  not a tweak, and it is not claimed.
+- Presentation: `docs/media/dragon_linear_matched.png` is the identical-
+  processing comparison (same linear EXRs, same exposure, same sRGB EOTF, no
+  glow, no denoise on Cycles). The 0.9995 is a linear-light statement; any
+  tonemapped sheet must carry the pipeline in its caption.
