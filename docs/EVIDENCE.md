@@ -3836,3 +3836,40 @@ authored field''s filaments are elongated along the light-transport direction
   *any modifier stack on a baked mesh must be declared in EVIDENCE with its
   evaluated tri count*, because the tracer bakes the evaluated mesh, not the
   data mesh. The 87k-vs-35k discrepancy survived four findings unnoticed.
+
+--------------------------------------------------------------------------------
+## 45. Subdivided dragon: the body is perfect, the fan keeps its filaments (2026-11-16)
+--------------------------------------------------------------------------------
+
+The Remesh+Decimate stack was stripped (section 44) and the authored mesh
+subdivided to 1,045,560 polys (DATA == EVAL, no unapplied modifiers;
+`out/dragon_smooth.blend`). Full pipeline at the same settings (1024^2, mult 4,
+achromatic, physical, 2048 spp, OIDN, no glow): 2,091,120 tris baked,
+3,997,224 hits, bake 929 s, render 244 s (contended machine).
+
+**The body is fixed.** The subdivided dragon renders as continuous glass with
+no visible faceting -- the "messy dots" on the dragon itself are gone, in our
+panel. The faceting was the 87k-tri authored mesh (whose custom split normals
+the OBJ import carried), not the solver.
+
+**The fan keeps filament structure, finer than before.** Band-resolved
+correlation against un-denoised Cycles (validated metric, section 41):
+
+| pair | 4 mm | 9 mm | 18 mm | 37 mm |
+|---|---|---|---|---|
+| smooth-ours vs Cycles-undenoised | 0.615 | 0.704 | 0.762 | 0.785 |
+| authored-ours vs Cycles-undenoised | 0.587 | 0.694 | 0.755 | 0.790 |
+| remeshed-ours vs Cycles-undenoised | 0.488 | 0.631 | 0.760 | 0.795 |
+
+Subdivision improves the fine-band agreement (0.615 vs 0.587/0.488 at 4 mm);
+coarse bands are unchanged. Fan mean 0.538, hf 0.0145 (vs authored 0.734/0.0146
+and remeshed 0.754/0.0204 -- the mean drop is the frame landing, not dimming;
+frame_rect cy moved 0.279 -> 0.344 with the new geometry).
+
+**What this closes and what it does not.** Closed: the dragon-body quality
+(the user-visible defect) and the voxel-remesh speckle contribution. Not
+closed: the fan exposure question from section 43 (+13% post-free on the
+faceted mesh) -- the smooth panel needs the same post-free measurement against
+the fresh Cycles, and the exposure arbiter (Cycles band integral vs spp)
+remains the decider. The web itself is shared with un-denoised Cycles at every
+band measured, so it is not presented as a defect.
