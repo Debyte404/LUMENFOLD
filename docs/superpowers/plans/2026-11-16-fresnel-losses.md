@@ -45,20 +45,20 @@ exact for unpolarized light at dielectric interfaces.
   explicit TIR guard; thread T1*T2 into both shooters' weights.
 - [ ] **Step 3: Run the suite** -- expect `FAILURES: 0 []` plus the new PASS
   lines, including the numpy/BVHTree parity check.
-- [ ] **Step 4: Commit** -- tracer + addon + test only.
+- [x] **Step 4: Commit** (done: 58b6dc0) -- tracer + addon + test only.
 
 ### Task 2: Re-bake the dragon and measure against Cycles
 
 **Files:** none (driver unchanged).
 **Output:** `out/dragon_suite/addon_ours_2560_fresnel.png` (ignored by git).
 
-- [ ] **Step 1: Bake + render at the shipped settings** (1024^2 x4,
+- [x] **Step 1: Bake + render at the shipped settings** (done: smooth+Fresnel EXR, 2,091,120 tris, bake 1672 s) (1024^2 x4,
   achromatic, physical, 2048 spp, post-free to match `cycles_fresh`).
-- [ ] **Step 2: Measure the fan** (same window as section 43). Expect the fan
+- [x] **Step 2: Measure the fan** (done: 0.9995 linear match; residual is fold-peak shape, recorded in EVIDENCE 45) (same window as section 43). Expect the fan
   mean to drop ~8-10% toward Cycles' 0.634. If it lands within a few percent,
   the exposure question is closed; if not, record the residual plainly and do
   NOT tune -- the origin-offset (`-0.5*d`) inside-mesh starts are the named
   next suspect, as a separate change.
-- [ ] **Step 3: Record in EVIDENCE** (new section), update the presentation
+- [x] **Step 3: Record in EVIDENCE** (done: section 45) (new section), update the presentation
   sheet only if the gap closes.
-- [ ] **Step 4: Commit** -- EVIDENCE (+ media only if regenerated).
+- [x] **Step 4: Commit** (done: 58b6dc0) -- EVIDENCE (+ media only if regenerated).
