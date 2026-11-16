@@ -3788,3 +3788,51 @@ ceiling), so the pattern agrees while the brightness does not.
 
 Reproduce: the fan statistics above from
 `out/dragon_suite/{cycles_fresh,ours_mult4_noglow,addon_ours_2560_mult4,addon_ours_2560_physical}.png`.
+
+--------------------------------------------------------------------------------
+## 44. The voxel remesh was adding speckle; the authored mesh matches Cycles better (2026-11-16)
+--------------------------------------------------------------------------------
+
+EVIDENCE 40 left two candidates for the white-dot speckle: the caustic''s real
+filaments and the Voxel Remesh (6 mm) + Decimate (0.25) modifier stack the
+dragon has carried since section 24. The stack exists to make the OBJ
+watertight, but the authored mesh (87,130 polys) already has zero open edges,
+so the stack was removed on a copy (`out/dragon_clean.blend`) and the full
+pipeline re-run at the same settings (1024^2, mult 4, achromatic, physical,
+2048 spp, OIDN, no glow).
+
+**The stripped bake succeeds.** 87,130 tris (vs 34,798 evaluated with the
+stack), watertight, 3,975,897 hits. Bake 877 s, render 254 s (contended
+machine).
+
+**Authored beats remeshed against Cycles.** Band-resolved correlation with the
+un-denoised Cycles render (validated metric from section 41, fan mask rows
+430-700 cols 140-880):
+
+| pair | 4 mm | 9 mm | 18 mm | 37 mm |
+|---|---|---|---|---|
+| authored-ours vs Cycles-undenoised | **0.587** | **0.694** | **0.755** | 0.790 |
+| remeshed-ours vs Cycles-undenoised | 0.488 | 0.631 | 0.760 | 0.795 |
+| authored vs remeshed | 0.544 | 0.761 | 0.930 | 0.973 |
+
+Coarse structure is shared (0.93-0.97: same fan); the fine filaments differ,
+and the authored filaments match Cycles'' own web better at every scale
+below 18 mm, where the remeshed field carries isotropic white dots the authored
+field does not. The zoomed fan crop shows the difference qualitatively: the
+authored field''s filaments are elongated along the light-transport direction
+(caustic-like); the remeshed field''s are round blobs (speckle-like).
+
+**Consequences.**
+
+- The 6 mm voxel remesh contributed facet-scale speckle at the web scale and
+  is removed from the dragon path. The stack stays in `models/dragon_glass.blend`
+  untouched (parity figures in sections 30-33 were measured on it); the clean
+  mesh lives in `out/dragon_clean.blend` until the paper figures are rebuilt.
+- The remaining filament structure on the authored mesh still exceeds what a
+  smooth presentation wants, and the dragon body renders visibly faceted in
+  every engine. The next step is subdivision smoothing of the authored mesh,
+  which both engines will then render from the same geometry.
+- New audit checker (protocol section "open items" now one shorter in spirit):
+  *any modifier stack on a baked mesh must be declared in EVIDENCE with its
+  evaluated tri count*, because the tracer bakes the evaluated mesh, not the
+  data mesh. The 87k-vs-35k discrepancy survived four findings unnoticed.
