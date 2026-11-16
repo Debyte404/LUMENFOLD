@@ -4106,3 +4106,42 @@ Reproduce: `python tools/run_blender.py --background --factory-startup
 --python audit/referee_dragon.py -- --res 512 --sub 4`, then
 `... --python audit/compare_referee.py`. Artefacts:
 `out/referee/{referee_field.npy,ours_field.npy,compare.json,referee_stats.json}`.
+
+--------------------------------------------------------------------------------
+## 49. Referee validated on the sphere and it FOUND A BUG in our bake (2026-11-17)
+--------------------------------------------------------------------------------
+
+Section 48''s referee was too coarse for the dragon (2 hits/texel) and carried a
+deterministic lattice (Moiré rings in the field view). Fixed: origin jitter
+added to the referee''s own sampling (stratified, seeded), and the instrument
+was validated on the sphere, where the answer is analytic.
+
+Sphere R = 0.15 m, n = 1.52514, parallel sun along (0.7995, 0.4197, -0.4297):
+focal distance behind centre b = nR/(2(n-1)) = 0.2178 m; the converging cone
+crosses the receiver plane (z = -0.276) at grid (328, 321) in the shared frame.
+
+| field | caustic centroid (grid) | world | offset from analytic |
+|---|---|---|---|
+| referee (own transport, jittered origins, parallel sun) | (319, 325) | (0.498, 0.277) | 3.4 cm |
+| our bake (addon shooter) | (252, 277) | (0.372, 0.189) | **28 cm** |
+
+The referee''s focus agrees with the analytic one to ~3 cm (spherical
+aberration scale); our bake''s focus is displaced ~28 cm TOWARD the launch side.
+The displacement is not the launch-plane offset (that fix predates this bake --
+7d283a3 21:22 vs bake 01:57): with on-rails settings, same 512 grid, same
+262,144-ray budget, the bake''s rays land displaced along the sun direction.
+Bake fan mean 0.734 vs referee 0.734-normalized... the two fields'' sums differ
+2x pre-normalization purely by launch-square area (0.588 vs 0.400 m sides);
+area-normalized energy ratio 0.9174 (inside the 0.85-1.18 band), so the
+disagreement is placement, not energy.
+
+**Recorded as a MISS for the bake, found by the referee.** The bug is in the
+tracer''s two-interface transport (suspects, in order: the exit-intersection
+nudge stepping 1e-5 along the refracted ray inside a 0.15 m sphere -- 8% of the
+sphere radius per nudge, which can jump the exit interface; the smooth-normal
+interpolation at the exit; the receiver projection s = (RZ - q0.z)/t2.z). The
+referee, now validated, is the instrument that will confirm the fix.
+
+Reproduce: `out/referee/{sphere512parJ/referee_field.npy,
+sphere512_bake.npy,_parJ_view.png}`, the analytic numbers above, and
+`out/referee/sphere512_area_norm.json`.

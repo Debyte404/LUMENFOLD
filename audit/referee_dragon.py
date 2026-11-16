@@ -30,6 +30,10 @@ OUTDIR = os.path.join(ROOT, "out", "referee")
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 RES = int(argv[argv.index("--res") + 1]) if "--res" in argv else 512
 SUB = int(argv[argv.index("--sub") + 1]) if "--sub" in argv else 4
+if "--npz" in argv:
+    NPZ = argv[argv.index("--npz") + 1]
+if "--out" in argv:
+    OUTDIR = argv[argv.index("--out") + 1]
 
 d = np.load(NPZ)
 verts = d["verts"]
@@ -159,8 +163,8 @@ for gx in grid:
         for si in range(SUB):
             for sj in range(SUB):
                 total += 1
-                ox = gx + (si + 0.5) / SUB * cell - 0.5 * cell
-                oy = gy + (sj + 0.5) / SUB * cell - 0.5 * cell
+                ox = (gx + (si + rng.random()) / SUB * cell - 0.5 * cell)
+                oy = (gy + (sj + rng.random()) / SUB * cell - 0.5 * cell)
                 o = plane_ctr + ox * right + oy * up
                 # stratified disk sample (sqrt radius for uniform area)
                 rr = tan_half * math.sqrt((si + rng.random()) / SUB)
