@@ -3975,3 +3975,63 @@ energy end to end.
   processing comparison (same linear EXRs, same exposure, same sRGB EOTF, no
   glow, no denoise on Cycles). The 0.9995 is a linear-light statement; any
   tonemapped sheet must carry the pipeline in its caption.
+
+--------------------------------------------------------------------------------
+## 46. Energy closure at 0.9995; the residual is fold-peak shape, not scale (2026-11-16)
+--------------------------------------------------------------------------------
+
+Section 43 left a +13% display-space gap; section 44 added Fresnel and a broken
+converter. This section closes the energy question in linear light and states
+exactly what remains.
+
+**Fan totals, linear EXRs, same window (rows 62-95%, cols 5-42% at 2560x1440):**
+
+| panel | fan sum | fan mean | p99 | max |
+|---|---|---|---|---|
+| ours, smooth + Fresnel + sun-jitter, OIDN, no glow (EXR) | 812637.62 | 1.8028 | 2.2105 | 392.705 |
+| Cycles, smooth, 4096 spp MNEE, no denoise (EXR) | 812954.38 | 1.8035 | 2.2115 | 393.581 |
+| ratio | **0.9996** | 0.9996 | 0.9995 | 0.9980 |
+
+**Isolated caustics** (each minus the no-caustics Cycles control, same window):
+
+| | sum | mean | max |
+|---|---|---|---|
+| Cycles caustic | 189.76 | 0.0004 | 0.301 |
+| ours caustic | 733.39 | 0.0016 | 17.641 |
+
+The 3.9x isolated ratio is 0.06% of the fan energy. Decomposition (all sums
+over the same window; o = ours, c = Cycles/MNEE, n = no-caustics control):
+o - n = -127 unclipped (OIDN shifts our direct down ~0.1%, a normal denoiser
+mean shift), c - n = +190 (unbiased, noise cancels). Clipped sums, valid for
+the non-negative caustic on low-noise images: 733 vs 190. Conclusion: total
+fan energy matches to 0.9996 AND the caustic composition differs -- ours
+concentrates ~4x more energy into fold texels (57x peak ratio). Both true at
+once because the fold is a tiny area.
+
+**What the 961 hot texels are.** Texels over 5.0 in our isolated caustic span
+rows 174-1132, cols 970-1731: the fold band, not scattered fireflies. Peak
+17-19 radiance against Cycles'' 0.3. Our deterministic bake piles thousands of
+rays into single 1.4 mm texels at the geometric fold (divergent as 1/sqrt(x));
+Cycles'' stochastic sampling spreads them. This is the un-bounded geometric
+fold -- exactly what the Airy band correction exists to cap, and it is skipped
+as sub-texel by current design (the skip rationale covers fringe *pattern*,
+not peak *height*; whether that rationale extends to the peak is now the open
+question, recorded as such rather than decided here).
+
+**Pipeline facts established while measuring (instruments corrected):**
+convert_agx.py re-rendered the scene instead of converting (it loaded the EXR
+and then rendered over it); cycles_fresh.png is therefore a 1536 spp OIDN AgX
+render with no glow -- not the arbiter, not a glow comparison -- and every
+section-43 display-space number that used it as "fresh+glow" is withdrawn with
+it. All claims above are linear-EXR only. The arbiter control
+(_arb_cycles_4096_nocaustics.exr) is committed implicitly by its use; the
+comparison scripts live in /tmp and are transcribed here rather than committed,
+which the audit protocol flags as an open item (rendered comparisons must be
+re-runnable from the repo).
+
+**Status.** Energy: closed (0.9995, linear, matched window). Structure: broad
+agreement at 0.6-0.8 with the shared-direct caveat documented in section 41;
+isolated-fold shape unresolved below ~4 mm. Beauty: the matched-tone figure is
+docs/media/dragon_linear_matched.png. The remaining physics item is the fold
+peak bound (Airy cap vs current skip); the remaining methods item is committing
+the comparison scripts into audit/ so the next fresh review can re-run them.
