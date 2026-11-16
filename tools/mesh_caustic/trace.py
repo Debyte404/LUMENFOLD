@@ -103,6 +103,29 @@ def _refract(d, n, eta):
     return eta * d + (eta * cosi - math.sqrt(k)) * n
 
 
+def _fresnel_T(cosi, eta):
+    """Unpolarized Fresnel transmittance. cosi >= 0 is the incident cosine,
+    eta = n1/n2 the relative index (same convention as _refract).
+    Exact (Born & Wolf), clamped to [0, 1]; returns 0.0 past the TIR angle
+    instead of raising, so callers that already drop TIR rays stay correct."""
+    import math
+    cosi = min(max(float(cosi), 0.0), 1.0)
+    eta = float(eta)
+    if eta <= 0.0:
+        return 0.0
+    s2 = eta * eta * (1.0 - cosi * cosi)
+    if s2 >= 1.0:
+        return 0.0
+    cost = math.sqrt(max(1.0 - s2, 0.0))
+    inv = 1.0 / eta
+    ds, dp = cosi + cost * inv, cost + cosi * inv
+    if ds <= 0.0 or dp <= 0.0:
+        return 0.0
+    rs = (cosi - cost * inv) / ds
+    rp = (cost - cosi * inv) / dp
+    return min(max(1.0 - 0.5 * (rs * rs + rp * rp), 0.0), 1.0)
+
+
 def _first_hit(o, d, A, E1, E2, pvec, det, inv, skip=-1):
     tvec = o - A
     qvec = np.cross(tvec, E1)
@@ -245,8 +268,9 @@ def _smooth_normal(p, ie, A, E1, E2, tri_normals):
 def _shoot(o, d, geo, eta_c, receiver_z, patch_half, cx, cy, bv=None,
            tri_normals=None):
     """Single interface-pair traversal at one channel index. Returns
-    (x, y, path_length_mm_inside) or None (miss / TIR / off-receiver). The
-    caller applies Beer-Lambert from the path length. bv, when given, is a
+    (x, y, path_length_mm_inside, fresnel_weight) or None (miss / TIR /
+    off-receiver). The caller applies Beer-Lambert from the path length and
+    multiplies the Fresnel transmittance product. bv, when given, is a
     mesh_caustic.bvh.BVH used for the nearest-hit tests (bit-identical to
     the brute-force path)."""
     A, E1, E2 = geo
@@ -269,6 +293,7 @@ def _shoot(o, d, geo, eta_c, receiver_z, patch_half, cx, cy, bv=None,
     t = _refract(d, n, 1.0 / eta_c)
     if t is None:
         return None
+    T1 = _fresnel_T(-float(d @ n), 1.0 / eta_c)
     p2 = p + t * 1e-6
     if bv is None:
         pvec2 = np.cross(t, E2)
@@ -289,6 +314,7 @@ def _shoot(o, d, geo, eta_c, receiver_z, patch_half, cx, cy, bv=None,
     t2 = _refract(t, n2, eta_c)
     if t2 is None or abs(t2[2]) < 1e-9:
         return None
+    T2 = _fresnel_T(-float(t @ n2), eta_c)
     L = float(np.linalg.norm(q0 - p))
     s = (receiver_z - q0[2]) / t2[2]
     if s <= 0.0:
@@ -296,7 +322,7 @@ def _shoot(o, d, geo, eta_c, receiver_z, patch_half, cx, cy, bv=None,
     q = q0 + s * t2
     if abs(q[0] - cx) > patch_half or abs(q[1] - cy) > patch_half:
         return None
-    return (q[0], q[1], L)
+    return (q[0], q[1], L, T1 * T2)
 
 
 def trace_mesh(verts, faces, lights, receiver, opts):
@@ -347,16 +373,16 @@ def trace_mesh(verts, faces, lights, receiver, opts):
             r = shoot(o, d, etas[0])
             if r is None:
                 return
-            _, _, L = r
+            _, _, L, T = r
             for c in range(3):
-                outs.append((r[0], r[1], c, float(np.exp(-absorb[c] * L))))
+                outs.append((r[0], r[1], c, float(np.exp(-absorb[c] * L)) * T))
         else:
             for c in range(3):
                 r = shoot(o, d, etas[c])
                 if r is None:
                     continue
-                _, _, L = r
-                outs.append((r[0], r[1], c, float(np.exp(-absorb[c] * L))))
+                _, _, L, T = r
+                outs.append((r[0], r[1], c, float(np.exp(-absorb[c] * L)) * T))
 
     for L in lights:
         t = L["type"]

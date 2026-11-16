@@ -1267,6 +1267,7 @@ def _make_bvh_shooter(bvh, recv, geo, tri_normals=None):
         t = _MT._refract(d, n, 1.0 / eta_c)
         if t is None:
             return None
+        T1 = _MT._fresnel_T(-float(d @ n), 1.0 / eta_c)
         p2 = p + t * 1e-6
         loc2, nor2, idx2, dist2 = bvh.ray_cast(tuple(p2), tuple(t))
         # BVHTree cannot skip the entry triangle by index; nudge past it
@@ -1291,6 +1292,7 @@ def _make_bvh_shooter(bvh, recv, geo, tri_normals=None):
         t2 = _MT._refract(t, n2, eta_c)
         if t2 is None or abs(t2[2]) < 1e-9:
             return None
+        T2 = _MT._fresnel_T(-float(t @ n2), eta_c)
         L = float(_np.linalg.norm(q0 - p))
         s = (rz - q0[2]) / t2[2]
         if s <= 0.0:
@@ -1298,7 +1300,7 @@ def _make_bvh_shooter(bvh, recv, geo, tri_normals=None):
         q = q0 + s * t2
         if abs(q[0] - cx) > ph or abs(q[1] - cy) > ph:
             return None
-        return (float(q[0]), float(q[1]), L)
+        return (float(q[0]), float(q[1]), L, T1 * T2)
 
     return shoot
 

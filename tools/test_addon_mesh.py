@@ -483,6 +483,25 @@ if _has_dir_prop and _has_dir_help:
     bpy.ops.caustic.inject()
 
 
+# ---- 8l. Fresnel transmittance: exact unpolarized factor --------------------
+# The tracer must lose ~4% per interface like real glass (and Cycles); a ray
+# that transmits with weight 1.0 over-delivers. These pin the helper the
+# shooters will consume; they fail until it exists.
+import math as _mm
+from mesh_caustic.trace import _fresnel_T as _FT
+_TN = _FT(1.0, 1.0 / 1.5251)
+check("fresnel_normal_incidence", abs(_TN - 0.9568) < 1e-3,
+      f"T={_TN:.5f} expected 0.9568")
+_cosB = _mm.cos(_mm.atan(1.5251))
+_TB = _FT(_cosB, 1.0 / 1.5251)
+check("fresnel_brewster", abs(_TB - 0.9205) < 1e-3,
+      f"T={_TB:.5f} expected 0.9205 (Rp=0 at Brewster)")
+check("fresnel_tir_kills", _FT(0.05, 1.5251) == 0.0,
+      "grazing inside-to-air must totally reflect")
+check("fresnel_vacuum_unity", _FT(0.7, 1.0) == 1.0 and _FT(1.0, 1.0) == 1.0,
+      "eta 1 both sides transmits everything")
+
+
 sun = bpy.data.objects.get("sun")
 sun.rotation_mode = "XYZ"
 for f, ang in ((1, 0.0), (2, 0.1), (3, 0.2)):
