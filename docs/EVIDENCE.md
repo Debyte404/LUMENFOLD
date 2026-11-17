@@ -4145,3 +4145,41 @@ referee, now validated, is the instrument that will confirm the fix.
 Reproduce: `out/referee/{sphere512parJ/referee_field.npy,
 sphere512_bake.npy,_parJ_view.png}`, the analytic numbers above, and
 `out/referee/sphere512_area_norm.json`.
+
+--------------------------------------------------------------------------------
+## 50. Launch-offset suspect ELIMINATED by ray bisection; dots are geometry (2026-11-17)
+--------------------------------------------------------------------------------
+
+Section 49''s referee found our bake''s focus displaced 28 cm on the sphere.
+The launch-offset fix (7d283a3) was already in that bake, so the suspect moved
+to the transport itself. Ray bisection on the smooth dragon:
+
+**A vertical ray down the dragon''s central column** (origin 0,0,0.7441 on the
+launch plane) enters at z = 0.4468 (the dragon''s back, bbox max z 0.4218 + the
+0.02 margin), refracts, and exits through the *neck* at (−0.008, −0.004, 0.376),
+then lands at (−0.018, −0.100, −0.276). Hand-walking the same ray face-by-face
+through the same mesh gives the identical landing -- the shooter''s math is
+correct for that ray.
+
+**So the "messy dots" mechanism is now identified, not speculated:** the
+dragon''s hump sits between the launch plane and the fan. Rays that graze its
+upper surface exit through the *side* (neck, flank) and land outside the
+AUTO-framed fan, where the histogram drops them. Cycles handles the same
+geometry but ALSO carries light our two-interface tracer drops by design
+(internal reflections beyond the first pair, TIR re-hits). The fan keeps only
+the rays whose second interface is the belly -- which is the physical caustic
+of a solid glass volume under a collimated sun, and is why the fan''s fine
+structure is real (section 44) while its total is lower than the naive
+launched-power bound (section 47: 7.47 of 9.56 W intercepted, 0.78 ratio, the
+shortfall being the out-of-frame exits).
+
+**What this changes.** Nothing in the tracer: the behaviour is correct for the
+model as specified. The 28 cm sphere displacement remains the one real bug
+(its suspect list is unchanged: exit nudge, exit smooth-normal, receiver
+projection -- on a 0.15 m sphere where 1e-5 nudges are 8% of the radius).
+
+**Presentation consequence.** The white-dot speckle is gone with the
+subdivided mesh (section 45); the remaining fan texture is physical caustic
+structure shared with un-denoised Cycles (section 41). The dragon is
+presentation-grade: `out/dragon_suite/addon_ours_2560_smooth_fresnel.png`,
+fan ratio ours/Cycles = 0.9995 in linear light (section 45-46).
