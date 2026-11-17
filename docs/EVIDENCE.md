@@ -4227,3 +4227,56 @@ raising its ray budget).
 
 Reproduce: the three temp scripts (bisect_ref.py, same_rays.py, origins.py)
 transcribed here as the numbers above; artefacts in `out/referee/`.
+
+--------------------------------------------------------------------------------
+## 52. Referee at matched budget: energy PASS, structure MISS, registration excluded (2026-11-17)
+--------------------------------------------------------------------------------
+
+Section 48''s referee MISS was caused by its sampling (2 hits/texel). Re-run at
+matched budget: referee 512^2 x 64 sun subsamples = 16,777,216 rays, 2,134,312
+hits = **8.16 hits/texel**; our bake at the same 16.8M rays with the same
+sampling model (disk-jittered origins and directions, no post-blur,
+`--ray-mult 8`), same frame, same mesh. `audit/compare_referee.py --refdir
+dragon512s8 --ray-mult 8`.
+
+| test | result | threshold | verdict |
+|---|---|---|---|
+| energy ratio (ours 2.479 W / referee 2.362 W) | **1.050** | 0.85-1.18 | PASS |
+| band r at 11.5 mm | 0.009 | 0.80 | FAIL |
+| band r at 23.1 mm | 0.026 | 0.85 | FAIL |
+| band r at 46.1 mm | 0.077 | 0.85 | FAIL |
+
+**Registration was excluded before declaring the miss.** Orientation: all nine
+dihedral transforms (raw, T, flips, rot180, R90, R270) correlated at 18 mm --
+best raw 0.026, flipud 8.7-texel centroid match but r = -0.014. Translation: a
++-40 texel search at each band -- best shifts differ per band (+12,+14 /
+-32,-26 / -34,-34), which is multiple-comparison noise, not a rigid offset (a
+real misregistration gives the same shift at every band). Scale: resampling
+ours by 0.5-2.0 about the centroid -- best r = 0.20 at scale 2.0 with the
+shift at the search boundary (edge artifact). Transport and origins were
+already excluded in section 51 (bit-identical on 300 shared rays; 29,394 vs
+28,362 lands on faithful origins).
+
+**The finding stands as an unexplained discrepancy:** two implementations that
+agree on total caustic energy to 5% and are bit-identical per ray do NOT
+produce correlating spatial structures on the dragon. Either the referee''s
+field assembly (histogram orientation/range) or something about how the two
+sample the sun disk differs in a way no tested registration catches. The
+pre-registered rule -- a miss is recorded, not tuned away -- is followed: the
+verdict is MISS, and `audit/run_audit.py` C11 reports REJECT (stale/miss)
+until this is resolved.
+
+**Not concluded, explicitly:** this does NOT mean our caustic is wrong. It
+means the one instrument that could independently confirm it currently cannot,
+for a reason that is itself unexplained. Until it is, section 45''s 0.9995
+agreement with Cycles remains the strongest accuracy evidence, and it is
+renderer-vs-renderer, not truth-vs-claim.
+
+Next diagnostic (pre-registered order): (1) dump both fields'' brightest 20
+texels'' world coordinates and compare directly -- if the caustic cores are at
+the same world positions, the fields agree and only the histogram assembly
+differs; (2) if the cores differ, trace a single high-weight ray through both
+assemblies. Then the referee is either fixed or shown right.
+
+Artefacts: `out/referee/{dragon512s8/,ours_field.npy,_dragon_ref_view.png,
+_dragon_ours_view.png}`.
