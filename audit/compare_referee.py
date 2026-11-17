@@ -20,8 +20,12 @@ import bpy
 import numpy as np
 
 ROOT = r"D:\ValueProjects\caustics"
-REF = os.path.join(ROOT, "out", "referee", "referee_field.npy")
-STATS = os.path.join(ROOT, "out", "referee", "referee_stats.json")
+# --refdir <name> selects the referee run under out/referee/
+_argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+_refname = _argv[_argv.index("--refdir") + 1] if "--refdir" in _argv else "referee"
+REFDIR = os.path.join(ROOT, "out", "referee", _refname)
+REF = os.path.join(REFDIR, "referee_field.npy")
+STATS = os.path.join(REFDIR, "referee_stats.json")
 
 spec = importlib.util.spec_from_file_location(
     "caustic_injector", os.path.join(ROOT, "blender_addon", "caustic_injector.py"))
@@ -140,7 +144,7 @@ out = {"energy": {"ours_W": ours_W, "referee_W": ref_W, "ratio": ratio},
        "bands_mm": bands,
        "pass_energy": bool(0.85 <= ratio <= 1.18),
        "pass_bands": not fail, "fails": fail}
-with open(os.path.join(ROOT, "out", "referee", "compare.json"), "w") as fh:
+with open(os.path.join(REFDIR, "compare.json"), "w") as fh:
     json.dump(out, fh, indent=2)
 print("COMPARE", json.dumps(out))
 print("REFEREE_VERDICT",
