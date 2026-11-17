@@ -273,6 +273,51 @@ def c10_hygiene():
            "; ".join(in_ship[:8]) or "none")
 
 
+# --- C11: the independent referee verdict, current and passing ---------------
+def c11_referee():
+    """The accuracy claim rests on an independently written tracer. This check
+    fails when no referee comparison exists, when it misses the pre-registered
+    thresholds, or when it predates the tracer code (a stale verdict cannot
+    support a claim about code that has changed since)."""
+    refdir = os.path.join(ROOT, "out", "referee")
+    runs = []
+    if os.path.isdir(refdir):
+        for name in os.listdir(refdir):
+            cj = os.path.join(refdir, name, "compare.json")
+            if os.path.isfile(cj):
+                runs.append((os.path.getmtime(cj), cj, name))
+            # legacy layout: compare.json written directly under out/referee/
+        top = os.path.join(refdir, "compare.json")
+        if os.path.isfile(top):
+            runs.append((os.path.getmtime(top), top, "legacy-top"))
+    if not runs:
+        record("referee", "C11", False,
+               "no referee comparison on record (run audit/referee_dragon.py "
+               "then audit/compare_referee.py --refdir <run>)")
+        return
+    runs.sort()
+    mtime, path, name = runs[-1]
+    data = json.load(open(path))
+    tracer = [os.path.join(ROOT, "tools", "mesh_caustic", "trace.py"),
+              os.path.join(ROOT, "blender_addon", "caustic_injector.py")]
+    newest = max(os.path.getmtime(f) for f in tracer if os.path.exists(f))
+    stale = newest > mtime
+    passed = bool(data.get("pass_energy")) and bool(data.get("pass_bands"))
+    ratio = data.get("energy", {}).get("ratio")
+    bands = data.get("bands_mm", {})
+    ok = passed and not stale
+    if stale:
+        detail = (f"verdict {name} predates the tracer code (stale) -- "
+                  f"re-run the referee")
+    elif not passed:
+        detail = (f"verdict {name}: MISS energy ratio {ratio}, "
+                  f"bands {bands}")
+    else:
+        detail = (f"verdict {name}: PASS energy {ratio}, bands {bands}")
+    record("referee", "C11", ok, detail,
+           f"compare {name}")
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -287,6 +332,7 @@ def main():
     c8_dual_format()
     c9_traceability()
     c10_hygiene()
+    c11_referee()
 
     counts = {}
     for _, _, sev, _, _ in RESULTS:
